@@ -1,18 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 module FreeGame.Util where
-import Control.Monad.Free
-import Control.Monad.Trans
-import qualified Control.Monad.Trans.Free as T
-import FreeGame.Base
-import FreeGame.Graphic
-import FreeGame.Sound
-import FreeGame.Input
+import Control.Applicative
 import Control.Monad
-import Codec.Picture.Repa
-import Data.Array.Repa
-import Control.Monad.Identity
-import qualified Data.Array.Repa.Repr.ForeignPtr as RF
+import Control.Monad.Free
+import FreeGame.Base
+import FreeGame.Input
+import FreeGame.Sound
+import FreeGame.Bitmap
+import System.Random
 
+untick :: Free Game a -> Free Game (Free Game a)
 untick (Pure a) = Pure (Pure a)
 untick (Free (Tick cont)) = Pure cont
 untick (Free f) = Free $ fmap untick f
@@ -26,23 +23,20 @@ playSound sound = wrap $ PlaySound sound (return ())
 drawPicture :: MonadFree Game m => Picture -> m ()
 drawPicture pic = wrap $ DrawPicture pic (return ())
 
-loadImage :: MonadFree Game m => Img RGBA -> m Picture
-loadImage img = wrap $ LoadImage img return
+loadPicture :: MonadFree Game m => Bitmap -> m Picture
+loadPicture img = wrap $ LoadPicture img return
 
 askInput :: MonadFree Game m => Key -> m Bool
 askInput key = wrap $ AskInput key return
 
-loadSound :: MonadFree Game m => FilePath -> m WaveData
+loadSound :: MonadFree Game m => FilePath -> m Sound
 loadSound path = wrap $ LoadSound path return
+
+close :: MonadFree Game m => Free Game a -> m a
+close m = wrap $ Close $ liftM return m
 
 embedIO :: MonadFree Game m => IO a -> m a
 embedIO m = wrap $ EmbedIO $ liftM return m
 
+randomness :: (Random r, MonadFree Game m) => (r,r) -> m r
 randomness r = wrap $ Randomness r return
- 
-
-loadImgFromFile :: MonadFree Game m => FilePath -> m (Img RGBA)
-loadImgFromFile path = embedIO $ either error id `liftM` readImage path
-
-cropImg :: ImageData -> (Int, Int) -> (Int, Int) -> ImageData
-cropImg img (w, h) (x, y) = (runIdentity . computeP . extract (Z :. y :. x :. 0) (Z :. h :. w :. 4)) `onImg` img

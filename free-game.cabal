@@ -2,18 +2,20 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                free-game
-version:             0.1.0.0
-synopsis:            Descripting games with free monads
+version:             0.1.1.0
+synopsis:            Create graphical applications for Free.
 -- description:         
+homepage:            https://github.com/fumieval/free-game
 license:             BSD3
 license-file:        LICENSE
 author:              Fumiaki Kinoshita
-maintainer:          Fumiaki Kinoshita
+maintainer:          fumiexcel@gmail.com
 -- copyright:           
 category:            Graphics
 build-type:          Simple
 cabal-version:       >=1.8
+
 library
-  exposed-modules:     FreeGame, FreeGame.Sound, FreeGame.Input, FreeGame.Graphic, FreeGame.Base, FreeGame.Util, FreeGame.Backends.DXFI
-  -- other-modules:   
-  build-depends:       base ==4.5.*, vect ==0.4.*, containers ==0.5.*, random ==1.0.*, bytestring ==0.9.*, mtl ==2.1.*, transformers ==0.3.*, free ==3.2.*, filepath ==1.3.*, JuicyPixels-repa ==0.4, repa ==3.*
+  exposed-modules:     FreeGame, FreeGame.Util, FreeGame.Sound, FreeGame.Input, FreeGame.Bitmap, FreeGame.Base, FreeGame.Backends.DXFI
+  -- other-modules:       
+  build-depends:       base ==4.5.*, free ==3.2.*, random ==1.0.*, JuicyPixels-repa ==0.4.*, repa ==3.2.*, vect ==0.4.*, bytestring ==0.9.*, mtl ==2.1.*, containers ==0.5.*, filepath ==1.3.*

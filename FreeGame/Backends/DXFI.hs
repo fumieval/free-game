@@ -1,7 +1,7 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 module FreeGame.Backends.DXFI (runGame) where
 import FreeGame.Base
-import FreeGame.Graphic
+import FreeGame.Bitmap
 import FreeGame.Input
 import FreeGame.Sound
 import Control.Concurrent
@@ -50,11 +50,12 @@ foreign import ccall unsafe "DXFI_SetPixelBaseImage" dxfi_SetPixelBaseImage :: P
 foreign import ccall "DXFI_ReleaseBaseImage" dxfi_ReleaseBaseImage :: Ptr a -> IO ()
 foreign import ccall "DXFI_CreateGraphFromBaseImage" dxfi_CreateGraphFromBaseImage :: Ptr a -> IO Handle
 foreign import ccall "DXFI_Helper_SizeOfBaseImage" dxfi_Helper_SizeOfBaseImage :: IO Int
+foreign import ccall "DXFI_DeleteImage" dxfi_DeleteImage :: Handle -> IO ()
+foreign import ccall "DXFI_DeleteSound" dxfi_DeleteSound :: Handle -> IO ()
 
-loadImage :: ImageData -> IM.IntMap Handle -> IO (Picture, IM.IntMap Handle)
-loadImage img' m = do
-    let img = imgData img'
-    u <- newUnique
+loadImage :: Bitmap -> IO Handle
+loadImage bmp = do
+    let img = bitmapData bmp
     let Z :. height :. width :. _ = extent img
     bimg <- dxfi_Helper_SizeOfBaseImage >>= mallocBytes
     dxfi_CreateARGB8ColorBaseImage width height bimg
@@ -68,27 +69,31 @@ loadImage img' m = do
     h <- dxfi_CreateGraphFromBaseImage bimg
     dxfi_ReleaseBaseImage bimg
     free bimg
-    
-    return (Image u, IM.insert (hashUnique u) h m)
+    return h
+
+unloadImage :: Handle -> IO ()
+unloadImage = dxfi_DeleteImage
 
 drawPicture :: IM.IntMap Handle -> Picture -> IO ()
-drawPicture m = draw (zero, 1, 0) where
-    draw (Vec2 x y, s, a) (Image u) = dxfi_DrawImageBy (floor x) (floor y) s a (m IM.! hashUnique u) True False
-    draw (p, s, a) (Translate q x) = draw (p &+ q, s, a) x
-    draw (p, s, a) (Rotate t x) = draw (p, s, a + t) x
-    draw t (Pictures xs) = mapM_ (draw t) xs
-    draw (p, s, a) (Scale k x) = draw (p &* k, s * k, a) x
-
-loadSound :: FilePath -> IM.IntMap Handle -> IO (WaveData, IM.IntMap Handle)
-loadSound path m = do
-    u <- newUnique
-    h <- withCWString path $ \x -> dxfi_LoadSound x 3 (-1)
-    return (WaveData u, IM.insert (hashUnique u) h m)
+drawPicture m picture = forM_ (trans picture) $ \(_, (x, y), s, a, h) -> dxfi_DrawImageBy (floor x) (floor y) s a h True False where
+    trans (Image u) = [(False, (0,0), 1, 0, m IM.! hashUnique u)]
+    trans (Transform pic) = [(True, (x, y), s, a, h) | (_, (x, y), s, a, h) <- trans pic]
+    trans (NoTransform pic) = [(False, (x, y), s, a, h) | (_, (x, y), s, a, h) <- trans pic]
+    trans (Translate (dx, dy) pic) = [(f, (x + dx, y + dy), s, a, h) | (f, (x, y), s, a, h) <- trans pic]
+    trans (Rotate t pic) = [(f, (x * cos t - y * sin t, x * sin t + y * cos t), s, if f then a + t else a, h) | (f, (x, y), s, a, h) <- trans pic]
+    trans (Scale k pic) = [(f, (k * x, k * y), if f then k * s else s, a, h) | (f, (x, y), s, a, h) <- trans pic]
+    trans (Pictures ps) = concatMap trans ps
+    
+loadSound :: FilePath -> IO Handle
+loadSound path = withCWString path $ \x -> dxfi_LoadSound x 3 (-1)
 
 playSound :: IM.IntMap Handle -> Sound -> IO ()
-playSound m (Wave (WaveData u)) = do
+playSound m (Wave u) = do
     let h = m IM.! hashUnique u
     dxfi_PlaySound h 1 True
+
+unloadSound :: Handle -> IO ()
+unloadSound = dxfi_DeleteSound
 
 data SystemState = SystemState
     {
@@ -110,36 +115,45 @@ runGame windowed title fps game = do
     dxfi_Initialize
     dxfi_SetDrawingDestination (-2)
     time <- dxfi_GetTickCount False
-    result <- run game `evalStateT` SystemState IM.empty IM.empty time 0
+    result <- run [] [] game `evalStateT` SystemState IM.empty IM.empty time 0
     
     dxfi_Release
     
     return result
     where        
-        run :: Free Game a -> StateT SystemState IO (Maybe a)
-        run (Pure a) = return (Just a)
-        run (Free x) = case x of
+        run :: [Int] -> [Int] -> Free Game a -> StateT SystemState IO (Maybe a)
+        run is ss (Pure a) = do
+            st <- get
+            lift $ forM_ is $ unloadImage . (sysLoadedImages st IM.!)
+            lift $ forM_ ss $ unloadSound . (sysLoadedSounds st IM.!)
+            put $ st { sysLoadedImages = foldr IM.delete (sysLoadedImages st) is
+                     , sysLoadedSounds = foldr IM.delete (sysLoadedSounds st) ss }
+            return (Just a)
+        run is ss (Free x) = case x of
             DrawPicture pic cont -> do
                 st <- get
                 lift $ drawPicture (sysLoadedImages st) pic
-                run cont
+                run is ss cont
             PlaySound sound cont -> do
                 st <- get
                 lift $ playSound (sysLoadedSounds st) sound
-                run cont
-            AskInput key cont -> lift (isPressed key) >>= run . cont
-            Randomness r cont -> lift (randomRIO r) >>= run . cont
-            LoadImage path cont -> do
+                run is ss cont
+            AskInput key cont -> lift (isPressed key) >>= run is ss . cont
+            Randomness r cont -> lift (randomRIO r) >>= run is ss . cont
+            LoadPicture path cont -> do
                 st <- get
-                (img, imgs) <- lift $ loadImage path $ sysLoadedImages st
-                put $ st { sysLoadedImages = imgs }
-                run $ cont img
+                h <- lift $ loadImage path
+                u <- lift $ newUnique
+                put $ st { sysLoadedImages = IM.insert (hashUnique u) h (sysLoadedImages st) }
+                run (hashUnique u:is) ss $ cont (Image u)
             LoadSound path cont -> do
                 st <- get
-                (sound, sounds) <- lift $ loadSound path (sysLoadedImages st)
-                put $ st { sysLoadedSounds = sounds }
-                run $ cont sound
-            EmbedIO m -> lift m >>= run
+                h <- lift $ loadSound path
+                u <- lift $ newUnique
+                put $ st { sysLoadedSounds = IM.insert (hashUnique u) h (sysLoadedSounds st) }
+                run is (hashUnique u:ss) $ cont (Wave u)
+            EmbedIO m -> lift m >>= run is ss
+            Close m -> run is ss m >>= maybe (return Nothing) (run is ss)
             Tick cont -> do
                 lift dxfi_FlipScreen
                 
@@ -154,7 +168,7 @@ runGame windowed title fps game = do
                 p <- lift processMessage
 
                 if (p == 0)
-                    then pre >> run cont
+                    then pre >> run is ss cont
                     else return Nothing
                 where
                     pre = do
