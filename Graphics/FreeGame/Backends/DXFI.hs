@@ -1,25 +1,27 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-module FreeGame.Backends.DXFI (runGame) where
-import FreeGame.Base
-import FreeGame.Bitmap
-import FreeGame.Input
-import FreeGame.Sound
-import Control.Concurrent
+module Graphics.FreeGame.Backends.DXFI (runGame) where
+import Graphics.FreeGame.Base
+import Graphics.FreeGame.Bitmap
+import Graphics.FreeGame.Input
+import Graphics.FreeGame.Sound
+import Control.Concurrent.ParallelIO.Local
 import Control.Monad.Trans
 import Control.Monad.State
 import Control.Monad.Free
-import Data.Vect.Double
+import Data.Bits
 import Data.Unique
 import Data.Word
+import Data.Array.Repa
 import qualified Data.IntMap as IM
 import Foreign.Ptr
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.Marshal.Alloc
+import Foreign.Storable
 import Codec.Picture.Repa
-import Data.Array.Repa
 import System.FilePath.Windows
 import System.Random
+import GHC.Conc
 
 type Handle = CInt
 foreign import ccall "DXFI_LoadImage" dxfi_LoadImage :: CWString -> IO Handle
@@ -33,6 +35,7 @@ foreign import ccall "DXFI_Release" dxfi_Release :: IO ()
 foreign import ccall "DXFI_GetTickCount" dxfi_GetTickCount :: Bool -> IO Int
 foreign import ccall "DXFI_SetLogging" dxfi_SetLogging :: Bool -> IO ()
 foreign import ccall "DXFI_SetWindowMode" dxfi_SetWindowMode :: Bool -> IO ()
+foreign import ccall "DXFI_SetWindowSize" dxfi_SetWindowSize :: Int -> Int -> IO ()
 foreign import ccall "DXFI_SetWindowCaption" dxfi_SetWindowCaption :: CWString -> IO ()
 foreign import ccall "DXFI_SetDrawingDestination" dxfi_SetDrawingDestination :: Int -> IO ()
 foreign import ccall "DXFI_Wait" dxfi_Wait :: Int -> IO ()
@@ -52,6 +55,9 @@ foreign import ccall "DXFI_CreateGraphFromBaseImage" dxfi_CreateGraphFromBaseIma
 foreign import ccall "DXFI_Helper_SizeOfBaseImage" dxfi_Helper_SizeOfBaseImage :: IO Int
 foreign import ccall "DXFI_DeleteImage" dxfi_DeleteImage :: Handle -> IO ()
 foreign import ccall "DXFI_DeleteSound" dxfi_DeleteSound :: Handle -> IO ()
+foreign import ccall "DXFI_GetMouseInput" dxfi_GetMouseInput :: IO Int
+foreign import ccall "DXFI_GetMouseWheelRotVol" dxfi_GetMouseWheelRotVol :: IO Int
+foreign import ccall "DXFI_GetMousePoint" dxfi_GetMousePoint :: Ptr CInt -> Ptr CInt -> IO ()
 
 loadImage :: Bitmap -> IO Handle
 loadImage bmp = do
@@ -59,13 +65,14 @@ loadImage bmp = do
     let Z :. height :. width :. _ = extent img
     bimg <- dxfi_Helper_SizeOfBaseImage >>= mallocBytes
     dxfi_CreateARGB8ColorBaseImage width height bimg
-    forM_ [0..height-1] $ \y ->
+    withPool numCapabilities $ \pool -> parallel_ pool [
         forM_ [0..width-1] $ \x ->
             let r = (img !) $ Z :. y :. x :. 3
                 g = (img !) $ Z :. y :. x :. 2
                 b = (img !) $ Z :. y :. x :. 1
                 a = (img !) $ Z :. y :. x :. 0
                 in dxfi_SetPixelBaseImage bimg x y r g b a
+        | y <- [0..height-1]]
     h <- dxfi_CreateGraphFromBaseImage bimg
     dxfi_ReleaseBaseImage bimg
     free bimg
@@ -74,8 +81,8 @@ loadImage bmp = do
 unloadImage :: Handle -> IO ()
 unloadImage = dxfi_DeleteImage
 
-drawPicture :: IM.IntMap Handle -> Picture -> IO ()
-drawPicture m picture = forM_ (trans picture) $ \(_, (x, y), s, a, h) -> dxfi_DrawImageBy (floor x) (floor y) s a h True False where
+drawPicture' :: IM.IntMap Handle -> Picture -> IO ()
+drawPicture' m picture = forM_ (trans picture) $ \(_, (x, y), s, a, h) -> dxfi_DrawImageBy (floor x) (floor y) s a h True False where
     trans (Image u) = [(False, (0,0), 1, 0, m IM.! hashUnique u)]
     trans (Transform pic) = [(True, (x, y), s, a, h) | (_, (x, y), s, a, h) <- trans pic]
     trans (NoTransform pic) = [(False, (x, y), s, a, h) | (_, (x, y), s, a, h) <- trans pic]
@@ -84,11 +91,11 @@ drawPicture m picture = forM_ (trans picture) $ \(_, (x, y), s, a, h) -> dxfi_Dr
     trans (Scale k pic) = [(f, (k * x, k * y), if f then k * s else s, a, h) | (f, (x, y), s, a, h) <- trans pic]
     trans (Pictures ps) = concatMap trans ps
     
-loadSound :: FilePath -> IO Handle
-loadSound path = withCWString path $ \x -> dxfi_LoadSound x 3 (-1)
+loadSound' :: FilePath -> IO Handle
+loadSound' path = withCWString path $ \x -> dxfi_LoadSound x 3 (-1)
 
-playSound :: IM.IntMap Handle -> Sound -> IO ()
-playSound m (Wave u) = do
+playSound' :: IM.IntMap Handle -> Sound -> IO ()
+playSound' m (Wave u) = do
     let h = m IM.! hashUnique u
     dxfi_PlaySound h 1 True
 
@@ -101,27 +108,31 @@ data SystemState = SystemState
         ,sysLoadedSounds :: IM.IntMap Handle
         ,sysStartTime :: Int
         ,sysFrameCount :: Int
+        ,sysRandomGen :: StdGen
+        ,sysTimeCriteria :: Int
     }
 
-runGame :: Bool -- ^window mode
-    -> String -- ^window title
-    -> Int -- ^frames (per second)
-    -> Free Game a -- ^the computation
+runGame :: GameParam
+    -> Game a -- ^the computation
     -> IO (Maybe a) -- ^result
-runGame windowed title fps game = do
-    dxfi_SetWindowMode windowed
+runGame param game = do
+    dxfi_SetWindowMode (windowed param)
+    uncurry dxfi_SetWindowSize (windowSize param)
     dxfi_SetLogging False
-    withCWString title dxfi_SetWindowCaption
+    withCWString (windowTitle param) dxfi_SetWindowCaption
+    
     dxfi_Initialize
     dxfi_SetDrawingDestination (-2)
+    
     time <- dxfi_GetTickCount False
-    result <- run [] [] game `evalStateT` SystemState IM.empty IM.empty time 0
+    gen <- maybe getStdGen (return . mkStdGen) $ randomSeed param
+    result <- run [] [] game `evalStateT` SystemState IM.empty IM.empty time 0 gen time
     
     dxfi_Release
     
     return result
     where        
-        run :: [Int] -> [Int] -> Free Game a -> StateT SystemState IO (Maybe a)
+        run :: [Int] -> [Int] -> Game a -> StateT SystemState IO (Maybe a)
         run is ss (Pure a) = do
             st <- get
             lift $ forM_ is $ unloadImage . (sysLoadedImages st IM.!)
@@ -129,37 +140,66 @@ runGame windowed title fps game = do
             put $ st { sysLoadedImages = foldr IM.delete (sysLoadedImages st) is
                      , sysLoadedSounds = foldr IM.delete (sysLoadedSounds st) ss }
             return (Just a)
+        
         run is ss (Free x) = case x of
+        
             DrawPicture pic cont -> do
                 st <- get
-                lift $ drawPicture (sysLoadedImages st) pic
+                lift $ drawPicture' (sysLoadedImages st) pic
                 run is ss cont
+            
             PlaySound sound cont -> do
                 st <- get
-                lift $ playSound (sysLoadedSounds st) sound
+                lift $ playSound' (sysLoadedSounds st) sound
                 run is ss cont
+            
             AskInput key cont -> lift (isPressed key) >>= run is ss . cont
-            Randomness r cont -> lift (randomRIO r) >>= run is ss . cont
+            
+            Randomness r cont -> do
+                st <- get
+                let (v, g) = randomR r (sysRandomGen st)
+                put $ st {sysRandomGen = g}
+                run is ss $ cont v
+            
             LoadPicture path cont -> do
                 st <- get
                 h <- lift $ loadImage path
                 u <- lift $ newUnique
                 put $ st { sysLoadedImages = IM.insert (hashUnique u) h (sysLoadedImages st) }
                 run (hashUnique u:is) ss $ cont (Image u)
+            
             LoadSound path cont -> do
                 st <- get
-                h <- lift $ loadSound path
+                h <- lift $ loadSound' path
                 u <- lift $ newUnique
                 put $ st { sysLoadedSounds = IM.insert (hashUnique u) h (sysLoadedSounds st) }
                 run is (hashUnique u:ss) $ cont (Wave u)
+            
+            GetMouseState cont -> do
+                (x, y) <- lift $ alloca $ \px -> alloca $ \py ->
+                    dxfi_GetMousePoint px py >> (,) `liftM` peek px `ap` peek py
+                b <- lift $ dxfi_GetMouseInput
+                w <- lift $ dxfi_GetMouseWheelRotVol
+                run is ss $ cont $ MouseState (fromIntegral x, fromIntegral y) (testBit b 0) (testBit b 2) (testBit b 1) w
+
             EmbedIO m -> lift m >>= run is ss
-            Close m -> run is ss m >>= maybe (return Nothing) (run is ss)
+            
+            Bracket m -> run is ss m >>= maybe (return Nothing) (run is ss)
+            
+            GetRealTime cont -> lift (dxfi_GetTickCount False) >>= run is ss . cont . (/1000) . fromIntegral
+
+            ResetRealTime cont -> do
+                st <- get
+                t <- lift $ dxfi_GetTickCount False
+                put $ st { sysTimeCriteria = t }
+                run is ss cont
+
             Tick cont -> do
                 lift dxfi_FlipScreen
                 
                 time <- lift $ dxfi_GetTickCount False
-                st@(SystemState _ _ startTime frameCount) <- get
-                lift $ dxfi_Wait $ (frameCount * 1000) `div` fps - time + startTime
+                st@(SystemState _ _ startTime frameCount _ _) <- get
+                lift $ dxfi_Wait $ (frameCount * 1000) `div` framePerSecond param - time + startTime
                 
                 if time - startTime >= 1000
                     then put $ st {sysStartTime　= time, sysFrameCount = 0}
@@ -174,6 +214,7 @@ runGame windowed title fps game = do
                     pre = do
                         lift (dxfi_ClearScreen nullPtr)
                         lift $ dxfi_setBackgroundColor 255 255 255
+
 isPressed = dxfi_IsKeyPressed . k
     where
         k KeyEsc = 0x01

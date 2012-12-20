@@ -1,4 +1,23 @@
-module FreeGame.Input where
+module Graphics.FreeGame.Input where
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.FreeGame.Base
+-- Copyright   :  (C) 2012 Fumiaki Kinoshita
+-- License     :  BSD-style (see the file LICENSE)
+--
+-- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  non-portable
+--
+-- Common key and mouse inputs
+----------------------------------------------------------------------------
+
+data MouseState = MouseState { position :: (Double, Double)
+        , leftButton :: Bool
+        , middleButton :: Bool
+        , rightButton :: Bool
+        , mouseWheel :: Int
+        }
 
 data Key
         = KeyChar Char
