@@ -39,7 +39,6 @@ import Graphics.FreeGame.Bitmap
 import Graphics.FreeGame.Input
 import Graphics.FreeGame.Sound
 import System.Random
-import qualified Data.ByteString.Lazy as BL
 import Data.Unique
 
 type Game = Free GameAction
@@ -76,64 +75,76 @@ instance Functor GameAction where
     fmap f (ResetRealTime cont) = ResetRealTime (f cont)
     fmap f (Tick cont) = Tick (f cont)
 
--- | finalizes the current frame and refresh the screen.
+-- | Finalize the current frame and refresh the screen.
 tick :: MonadFree GameAction m => m ()
 tick = wrap $ Tick (return ())
 
--- | embeds arbitary 'IO' actions into a Game monad.
+-- | Embed arbitrary 'IO' actions into a 'Game' monad.
 embedIO :: MonadFree GameAction m => IO a -> m a
 embedIO m = wrap $ EmbedIO $ liftM return m
 
--- | runs a Game monad in the Game monad. resources (e.g.pictures, sounds) will be released automatically.
+-- | Run a Game monad in the Game monad. resources (pictures, sounds) will be released when inner computation is done.
 bracket :: MonadFree GameAction m => Game a -> m a
 bracket m = wrap $ Bracket $ liftM return m
 
--- | draws a 'Picture'.
+-- | Draw a 'Picture'.
 drawPicture :: MonadFree GameAction m => Picture -> m ()
 drawPicture pic = wrap $ DrawPicture pic (return ())
 
--- | creates 'Picture' from 'Bitmap'.
+-- | Create 'Picture' from 'Bitmap'.
 loadPicture :: MonadFree GameAction m => Bitmap -> m Picture
 loadPicture img = wrap $ LoadPicture img return
 
--- | plays 'Sound'.
+-- | Play 'Sound'.
 playSound :: MonadFree GameAction m => Sound -> m ()
 playSound sound = wrap $ PlaySound sound (return ())
 
--- | creates 'Sound' from file.
+-- | Create 'Sound' from file.
 loadSound :: MonadFree GameAction m => FilePath -> m Sound
 loadSound path = wrap $ LoadSound path return
 
--- | gets specified key's state.
+-- | Is the specified key is pressed?
 askInput :: MonadFree GameAction m => Key -> m Bool
 askInput key = wrap $ AskInput key return
 
--- | gets elapsed time since program began or 'resetRealTime' was called.
+-- | Get the mouse's state.
+getMouseState :: MonadFree GameAction m => m MouseState
+getMouseState = wrap $ GetMouseState return
+
+-- | Get elapsed time since program began or 'resetRealTime' was called.
 getRealTime :: MonadFree GameAction m => m Float
 getRealTime = wrap $ GetRealTime return
 
--- | resets the elapsed time.
+-- | Reset the elapsed time.
 resetRealTime :: MonadFree GameAction m => m ()
 resetRealTime = wrap $ ResetRealTime (return ())
 
--- | gets random value from specified range.
+-- | Get random value from specified range.
 randomness :: (Random r, MonadFree GameAction m) => (r, r) -> m r
 randomness r = wrap $ Randomness r return
 
--- | applies the function to all pictures in 'DrawPicture'.
+-- | Apply the function to all pictures in 'DrawPicture'.
 transPicture :: (Picture -> Picture) -> GameAction cont -> GameAction cont
 transPicture f (DrawPicture p cont) = DrawPicture (f p) cont
 transPicture _ x = x
 
--- | A 2D Picture
+-- | A 2D Picture.
 data Picture
-    = Image Unique -- | Abstract image object.
-    | Transform Picture -- | allow image transforming of Rotate/Scale.
-    | NoTransform Picture -- | don't allow image transforming of Rotate/Scale.
-    | Pictures [Picture] -- | Combined picture from some pictures.
-    | Rotate Double Picture -- | Rotated picture counterclockwise by the given angle (in radians).
-    | Scale Double Picture -- | Scaled picture.
-    | Translate (Double, Double) Picture -- | A picture moved by the given coordinate.
+    -- | An abstract image object.
+    = Image Unique
+    -- | Allow image transforming at Rotate/Scale.
+    | Transform Picture
+    -- | Don't allow image transforming at Rotate/Scale.
+    | NoTransform Picture
+    -- | Combined picture from some pictures.
+    | Pictures [Picture]
+    -- | Rotated picture counterclockwise by the given angle (in radians).
+    | Rotate Double Picture
+    -- | Scaled picture.
+    | Scale Double Picture
+    -- | A picture moved by the given coordinate.
+    | Translate (Double, Double) Picture
+
 
 -- | Parameters of the application.
 data GameParam = GameParam {
@@ -144,4 +155,5 @@ data GameParam = GameParam {
         ,randomSeed :: Maybe Int
     }
 
+defaultGameParam :: GameParam
 defaultGameParam = GameParam 60 (640,480) "free-game" True Nothing

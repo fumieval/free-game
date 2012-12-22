@@ -23,10 +23,15 @@ import qualified Graphics.Rendering.TrueType.STB as TT
 
 newtype Bitmap = Bitmap { bitmapData :: R.Array D DIM3 Word8 }
 
+-- | Create 'Bitmap' from given path.
 loadBitmapFromFile :: FilePath -> IO Bitmap
 loadBitmapFromFile path = Bitmap <$> delay <$> imgData <$> either error id <$> (readImageRGBA path)
 
-cropBitmap :: Bitmap -> (Int, Int) -> (Int, Int) -> Bitmap
+-- | Extract bitmap from the specified range.
+cropBitmap :: Bitmap -- ^original bitmap
+    -> (Int, Int) -- ^width and height
+    -> (Int, Int) -- ^x and y
+    -> Bitmap -- ^result
 cropBitmap (Bitmap img) (w, h) (x, y) = Bitmap $ extract (Z :. y :. x :. 0) (Z :. h :. w :. 4) img
 
 newtype Font = Font TT.BitmapCache

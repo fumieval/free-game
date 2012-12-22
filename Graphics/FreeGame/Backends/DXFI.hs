@@ -1,4 +1,16 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.FreeGame.Backends.DXFI
+-- Copyright   :  (C) 2012 Fumiaki Kinoshita
+-- License     :  BSD-style (see the file LICENSE)
+--
+-- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  non-portable
+--
+-- DirectX Backend
+----------------------------------------------------------------------------
 module Graphics.FreeGame.Backends.DXFI (runGame) where
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Bitmap
@@ -112,9 +124,7 @@ data SystemState = SystemState
         ,sysTimeCriteria :: Int
     }
 
-runGame :: GameParam
-    -> Game a -- ^the computation
-    -> IO (Maybe a) -- ^result
+runGame :: GameParam -> Game a -> IO (Maybe a)
 runGame param game = do
     dxfi_SetWindowMode (windowed param)
     uncurry dxfi_SetWindowSize (windowSize param)

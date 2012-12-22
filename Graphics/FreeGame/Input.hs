@@ -1,4 +1,3 @@
-module Graphics.FreeGame.Input where
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Base
@@ -12,12 +11,14 @@ module Graphics.FreeGame.Input where
 -- Common key and mouse inputs
 ----------------------------------------------------------------------------
 
+module Graphics.FreeGame.Input where
+
 data MouseState = MouseState { position :: (Double, Double)
         , leftButton :: Bool
         , middleButton :: Bool
         , rightButton :: Bool
         , mouseWheel :: Int
-        }
+        } deriving (Eq, Ord, Show)
 
 data Key
         = KeyChar Char

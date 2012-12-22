@@ -15,7 +15,17 @@ import Graphics.FreeGame.Input
 import Graphics.FreeGame.Util
 
 #ifdef mingw32_HOST_OS
-import Graphics.FreeGame.Backends.DXFI
+import qualified Graphics.FreeGame.Backends.DXFI as DXFI
+#endif
+
+
+-- | Run the 'Game'.
+runGame :: GameParam     
+    -> Game a
+    -> IO (Maybe a)
+
+#ifdef mingw32_HOST_OS
+runGame = DXFI.runGame
 #else
 runGame = undefined
 #endif

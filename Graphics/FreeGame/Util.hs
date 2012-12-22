@@ -16,7 +16,7 @@ import Control.Monad.Free
 import qualified Control.Monad.Trans.Free as T
 import Graphics.FreeGame.Base
 
--- | runs 'Game' as one frame.
+-- | Run 'Game' as one frame.
 untickGame :: Game a -> Game (Game a)
 untickGame (Pure a) = Pure (Pure a)
 untickGame (Free (Tick cont)) = Pure cont
