@@ -1,4 +1,4 @@
-{-# LANGUAGE ExistentialQuantification, FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Base
@@ -27,9 +27,6 @@ module Graphics.FreeGame.Base (
     ,loadSound
     ,embedIO
     ,bracket
-    ,getRealTime
-    ,resetRealTime
-    ,randomness
 ) where
 
 import Control.Monad.Free
@@ -38,7 +35,6 @@ import Control.Monad
 import Graphics.FreeGame.Bitmap
 import Graphics.FreeGame.Input
 import Graphics.FreeGame.Sound
-import System.Random
 import Data.Unique
 
 type Game = Free GameAction
@@ -57,22 +53,14 @@ data GameAction cont
     | AskInput Key (Bool -> cont)
     | GetMouseState (MouseState -> cont)
 
-    | GetRealTime (Float -> cont)
-    | ResetRealTime cont
-
-    | forall a. Random a => Randomness (a, a) (a -> cont)
-
 instance Functor GameAction where
     fmap f (DrawPicture a cont) = DrawPicture a (f cont)
     fmap f (LoadPicture a cont) = LoadPicture a (f . cont)
     fmap f (PlaySound a cont)   = PlaySound a (f cont)
     fmap f (LoadSound a cont)   = LoadSound a (f . cont)
     fmap f (AskInput a cont)    = AskInput a (f . cont)
-    fmap f (Randomness a cont)  = Randomness a (f . cont)
     fmap f (EmbedIO m) = EmbedIO (fmap f m)
     fmap f (Bracket m) = Bracket (fmap f m)
-    fmap f (GetRealTime cont) = GetRealTime (f . cont)
-    fmap f (ResetRealTime cont) = ResetRealTime (f cont)
     fmap f (Tick cont) = Tick (f cont)
 
 -- | Finalize the current frame and refresh the screen.
@@ -111,18 +99,6 @@ askInput key = wrap $ AskInput key return
 getMouseState :: MonadFree GameAction m => m MouseState
 getMouseState = wrap $ GetMouseState return
 
--- | Get elapsed time since program began or 'resetRealTime' was called.
-getRealTime :: MonadFree GameAction m => m Float
-getRealTime = wrap $ GetRealTime return
-
--- | Reset the elapsed time.
-resetRealTime :: MonadFree GameAction m => m ()
-resetRealTime = wrap $ ResetRealTime (return ())
-
--- | Get random value from specified range.
-randomness :: (Random r, MonadFree GameAction m) => (r, r) -> m r
-randomness r = wrap $ Randomness r return
-
 -- | Apply the function to all pictures in 'DrawPicture'.
 transPicture :: (Picture -> Picture) -> GameAction cont -> GameAction cont
 transPicture f (DrawPicture p cont) = DrawPicture (f p) cont
@@ -132,16 +108,12 @@ transPicture _ x = x
 data Picture
     -- | An abstract image object.
     = Image Unique
-    -- | Allow image transforming at Rotate/Scale.
-    | Transform Picture
-    -- | Don't allow image transforming at Rotate/Scale.
-    | NoTransform Picture
     -- | Combined picture from some pictures.
     | Pictures [Picture]
     -- | Rotated picture counterclockwise by the given angle (in radians).
     | Rotate Double Picture
     -- | Scaled picture.
-    | Scale Double Picture
+    | Scale (Double, Double) Picture
     -- | A picture moved by the given coordinate.
     | Translate (Double, Double) Picture
 
@@ -152,8 +124,7 @@ data GameParam = GameParam {
         ,windowSize :: (Int, Int)
         ,windowTitle :: String
         ,windowed :: Bool
-        ,randomSeed :: Maybe Int
     }
 
 defaultGameParam :: GameParam
-defaultGameParam = GameParam 60 (640,480) "free-game" True Nothing
+defaultGameParam = GameParam 60 (640,480) "free-game" True

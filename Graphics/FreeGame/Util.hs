@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Util
@@ -15,9 +16,14 @@ module Graphics.FreeGame.Util where
 import Control.Monad.Free
 import qualified Control.Monad.Trans.Free as T
 import Graphics.FreeGame.Base
+import System.Random
 
 -- | Run 'Game' as one frame.
 untickGame :: Game a -> Game (Game a)
 untickGame (Pure a) = Pure (Pure a)
 untickGame (Free (Tick cont)) = Pure cont
 untickGame (Free fm) = Free $ fmap untickGame fm
+
+-- | Get a random value from the given range.
+randomness :: (Random r, MonadFree GameAction m) => (r, r) -> m r
+randomness r = embedIO $ randomRIO r

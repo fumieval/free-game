@@ -11,17 +11,19 @@
 -- Manipulating bitmaps
 ----------------------------------------------------------------------------
 
-module Graphics.FreeGame.Bitmap (Bitmap, bitmapData, loadBitmapFromFile, cropBitmap) where
+module Graphics.FreeGame.Bitmap (Bitmap, bitmapData, bitmapSize, loadBitmapFromFile, cropBitmap) where
 
 import Control.Applicative
 import Codec.Picture.Repa
 import Data.Array.Repa as R
 import Data.Word
-import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Data.Array.IArray as A
 import qualified Graphics.Rendering.TrueType.STB as TT
 
 newtype Bitmap = Bitmap { bitmapData :: R.Array D DIM3 Word8 }
+
+bitmapSize :: Bitmap -> (Int, Int)
+bitmapSize bmp = let (Z :. h :. w :. _) = R.extent (bitmapData bmp) in (w, h)
 
 -- | Create 'Bitmap' from given path.
 loadBitmapFromFile :: FilePath -> IO Bitmap
