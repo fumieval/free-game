@@ -13,8 +13,6 @@ description:
     * apply `runGame defaultGameParam` to run.
     .
     * That's all!
-    .
-    In windows, free-game requires DXFI.dll. You can obtain it from <http://botis.org/shared/dist/DXFI-0.2.dll>.
 
 homepage:            https://github.com/fumieval/free-game
 license:             BSD3

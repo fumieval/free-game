@@ -22,6 +22,7 @@ import qualified Graphics.Rendering.TrueType.STB as TT
 
 newtype Bitmap = Bitmap { bitmapData :: R.Array D DIM3 Word8 }
 
+-- | Get the size of the 'Bitmap'.
 bitmapSize :: Bitmap -> (Int, Int)
 bitmapSize bmp = let (Z :. h :. w :. _) = R.extent (bitmapData bmp) in (w, h)
 
