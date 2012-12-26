@@ -1,7 +1,6 @@
 {-# LANGUAGE ImplicitParams, ScopedTypeVariables #-}
 module Graphics.FreeGame.Backends.GLFW (runGame) where
 import Graphics.UI.GLFW as GLFW
-import Graphics.Rendering.OpenGL.GL (($=))
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Bitmap
@@ -13,13 +12,14 @@ import System.Random
 import Data.Unique
 import Data.IORef
 import Data.Array.Repa as R
+import Data.StateVar
 import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Foreign.ForeignPtr
 import qualified Data.IntMap as IM
 import GHC.Float
 import Unsafe.Coerce
 
-type Texture = (GL.TextureObject, Int, Int)
+data Texture = Texture {texObj :: GL.TextureObject, texWidth :: Int, texHeight :: Int}
 
 installTexture :: Bitmap -> IO Texture
 installTexture bmp = do
@@ -32,14 +32,11 @@ installTexture bmp = do
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 (GL.TextureSize2D (gsizei width) (gsizei height)) 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
 
-    return (tex, width, height)
-
-freeTexture :: Texture -> IO ()
-freeTexture (tex, _, _) = GL.deleteObjectNames [tex]
+    return $ Texture tex width height
 
 drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> IO ()
 drawPic (Image u) = do
-    (tex, width, height) <- liftM (IM.! hashUnique u) $ readIORef ?refTextures
+    Texture tex width height <- liftM (IM.! hashUnique u) $ readIORef ?refTextures
     let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
     GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.Repeat)
     GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.Repeat)
@@ -85,17 +82,26 @@ runGame param game = do
     let ?refTextures = ref
         ?refFrame = ref'
         ?frameTime = 1 / fromIntegral (framePerSecond param)
-    r <- run game
+    r <- run [] game
 
     closeWindow
     terminate
     return r
     where
-    run (Pure x) = return (Just x)
-    run (Free f) = case f of
+    run :: (?windowWidth :: Int, ?windowHeight :: Int
+        , ?refTextures :: IORef (IM.IntMap Texture)
+        , ?refFrame :: IORef Int
+        , ?frameTime :: Double) => [Int] -> Game a -> IO (Maybe a)
+    run is (Pure x) = do
+        m <- readIORef ?refTextures
+        GL.deleteObjectNames [texObj $ m IM.! i | i <- is]
+        modifyIORef ?refTextures $ flip (foldr IM.delete) is
+        return (Just x)
+    run is (Free f) = case f of
+        EmbedIO m -> m >>= run is
+        Bracket m -> run [] m >>= maybe (return Nothing) (run is)
         Tick cont -> do
             swapBuffers
-
             t <- getTime
             n <- readIORef ?refFrame
             sleep (fromIntegral n * ?frameTime - t)
@@ -105,10 +111,16 @@ runGame param game = do
 
             r <- windowIsOpen
             if r
-                then GL.clear [GL.ColorBuffer] >> run cont
+                then GL.clear [GL.ColorBuffer] >> run is cont
                 else return Nothing
-        AskInput key fcont -> keyIsPressed (mapKey key) >>= run . fcont
-        EmbedIO m -> m >>= run
+        AskInput key fcont -> keyIsPressed (mapKey key) >>= run is . fcont
+        GetMouseState fcont -> do
+            (x, y) <- getMousePosition
+            b0 <- mouseButtonIsPressed MouseButton0
+            b1 <- mouseButtonIsPressed MouseButton1
+            b2 <- mouseButtonIsPressed MouseButton1
+            w <- getMouseWheel
+            run $ fcont $ MouseState (fromIntegral x, fromIntegral y) b0 b2 b1 w
         DrawPicture pic cont -> do
             GL.preservingMatrix $ do
                 GL.loadIdentity
@@ -117,15 +129,31 @@ runGame param game = do
                 GL.matrixMode   $= GL.Modelview 0
                 drawPic pic
                 GL.matrixMode   $= GL.Projection
-            run cont
+            run is cont
         LoadPicture bmp fcont -> do
             tex <- installTexture bmp
             u <- newUnique
             modifyIORef ?refTextures $ IM.insert (hashUnique u) tex
-            run $ fcont (Image u)
+            run (hashUnique u:is) $ fcont (Image u)
+
     mapKey k = case k of
         I.KeyChar c -> CharKey c
         I.KeySpace -> KeySpace
+        I.KeyF1 -> KeyF1
+        I.KeyF2 -> KeyF2
+        I.KeyF3 -> KeyF3
+        I.KeyF4 -> KeyF4
+        I.KeyF5 -> KeyF5
+        I.KeyF6 -> KeyF6
+        I.KeyF7 -> KeyF7
+        I.KeyF8 -> KeyF8
+        I.KeyF9 -> KeyF9
+        I.KeyF10 -> KeyF10
+        I.KeyF11 -> KeyF11
+        I.KeyF12 -> KeyF12
+        I.KeyF13 -> KeyF13
+        I.KeyF14 -> KeyF14
+        I.KeyF15 -> KeyF15
         I.KeyEsc -> KeyEsc
         I.KeyUp -> KeyUp
         I.KeyDown -> KeyDown
@@ -138,6 +166,30 @@ runGame param game = do
         I.KeyTab -> KeyTab
         I.KeyEnter -> KeyEnter
         I.KeyBackspace -> KeyBackspace
+        I.KeyInsert -> KeyInsert
+        I.KeyNumLock -> KeyNumLock
+        I.KeyDelete -> KeyDelete
+        I.KeyPageUp -> KeyPageUp
+        I.KeyPageDown -> KeyPageDown
+        I.KeyHome -> KeyHome
+        I.KeyEnd -> KeyEnd
+        I.KeyPad0 -> I.KeyPad0
+        I.KeyPad1 -> I.KeyPad1
+        I.KeyPad2 -> I.KeyPad2
+        I.KeyPad3 -> I.KeyPad3
+        I.KeyPad4 -> I.KeyPad4
+        I.KeyPad5 -> I.KeyPad5
+        I.KeyPad6 -> I.KeyPad6
+        I.KeyPad7 -> I.KeyPad7
+        I.KeyPad8 -> I.KeyPad8
+        I.KeyPad9 -> I.KeyPad9
+        I.KeyPadDivide -> KeyPadDivide
+        I.KeyPadMultiply -> KeyPadMultiply
+        I.KeyPadSubtract -> KeyPadSubtract
+        I.KeyPadAdd -> KeyPadAdd
+        I.KeyPadDecimal -> KeyPadDecimal
+        I.KeyPadEqual -> KeyPadEqual
+        I.KeyPadEnter -> KeyPadEnter
 
 gf :: Double -> GL.GLfloat
 {-# INLINE gf #-}

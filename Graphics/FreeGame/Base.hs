@@ -20,11 +20,9 @@ module Graphics.FreeGame.Base (
     ,transPicture
     ,defaultGameParam
     ,tick
-    ,playSound
     ,drawPicture
     ,loadPicture
     ,askInput
-    ,loadSound
     ,embedIO
     ,bracket
 ) where
@@ -34,7 +32,6 @@ import Control.Monad.Trans.Free (FreeT)
 import Control.Monad
 import Graphics.FreeGame.Bitmap
 import Graphics.FreeGame.Input
-import Graphics.FreeGame.Sound
 import Data.Unique
 
 type Game = Free GameAction
@@ -47,18 +44,14 @@ data GameAction cont
     | DrawPicture Picture cont
     | LoadPicture Bitmap (Picture -> cont) 
 
-    | PlaySound Sound cont
-    | LoadSound FilePath (Sound -> cont)
-
     | AskInput Key (Bool -> cont)
     | GetMouseState (MouseState -> cont)
 
 instance Functor GameAction where
     fmap f (DrawPicture a cont) = DrawPicture a (f cont)
     fmap f (LoadPicture a cont) = LoadPicture a (f . cont)
-    fmap f (PlaySound a cont)   = PlaySound a (f cont)
-    fmap f (LoadSound a cont)   = LoadSound a (f . cont)
     fmap f (AskInput a cont)    = AskInput a (f . cont)
+    fmap f (GetMouseState cont) = GetMouseState (f . cont)
     fmap f (EmbedIO m) = EmbedIO (fmap f m)
     fmap f (Bracket m) = Bracket (fmap f m)
     fmap f (Tick cont) = Tick (f cont)
@@ -82,14 +75,6 @@ drawPicture pic = wrap $ DrawPicture pic (return ())
 -- | Create 'Picture' from 'Bitmap'.
 loadPicture :: MonadFree GameAction m => Bitmap -> m Picture
 loadPicture img = wrap $ LoadPicture img return
-
--- | Play 'Sound'.
-playSound :: MonadFree GameAction m => Sound -> m ()
-playSound sound = wrap $ PlaySound sound (return ())
-
--- | Create 'Sound' from file.
-loadSound :: MonadFree GameAction m => FilePath -> m Sound
-loadSound path = wrap $ LoadSound path return
 
 -- | Is the specified key is pressed?
 askInput :: MonadFree GameAction m => Key -> m Bool
@@ -116,7 +101,6 @@ data Picture
     | Scale (Double, Double) Picture
     -- | A picture moved by the given coordinate.
     | Translate (Double, Double) Picture
-
 
 -- | Parameters of the application.
 data GameParam = GameParam {

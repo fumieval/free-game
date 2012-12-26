@@ -27,7 +27,6 @@ cabal-version:       >=1.8
 library
   exposed-modules:     Graphics.FreeGame
     , Graphics.FreeGame.Util
-    , Graphics.FreeGame.Sound
     , Graphics.FreeGame.Input
     , Graphics.FreeGame.Bitmap
     , Graphics.FreeGame.Base
@@ -45,3 +44,4 @@ library
     , stb-truetype >= 0.1
     , OpenGL >= 2.5
     , GLFW-b >= 0.1
+    , StateVar

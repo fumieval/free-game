@@ -52,7 +52,6 @@ data Key
         | KeyBackspace
         | KeyInsert
         | KeyNumLock
-        | KeyBegin
         | KeyDelete
         | KeyPageUp
         | KeyPageDown
