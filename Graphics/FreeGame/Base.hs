@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Base
@@ -9,7 +9,7 @@
 -- Stability   :  provisional
 -- Portability :  non-portable
 --
--- Abstract structure that represents user interfaces
+-- Abstract structures that represents user interfaces
 ----------------------------------------------------------------------------
 
 module Graphics.FreeGame.Base (
@@ -23,6 +23,7 @@ module Graphics.FreeGame.Base (
     ,drawPicture
     ,loadPicture
     ,askInput
+    ,getMouseState
     ,embedIO
     ,bracket
 ) where
@@ -33,9 +34,11 @@ import Control.Monad
 import Graphics.FreeGame.Bitmap
 import Graphics.FreeGame.Input
 import Data.Unique
+import Data.Vect
 
 type Game = Free GameAction
 
+-- | A base for 'Game' monad.
 data GameAction cont
     = Tick cont
     | EmbedIO (IO cont)
@@ -64,7 +67,7 @@ tick = wrap $ Tick (return ())
 embedIO :: MonadFree GameAction m => IO a -> m a
 embedIO m = wrap $ EmbedIO $ liftM return m
 
--- | Run a Game monad in the Game monad. resources (pictures, sounds) will be released when inner computation is done.
+-- | Run a Game monad in a Game monad. resources (e.g. pictures) will be released when inner computation is done.
 bracket :: MonadFree GameAction m => Game a -> m a
 bracket m = wrap $ Bracket $ liftM return m
 
@@ -72,11 +75,11 @@ bracket m = wrap $ Bracket $ liftM return m
 drawPicture :: MonadFree GameAction m => Picture -> m ()
 drawPicture pic = wrap $ DrawPicture pic (return ())
 
--- | Create 'Picture' from 'Bitmap'.
+-- | Create a 'Picture' from 'Bitmap'.
 loadPicture :: MonadFree GameAction m => Bitmap -> m Picture
 loadPicture img = wrap $ LoadPicture img return
 
--- | Is the specified key is pressed?
+-- | Is the specified 'Key' is pressed?
 askInput :: MonadFree GameAction m => Key -> m Bool
 askInput key = wrap $ AskInput key return
 
@@ -84,23 +87,23 @@ askInput key = wrap $ AskInput key return
 getMouseState :: MonadFree GameAction m => m MouseState
 getMouseState = wrap $ GetMouseState return
 
--- | Apply the function to all pictures in 'DrawPicture'.
+-- | Lift a picture transformation into transformation of 'GameAction'
 transPicture :: (Picture -> Picture) -> GameAction cont -> GameAction cont
 transPicture f (DrawPicture p cont) = DrawPicture (f p) cont
 transPicture _ x = x
 
 -- | A 2D Picture.
 data Picture
-    -- | An abstract image object.
+    -- | An abstract primitive image.
     = Image Unique
     -- | Combined picture from some pictures.
     | Pictures [Picture]
-    -- | Rotated picture counterclockwise by the given angle (in radians).
-    | Rotate Double Picture
+    -- | Rotated picture by the given angle (in degrees, counterclockwise).
+    | Rotate Float Picture
     -- | Scaled picture.
-    | Scale (Double, Double) Picture
-    -- | A picture moved by the given coordinate.
-    | Translate (Double, Double) Picture
+    | Scale Vec2 Picture
+    -- | A picture translated by the given coordinate.
+    | Translate Vec2 Picture
 
 -- | Parameters of the application.
 data GameParam = GameParam {
@@ -110,5 +113,6 @@ data GameParam = GameParam {
         ,windowed :: Bool
     }
 
+-- | 640*480(windowed), 60fps
 defaultGameParam :: GameParam
 defaultGameParam = GameParam 60 (640,480) "free-game" True
