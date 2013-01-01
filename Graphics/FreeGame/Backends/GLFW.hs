@@ -16,8 +16,9 @@ import Data.StateVar
 import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Foreign.ForeignPtr
 import qualified Data.IntMap as IM
-import GHC.Float
 import Unsafe.Coerce
+import Data.Vect
+import System.Mem
 
 data Texture = Texture {texObj :: GL.TextureObject, texWidth :: Int, texHeight :: Int}
 
@@ -26,7 +27,7 @@ installTexture bmp = do
     [tex] <- GL.genObjectNames 1
     GL.textureBinding GL.Texture2D GL.$= Just tex
 
-    fptr <- liftM RF.toForeignPtr $ R.computeP $ bitmapData bmp
+    fptr <- liftM RF.toForeignPtr $ computeP $ bitmapData bmp
     let (width, height) = bitmapSize bmp
     withForeignPtr fptr
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 (GL.TextureSize2D (gsizei width) (gsizei height)) 0
@@ -53,11 +54,12 @@ drawPic (Image u) = do
         [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
     GL.texture GL.Texture2D GL.$= GL.Disabled
 
-drawPic (Rotate theta p) = GL.preservingMatrix $ GL.rotate (gf theta) (GL.Vector3 0 0 (-1)) >> drawPic p
-drawPic (Scale (sx, sy) p) = GL.preservingMatrix $ GL.scale (gf sx) (gf sy) 1 >> drawPic p
-drawPic (Translate (tx, ty) p) = GL.preservingMatrix $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0) >> drawPic p
+drawPic (Rotate theta p) = GL.preservingMatrix $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1) >> drawPic p
+drawPic (Scale (Vec2 sx sy) p) = GL.preservingMatrix $ GL.scale (gf sx) (gf sy) 1 >> drawPic p
+drawPic (Translate (Vec2 tx ty) p) = GL.preservingMatrix $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0) >> drawPic p
 drawPic (Pictures ps) = mapM_ drawPic ps
 
+-- | Run 'Game' using OpenGL and GLFW.
 runGame :: GameParam -> Game a -> IO (Maybe a)
 runGame param game = do
     initialize
@@ -111,7 +113,7 @@ runGame param game = do
 
             r <- windowIsOpen
             if r
-                then GL.clear [GL.ColorBuffer] >> run is cont
+                then GL.clear [GL.ColorBuffer] >> performGC >> run is cont
                 else return Nothing
         AskInput key fcont -> keyIsPressed (mapKey key) >>= run is . fcont
         GetMouseState fcont -> do
@@ -120,7 +122,7 @@ runGame param game = do
             b1 <- mouseButtonIsPressed MouseButton1
             b2 <- mouseButtonIsPressed MouseButton1
             w <- getMouseWheel
-            run $ fcont $ MouseState (fromIntegral x, fromIntegral y) b0 b2 b1 w
+            run is $ fcont $ I.MouseState (Vec2 (fromIntegral x) (fromIntegral y)) b0 b2 b1 w
         DrawPicture pic cont -> do
             GL.preservingMatrix $ do
                 GL.loadIdentity
@@ -167,22 +169,21 @@ runGame param game = do
         I.KeyEnter -> KeyEnter
         I.KeyBackspace -> KeyBackspace
         I.KeyInsert -> KeyInsert
-        I.KeyNumLock -> KeyNumLock
-        I.KeyDelete -> KeyDelete
-        I.KeyPageUp -> KeyPageUp
-        I.KeyPageDown -> KeyPageDown
+        I.KeyDelete -> KeyDel
+        I.KeyPageUp -> KeyPageup
+        I.KeyPageDown -> KeyPagedown
         I.KeyHome -> KeyHome
         I.KeyEnd -> KeyEnd
-        I.KeyPad0 -> I.KeyPad0
-        I.KeyPad1 -> I.KeyPad1
-        I.KeyPad2 -> I.KeyPad2
-        I.KeyPad3 -> I.KeyPad3
-        I.KeyPad4 -> I.KeyPad4
-        I.KeyPad5 -> I.KeyPad5
-        I.KeyPad6 -> I.KeyPad6
-        I.KeyPad7 -> I.KeyPad7
-        I.KeyPad8 -> I.KeyPad8
-        I.KeyPad9 -> I.KeyPad9
+        I.KeyPad0 -> KeyPad0
+        I.KeyPad1 -> KeyPad1
+        I.KeyPad2 -> KeyPad2
+        I.KeyPad3 -> KeyPad3
+        I.KeyPad4 -> KeyPad4
+        I.KeyPad5 -> KeyPad5
+        I.KeyPad6 -> KeyPad6
+        I.KeyPad7 -> KeyPad7
+        I.KeyPad8 -> KeyPad8
+        I.KeyPad9 -> KeyPad9
         I.KeyPadDivide -> KeyPadDivide
         I.KeyPadMultiply -> KeyPadMultiply
         I.KeyPadSubtract -> KeyPadSubtract
@@ -191,9 +192,9 @@ runGame param game = do
         I.KeyPadEqual -> KeyPadEqual
         I.KeyPadEnter -> KeyPadEnter
 
-gf :: Double -> GL.GLfloat
+gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
-gf x = unsafeCoerce $ double2Float x
+gf x = unsafeCoerce x
 
 gsizei :: Int -> GL.GLsizei
 {-# INLINE gsizei #-}

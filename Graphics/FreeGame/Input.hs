@@ -1,24 +1,13 @@
------------------------------------------------------------------------------
--- |
--- Module      :  Graphics.FreeGame.Base
--- Copyright   :  (C) 2012 Fumiaki Kinoshita
--- License     :  BSD-style (see the file LICENSE)
---
--- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
--- Stability   :  provisional
--- Portability :  non-portable
---
--- Common key and mouse inputs
-----------------------------------------------------------------------------
-
 module Graphics.FreeGame.Input where
 
-data MouseState = MouseState { position :: (Double, Double)
+import Data.Vect
+
+data MouseState = MouseState { mousePosition :: Vec2
         , leftButton :: Bool
         , middleButton :: Bool
         , rightButton :: Bool
         , mouseWheel :: Int
-        } deriving (Eq, Ord, Show)
+        } deriving Show
 
 data Key
         = KeyChar Char
@@ -51,7 +40,6 @@ data Key
         | KeyEnter
         | KeyBackspace
         | KeyInsert
-        | KeyNumLock
         | KeyDelete
         | KeyPageUp
         | KeyPageDown
