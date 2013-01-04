@@ -6,8 +6,8 @@
 -- License     :  BSD-style (see the file LICENSE)
 --
 -- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
--- Stability   :  provisional
--- Portability :  portable
+-- Stability   :  experimental
+-- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
 
@@ -18,6 +18,7 @@ import Control.Monad.Free
 import qualified Control.Monad.Trans.Free as T
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Bitmap
+import Graphics.FreeGame.Data.Color
 import System.Random
 import Data.Vect
 import Data.Word
@@ -42,9 +43,9 @@ radians :: Float -> Float
 {-# INLINE radians #-}
 radians x = x / 180 * pi
 
--- | Render the string by given font and color, and pass it to the 'Game' computation. 
-withRenderString :: Font -> (Word8, Word8, Word8) -> String -> (Picture -> Game a) -> Game a
-withRenderString font color str action = bracket $ render str 0 >>= action . Pictures
+-- | Render the string by the given font and color, and pass it to the 'Game' computation. 
+withRenderCharacters :: Font -> Color -> String -> ([Picture] -> Game a) -> Game a
+withRenderCharacters font color str action = bracket $ render str 0 >>= action
     where
         render [] _ = return []
         render (c:cs) x = do
@@ -52,6 +53,9 @@ withRenderString font color str action = bracket $ render str 0 >>= action . Pic
             (:) <$> Translate (Vec2 (x + w + o) h) <$> loadPicture b
                 <*> render cs (x + w)
 
--- | Create a 'Picture' from given file path.
+withRenderString :: Font -> Color -> String -> (Picture -> Game a) -> Game a
+withRenderString font color str action = withRenderCharacters font color str (action . Pictures)
+
+-- | Create a 'Picture' from the given file.
 loadPictureFromFile :: FilePath -> Game Picture
 loadPictureFromFile = embedIO . loadBitmapFromFile >=> loadPicture

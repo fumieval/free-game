@@ -2,12 +2,13 @@ module Graphics.FreeGame.Input where
 
 import Data.Vect
 
-data MouseState = MouseState { mousePosition :: Vec2
-        , leftButton :: Bool
-        , middleButton :: Bool
-        , rightButton :: Bool
-        , mouseWheel :: Int
-        } deriving Show
+data MouseState = MouseState
+    { mousePosition :: Vec2
+    , leftButton :: Bool
+    , middleButton :: Bool
+    , rightButton :: Bool
+    , mouseWheel :: Int
+    } deriving Show
 
 data Key
         = KeyChar Char
@@ -25,9 +26,6 @@ data Key
         | KeyF10
         | KeyF11
         | KeyF12
-        | KeyF13
-        | KeyF14
-        | KeyF15
         | KeyLeftShift
         | KeyRightShift
         | KeyLeftControl
