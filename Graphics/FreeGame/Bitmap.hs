@@ -23,7 +23,7 @@ import Graphics.FreeGame.Data.Color
 
 -- | Concrete bitmap data
 newtype Bitmap = Bitmap {
-    bitmapData :: R.Array D DIM3 Word8 -- ^ Bare the 'Bitmap''s internal representation (y * x * ARGB)
+    bitmapData :: R.Array D DIM3 Word8 -- ^ Bare the 'Bitmap''s internal representation (y * x * RGBA)
     }
 
 -- | Get the size of the 'Bitmap'.
