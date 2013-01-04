@@ -11,7 +11,7 @@
 -- Manipulating bitmaps
 ----------------------------------------------------------------------------
 
-module Graphics.FreeGame.Bitmap (Bitmap, bitmapData, bitmapSize, loadBitmapFromFile, cropBitmap, Font, loadFont, charToBitmap) where
+module Graphics.FreeGame.Bitmap (Bitmap(..), bitmapSize, loadBitmapFromFile, cropBitmap, Font, loadFont, charToBitmap) where
 
 import Control.Applicative
 import Codec.Picture.Repa
@@ -19,8 +19,9 @@ import Data.Array.Repa as R
 import Data.Word
 import Data.Array.IArray as A
 import qualified Graphics.Rendering.TrueType.STB as TT
+import Graphics.FreeGame.Data.Color
 
--- | Concrete bitmap data type
+-- | Concrete bitmap data
 newtype Bitmap = Bitmap {
     bitmapData :: R.Array D DIM3 Word8 -- ^ Bare the 'Bitmap''s internal representation (y * x * ARGB)
     }
@@ -43,7 +44,7 @@ cropBitmap (Bitmap img) (w, h) (x, y) = Bitmap $ extract (Z :. y :. x :. 0) (Z :
 -- | Font object
 newtype Font = Font TT.BitmapCache
 
--- | create a 'Font' from the given file.
+-- | Create a 'Font' from the given file.
 loadFont :: FilePath -> Float -> IO Font
 loadFont path size = do
     tt <- TT.loadTTF path
@@ -54,13 +55,14 @@ loadFont path size = do
     let s = size/fromIntegral (x1-x0)
     Font <$> TT.newBitmapCache font False (s, s)
 
--- | render 'Bitmap' of the character by specified 'Font' and color(RGB).
-charToBitmap :: Font -> (Word8, Word8, Word8) -> Char -> IO (Maybe (Bitmap, Float, Float, Float))
-charToBitmap (Font cache) (red,green,blue) ch = do
+-- | Render 'Bitmap' of the character by specified 'Font' and color(RGB).
+charToBitmap :: Font -> Color -> Char -> IO (Maybe (Bitmap, Float, Float, Float))
+charToBitmap (Font cache) color ch = do
+    let (red, green, blue, alpha) = asWord8 color
     r <- TT.getCachedBitmap cache ch
     case r of
         Just (TT.CBM bmp@(TT.Bitmap (w,h) _) (ox,oy) (TT.HMetrics adv _)) -> do
             ar <- TT.bitmapArray bmp
-            let pixel (Z:.y:.x:.c) = [ar A.! (y, x), red, green, blue] !! c
+            let pixel (Z:.y:.x:.c) = [(ar A.! (y, x) * alpha) `div` 255, red, green, blue] !! c
             return $ Just (Bitmap $ fromFunction (Z :. h :. w :. 4) pixel, fromIntegral ox / 2, fromIntegral oy / 2, adv)
         Nothing -> return Nothing

@@ -6,35 +6,48 @@
 -- License     :  BSD-style (see the file LICENSE)
 --
 -- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
--- Stability   :  provisional
+-- Stability   :  experimental
 -- Portability :  non-portable
 --
 -- Abstract structures that represents user interfaces
 ----------------------------------------------------------------------------
 
 module Graphics.FreeGame.Base (
+    -- * Types
     Game
     ,GameAction(..)
-    ,GameParam(..)
-    ,Picture(..)
-    ,transPicture
-    ,defaultGameParam
+
+    -- * Basic operations
     ,tick
-    ,drawPicture
-    ,loadPicture
-    ,askInput
-    ,getMouseState
     ,embedIO
     ,bracket
+
+    -- * Pictures
+    ,Picture(..)
+    ,transPicture
+    ,drawPicture
+    ,loadPicture
+    
+    -- * Inputs
+    ,askInput
+    ,getMouseState
+
+    -- * Settings
+    ,GameParam(..)
+    ,defaultGameParam
+
 ) where
 
 import Control.Monad.Free
-import Control.Monad.Trans.Free (FreeT)
 import Control.Monad
 import Graphics.FreeGame.Bitmap
 import Graphics.FreeGame.Input
 import Data.Unique
 import Data.Vect
+
+infixr 5 `Translate`
+infixr 5 `Rotate`
+infixr 5 `Scale`
 
 type Game = Free GameAction
 

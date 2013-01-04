@@ -12,7 +12,7 @@ Small instruction:
 
     * describe an application using 'drawPicture', 'askInput', 'tick', and so on, in Game monad.
 
-    * apply 'runGame defaultGameParam' to run.
+    * apply 'runGame' 'defaultGameParam' to run.
 
     * That's all!
 -}
@@ -35,7 +35,11 @@ import Graphics.FreeGame.Base
 import Graphics.FreeGame.Bitmap
 import Graphics.FreeGame.Input
 import Graphics.FreeGame.Util
-import Graphics.FreeGame.Backends.GLFW
+import qualified Graphics.FreeGame.Backends.GLFW as GLFW
+
+-- | Run a 'Game' computation.
+runGame :: GameParam -> Game a -> IO (Maybe a)
+runGame = GLFW.runGame
 
 {- $example
 

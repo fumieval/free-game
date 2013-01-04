@@ -153,9 +153,6 @@ runGame param game = do
         I.KeyF10 -> KeyF10
         I.KeyF11 -> KeyF11
         I.KeyF12 -> KeyF12
-        I.KeyF13 -> KeyF13
-        I.KeyF14 -> KeyF14
-        I.KeyF15 -> KeyF15
         I.KeyEsc -> KeyEsc
         I.KeyUp -> KeyUp
         I.KeyDown -> KeyDown

@@ -1,20 +1,26 @@
 name:                free-game
-version:             0.3.0.1
+version:             0.3.0.3
 synopsis:            Create graphical applications for free.
-description:         closs-platform GUI library based on free monads.
+description:         Cross-platform GUI library based on free monads.
 homepage:            https://github.com/fumieval/free-game
+bug-reports:         https://github.com/fumieval/free-game/issues
 license:             BSD3
 license-file:        LICENSE
 author:              Fumiaki Kinoshita
-maintainer:          fumiexcel@gmail.com
-copyright:           Copyright (C) 2012 Fumiaki Kinoshita
+maintainer:          Fumiaki Kinoshita <fumiexcel@gmail.com>
+copyright:           Copyright (C) 2012-2013 Fumiaki Kinoshita
 category:            Graphics
 build-type:          Simple
+stability:           experimental
 cabal-version:       >=1.8
 extra-source-files:
   examples/test.hs
   examples/logo.png
-  
+
+source-repository head
+  type: git
+  location: git@github.com:fumieval/free-game.git
+
 library
   exposed-modules:     Graphics.FreeGame
     , Graphics.FreeGame.Util
@@ -22,6 +28,7 @@ library
     , Graphics.FreeGame.Bitmap
     , Graphics.FreeGame.Base
     , Graphics.FreeGame.Backends.GLFW
+    , Graphics.FreeGame.Data.Color
   ghc-options:         -fexcess-precision
   -- other-modules:       
   build-depends: base == 4.*
