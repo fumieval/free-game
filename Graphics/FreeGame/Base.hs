@@ -23,6 +23,7 @@ module Graphics.FreeGame.Base (
     ,bracket
 
     -- * Pictures
+    ,Vec2(..)
     ,Picture(..)
     ,transPicture
     ,drawPicture
