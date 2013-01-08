@@ -5,16 +5,6 @@ License     :  BSD-style (see the file LICENSE)
 Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
 
 free-game is a library that abstracts and purifies GUI applications.
-
-Small instruction:
-
-    * load images by 'loadPictureFromFile'.
-
-    * describe an application using 'drawPicture', 'askInput', 'tick', and so on, in Game monad.
-
-    * apply 'runGame' 'defaultGameParam' to run.
-
-    * That's all!
 -}
 module Graphics.FreeGame
   ( -- * Examples
@@ -25,16 +15,16 @@ module Graphics.FreeGame
 
     -- * Reexports
     module Graphics.FreeGame.Base,
-    module Graphics.FreeGame.Bitmap,
+    module Graphics.FreeGame.Data.Bitmap,
     module Graphics.FreeGame.Input,
     module Graphics.FreeGame.Util,
     runGame
 ) where
 
 import Graphics.FreeGame.Base
-import Graphics.FreeGame.Bitmap
 import Graphics.FreeGame.Input
 import Graphics.FreeGame.Util
+import Graphics.FreeGame.Data.Bitmap
 import qualified Graphics.FreeGame.Backends.GLFW as GLFW
 
 -- | Run a 'Game' computation.

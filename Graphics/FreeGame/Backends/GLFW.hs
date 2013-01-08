@@ -3,9 +3,10 @@ module Graphics.FreeGame.Backends.GLFW (runGame) where
 import Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import Graphics.FreeGame.Base
-import Graphics.FreeGame.Bitmap
+import Graphics.FreeGame.Data.Bitmap
 import qualified Graphics.FreeGame.Input as I
 import Codec.Picture.Repa
+import Control.Applicative
 import Control.Monad.Free
 import Control.Monad
 import System.Random
@@ -32,15 +33,16 @@ installTexture bmp = do
     withForeignPtr fptr
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 (GL.TextureSize2D (gsizei width) (gsizei height)) 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
-
     return $ Texture tex width height
 
-drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> IO ()
-drawPic (Image u) = do
-    Texture tex width height <- liftM (IM.! hashUnique u) $ readIORef ?refTextures
+freeTexture :: Texture -> IO ()
+freeTexture (Texture tex width height) = GL.deleteObjectNames [tex]
+
+drawTexture :: Texture -> IO ()
+drawTexture (Texture tex width height) = do
     let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
-    GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.Repeat)
-    GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.Repeat)
+    GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.Clamp)
+    GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.Clamp)
     GL.textureFilter   GL.Texture2D      $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFunction      $= GL.Combine    
@@ -54,10 +56,27 @@ drawPic (Image u) = do
         [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
     GL.texture GL.Texture2D GL.$= GL.Disabled
 
+drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> IO [Int]
+drawPic (BitmapPicture bmp) = case bitmapHash bmp of
+    Nothing -> do
+        t <- installTexture bmp
+        drawTexture t
+        freeTexture t
+        return []
+    Just h -> do
+        m <- readIORef ?refTextures
+        case IM.lookup h m of
+            Just t -> [] <$ drawTexture t
+            Nothing -> do
+                t <- installTexture bmp
+                writeIORef ?refTextures $ IM.insert h t m
+                drawTexture t
+                return [h]
+
 drawPic (Rotate theta p) = GL.preservingMatrix $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1) >> drawPic p
 drawPic (Scale (Vec2 sx sy) p) = GL.preservingMatrix $ GL.scale (gf sx) (gf sy) 1 >> drawPic p
 drawPic (Translate (Vec2 tx ty) p) = GL.preservingMatrix $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0) >> drawPic p
-drawPic (Pictures ps) = mapM_ drawPic ps
+drawPic (Pictures ps) = concat <$> mapM drawPic ps
 
 -- | Run 'Game' using OpenGL and GLFW.
 runGame :: GameParam -> Game a -> IO (Maybe a)
@@ -100,6 +119,16 @@ runGame param game = do
         modifyIORef ?refTextures $ flip (foldr IM.delete) is
         return (Just x)
     run is (Free f) = case f of
+        DrawPicture pic cont -> do
+            ls <- GL.preservingMatrix $ do
+                GL.loadIdentity
+                GL.scale (gf 1) (-1) 1
+                GL.ortho 0 (fromIntegral ?windowWidth) 0 (fromIntegral ?windowHeight) 0 (-100)
+                GL.matrixMode   $= GL.Modelview 0
+                ls <- drawPic pic
+                GL.matrixMode   $= GL.Projection
+                return ls
+            run (ls Prelude.++ is) cont
         EmbedIO m -> m >>= run is
         Bracket m -> run [] m >>= maybe (return Nothing) (run is)
         Tick cont -> do
@@ -123,20 +152,7 @@ runGame param game = do
             b2 <- mouseButtonIsPressed MouseButton1
             w <- getMouseWheel
             run is $ fcont $ I.MouseState (Vec2 (fromIntegral x) (fromIntegral y)) b0 b2 b1 w
-        DrawPicture pic cont -> do
-            GL.preservingMatrix $ do
-                GL.loadIdentity
-                GL.scale (gf 1) (-1) 1
-                GL.ortho 0 (fromIntegral ?windowWidth) 0 (fromIntegral ?windowHeight) 0 (-100)
-                GL.matrixMode   $= GL.Modelview 0
-                drawPic pic
-                GL.matrixMode   $= GL.Projection
-            run is cont
-        LoadPicture bmp fcont -> do
-            tex <- installTexture bmp
-            u <- newUnique
-            modifyIORef ?refTextures $ IM.insert (hashUnique u) tex
-            run (hashUnique u:is) $ fcont (Image u)
+        QuitGame -> return Nothing
 
     mapKey k = case k of
         I.KeyChar c -> CharKey c

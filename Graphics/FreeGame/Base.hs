@@ -21,13 +21,13 @@ module Graphics.FreeGame.Base (
     ,tick
     ,embedIO
     ,bracket
+    ,quitGame
 
     -- * Pictures
     ,Vec2(..)
     ,Picture(..)
     ,transPicture
     ,drawPicture
-    ,loadPicture
     
     -- * Inputs
     ,askInput
@@ -37,41 +37,41 @@ module Graphics.FreeGame.Base (
     ,GameParam(..)
     ,defaultGameParam
 
+    -- * Deprecated
+    ,loadPicture
 ) where
 
 import Control.Monad.Free
 import Control.Monad
-import Graphics.FreeGame.Bitmap
+import Graphics.FreeGame.Data.Bitmap
 import Graphics.FreeGame.Input
-import Data.Unique
 import Data.Vect
 
 infixr 5 `Translate`
 infixr 5 `Rotate`
 infixr 5 `Scale`
 
+-- | 'Game' is a 'Monad' that abstracts user interfaces.
 type Game = Free GameAction
 
 -- | A base for 'Game' monad.
-data GameAction cont
-    = Tick cont
-    | EmbedIO (IO cont)
-    | Bracket (Game cont)
-
-    | DrawPicture Picture cont
-    | LoadPicture Bitmap (Picture -> cont) 
-
-    | AskInput Key (Bool -> cont)
-    | GetMouseState (MouseState -> cont)
+data GameAction a
+    = Tick a
+    | EmbedIO (IO a)
+    | Bracket (Game a)
+    | DrawPicture Picture a
+    | AskInput Key (Bool -> a)
+    | GetMouseState (MouseState -> a)
+    | QuitGame
 
 instance Functor GameAction where
     fmap f (DrawPicture a cont) = DrawPicture a (f cont)
-    fmap f (LoadPicture a cont) = LoadPicture a (f . cont)
     fmap f (AskInput a cont)    = AskInput a (f . cont)
     fmap f (GetMouseState cont) = GetMouseState (f . cont)
     fmap f (EmbedIO m) = EmbedIO (fmap f m)
     fmap f (Bracket m) = Bracket (fmap f m)
     fmap f (Tick cont) = Tick (f cont)
+    fmap _ QuitGame = QuitGame
 
 -- | Finalize the current frame and refresh the screen.
 tick :: MonadFree GameAction m => m ()
@@ -85,13 +85,13 @@ embedIO m = wrap $ EmbedIO $ liftM return m
 bracket :: MonadFree GameAction m => Game a -> m a
 bracket m = wrap $ Bracket $ liftM return m
 
+-- | Break the current computation.
+quitGame :: MonadFree GameAction m => m a
+quitGame = wrap QuitGame
+
 -- | Draw a 'Picture'.
 drawPicture :: MonadFree GameAction m => Picture -> m ()
 drawPicture pic = wrap $ DrawPicture pic (return ())
-
--- | Create a 'Picture' from 'Bitmap'.
-loadPicture :: MonadFree GameAction m => Bitmap -> m Picture
-loadPicture img = wrap $ LoadPicture img return
 
 -- | Is the specified 'Key' is pressed?
 askInput :: MonadFree GameAction m => Key -> m Bool
@@ -108,9 +108,9 @@ transPicture _ x = x
 
 -- | A 2D Picture.
 data Picture
-    -- | An abstract primitive image.
-    = Image Unique
-    -- | Combined picture from some pictures.
+    -- | A 'Bitmap' as a 'Picture'.
+    = BitmapPicture Bitmap
+    -- | Combined picture from some 'Picture's.
     | Pictures [Picture]
     -- | Rotated picture by the given angle (in degrees, counterclockwise).
     | Rotate Float Picture
@@ -130,3 +130,8 @@ data GameParam = GameParam {
 -- | 640*480(windowed), 60fps
 defaultGameParam :: GameParam
 defaultGameParam = GameParam 60 (640,480) "free-game" True
+
+{-# DEPRECATED loadPicture "No longer needed; use BitmapPicture instead" #-}
+-- | Create a 'Picture' from 'Bitmap'.
+loadPicture :: MonadFree GameAction m => Bitmap -> m Picture
+loadPicture = return . BitmapPicture
