@@ -4,6 +4,7 @@ import Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
+import Graphics.FreeGame.Data.Color
 import qualified Graphics.FreeGame.Input as I
 import Codec.Picture.Repa
 import Control.Applicative
@@ -28,9 +29,9 @@ installTexture bmp = do
     [tex] <- GL.genObjectNames 1
     GL.textureBinding GL.Texture2D GL.$= Just tex
 
-    fptr <- liftM RF.toForeignPtr $ computeP $ bitmapData bmp
+    let ar = bitmapData bmp
     let (width, height) = bitmapSize bmp
-    withForeignPtr fptr
+    withForeignPtr (RF.toForeignPtr ar)
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 (GL.TextureSize2D (gsizei width) (gsizei height)) 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
     return $ Texture tex width height
@@ -47,7 +48,6 @@ drawTexture (Texture tex width height) = do
     GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFunction      $= GL.Combine    
     GL.textureBinding GL.Texture2D $= Just tex
-    GL.currentColor $= GL.Color4 1.0 1.0 1.0 1.0
     GL.renderPrimitive GL.Polygon $ zipWithM_
         (\(pX, pY) (tX, tY) -> do
             GL.texCoord $ GL.TexCoord2 (gf tX) (gf tY)
@@ -74,9 +74,21 @@ drawPic (BitmapPicture bmp) = case bitmapHash bmp of
                 return [h]
 
 drawPic (Rotate theta p) = GL.preservingMatrix $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1) >> drawPic p
+
 drawPic (Scale (Vec2 sx sy) p) = GL.preservingMatrix $ GL.scale (gf sx) (gf sy) 1 >> drawPic p
+
 drawPic (Translate (Vec2 tx ty) p) = GL.preservingMatrix $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0) >> drawPic p
+
 drawPic (Pictures ps) = concat <$> mapM drawPic ps
+
+drawPic (Colored (Color r g b a) pic) = do
+    oldColor <- get GL.currentColor
+    GL.currentColor  $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
+    r <- drawPic pic
+    GL.currentColor $= oldColor
+    return r
+
+drawPic (IOPicture m) = m >>= drawPic
 
 -- | Run 'Game' using OpenGL and GLFW.
 runGame :: GameParam -> Game a -> IO (Maybe a)
@@ -128,7 +140,7 @@ runGame param game = do
                 ls <- drawPic pic
                 GL.matrixMode   $= GL.Projection
                 return ls
-            run (ls Prelude.++ is) cont
+            flip run cont $! ls Prelude.++ is -- Strict!!!
         EmbedIO m -> m >>= run is
         Bracket m -> run [] m >>= maybe (return Nothing) (run is)
         Tick cont -> do

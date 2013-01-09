@@ -1,14 +1,27 @@
-{-# LANGUAGE ImplicitParams #-}
-import Graphics.FreeGame
+{-# LANGUAGE ImplicitParams, TemplateHaskell #-}
+import Graphics.FreeGame.Simple
 import Control.Applicative
 import Control.Monad
 import Data.Vect
+import Control.Monad.State
 
-act :: (?pic :: Picture) => Vec2 -> Vec2 -> Float -> Bool -> Game ()
-act pos@(Vec2 x y) vel@(Vec2 dx dy) angle btn = do
+import Control.Lens -- using lens (http://hackage.haskell.org/package/lens)
 
-    drawPicture $ Translate pos $ Rotate angle ?pic
-    
+data Object = Object
+    {
+        _position :: Vec2
+        , _velocity :: Vec2
+        , _pressed :: Bool
+    }
+
+$(makeLenses ''Object)
+
+obj :: (?pic :: Picture) => StateT Object Game ()
+obj = forever $ do
+    pos@(Vec2 x y) <- use position
+
+    vel@(Vec2 dx dy) <- use velocity
+
     let dx' | x <= 0 = abs dx
             | x >= 640 = -(abs dx)
             | otherwise = dx
@@ -16,26 +29,34 @@ act pos@(Vec2 x y) vel@(Vec2 dx dy) angle btn = do
             | y >= 480 = -(abs dy)
             | otherwise = dy
 
+    position .= pos &+ vel
+    velocity .= Vec2 dx' dy'
+
     mouse <- getMouseState
-    vel' <- if not btn && leftButton mouse && norm (mousePosition mouse &- pos) < 32
-        then (&*3) <$> sinCos <$> randomness (0, 2 * pi)
-        else return (Vec2 dx' dy')
+
+    if norm (mousePosition mouse &- pos) < 32
+        then do
+            drawPicture $ Translate pos ?pic
+            btn <- use pressed
+            when (not btn && leftButton mouse) $ do
+                vel' <- (&*4) <$> sinCos <$> randomness (0, 2 * pi)
+                velocity .= vel'
+
+            pressed .= leftButton mouse
+
+        else drawPicture $ Translate pos $ Colored (transparent 0.7 white) ?pic
+
     tick
-    act (pos &+ vel) vel' (angle + 1) (leftButton mouse)
 
 initial :: (?pic :: Picture) => Game ()
 initial = do
     x <- randomness (0,640)
     y <- randomness (0,480)
     a <- randomness (0, 2 * pi)
-    act (Vec2 x y) (sinCos a &* 4) 0 False
+    evalStateT obj $ Object (Vec2 x y) (sinCos a &* 4) False
 
-main = runGame defaultGameParam $ do
-    pic <- loadPictureFromFile "logo.png"
-    let ?pic = pic
-    run (replicate 24 initial)
-    where
-        run ms = do
-            ms' <- mapM untickGame ms
-            tick
-            run ms'
+main = do
+    bmp <- loadBitmapFromFile "logo.png"
+    let ?pic = BitmapPicture bmp
+
+    runSimple defaultGameParam (replicate 10 initial) $ mapM untickGame

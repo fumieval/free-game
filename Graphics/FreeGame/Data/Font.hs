@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Data.Font
@@ -10,30 +11,65 @@
 --
 -- Rendering characters
 ----------------------------------------------------------------------------
-module Graphics.FreeGame.Data.Font (Font, loadFont, RenderedChar(..), charToBitmap, withRenderString, withRenderCharacters ) where
+module Graphics.FreeGame.Data.Font (Font, loadFont, text, withRenderString, withRenderCharacters ) where
 
 import Control.Applicative
 import Data.Array.Repa as R
+import Data.Array.Repa.Eval
+import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Data.Vect
-import Data.Array.IArray as A
-import qualified Graphics.Rendering.TrueType.STB as TT
+import Data.IORef
+import qualified Data.Map as M
+import Data.Word
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Color
 import Graphics.FreeGame.Data.Bitmap
+import Graphics.Rendering.FreeType.Internal
+import Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
+import Graphics.Rendering.FreeType.Internal.Vector as V
+import Graphics.Rendering.FreeType.Internal.Bitmap as B
+import Graphics.Rendering.FreeType.Internal.PrimitiveTypes as PT
+import Graphics.Rendering.FreeType.Internal.Face as F
+import Graphics.Rendering.FreeType.Internal.Library as L
+
+import Foreign.Marshal.Alloc
+import Foreign.C.String
+import Foreign.Storable
+import System.IO.Unsafe
+import Unsafe.Coerce
+import Paths_free_game
 
 -- | Font object
-newtype Font = Font TT.BitmapCache
+data Font = Font FT_Face (IORef (M.Map (Float, Color, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
-loadFont :: FilePath -> Float -> IO Font
-loadFont path size = do
-    tt <- TT.loadTTF path
-    o <- head <$> TT.enumerateFonts tt
-    font <- TT.initFont tt o
-    Just g <- TT.findGlyph font '|'
-    TT.BBox (x0,y0) (x1,y1) <- TT.getGlyphBoundingBox font g
-    let s = 5 * size / fromIntegral (x1 - x0)
-    Font <$> TT.newBitmapCache font False (s, s)
+loadFont :: FilePath -> IO Font
+loadFont path = alloca $ \p -> do
+    e <- withCString path $ \str -> ft_New_Face freeType str 0 p
+    failFreeType e
+    Font <$> peek p <*> newIORef M.empty
+
+-- | Render a text by the specified 'Font' and 'Color' and size.
+text :: Font -> Float -> Color -> String -> Picture
+text font size color str = IOPicture $ Pictures <$> renderCharacters font size color str
+
+-- | Render the string by the given font and color, and pass it to the 'Game' action. 
+withRenderCharacters :: Font -> Float -> Color -> String -> ([Picture] -> Game a) -> Game a
+withRenderCharacters font size color str action = bracket
+    $ embedIO (renderCharacters font size color str) >>= action
+
+-- | Render the string by the given font and color, and pass it to the 'Game' action. 
+withRenderString :: Font -> Float -> Color -> String -> (Picture -> Game a) -> Game a
+withRenderString font size color str action = withRenderCharacters font size color str (action . Pictures)
+
+failFreeType 0 = return ()
+failFreeType e = fail $ "FreeType Error:" Prelude.++ show e
+
+freeType :: FT_Library
+freeType = unsafePerformIO $ alloca $ \p -> do
+    e <- ft_Init_FreeType p
+    failFreeType e
+    peek p
 
 data RenderedChar = RenderedChar
     {
@@ -42,28 +78,58 @@ data RenderedChar = RenderedChar
         ,charAdvance :: Float
     }
 
--- | Render 'Bitmap' of the character by specified 'Font' and color(RGB).
-charToBitmap :: Font -> Color -> Char -> IO (Maybe RenderedChar)
-charToBitmap (Font cache) color ch = do
-    let (cr, cg, cb, ca) = colorAsWord8 color
-    r <- TT.getCachedBitmap cache ch
-    case r of
-        Nothing -> return Nothing
-        Just (TT.CBM bmp@(TT.Bitmap (w,h) _) (ox,oy) (TT.HMetrics adv _)) -> do
-            ar <- TT.bitmapArray bmp
-            let pixel (Z:.y:.x:.c) = [ar A.! (y + 1, x), cb, cg, cr] !! c
-            bmp <- makeStableBitmap $ fromFunction (Z :. h - 1 :. w :. 4) pixel
-            return $ Just $ RenderedChar bmp (Vec2 (fromIntegral ox / 2) (fromIntegral oy / 2)) adv
+charToBitmap :: Font -> Float -> Color -> Char -> IO RenderedChar
+charToBitmap (Font face refCache) size col@(Color r g b a) ch = do
+    cache <- readIORef refCache
+    case M.lookup (size, col, ch) cache of
+        Nothing -> do
+            d <- render
+            writeIORef refCache $ M.insert (size, col, ch) d cache
+            return d
+        Just d -> return d
 
+    where
+        render = do
+            ft_Set_Char_Size face 0 (floor $ size * 64) 300 300
+            ix <- ft_Get_Char_Index face (fromIntegral $ fromEnum ch)
+            ft_Load_Glyph face ix ft_LOAD_DEFAULT
 
--- | Render the string by the given font and color, and pass it to the 'Game' computation. 
-withRenderCharacters :: Font -> Color -> String -> ([Picture] -> Game a) -> Game a
-withRenderCharacters font color str action = bracket $ render str 0 >>= action
+            slot <- peek $ glyph face
+            e <- ft_Render_Glyph slot ft_RENDER_MODE_NORMAL
+            failFreeType e
+
+            bmp <- peek $ GS.bitmap slot
+            left <- fmap fromIntegral $ peek $ GS.bitmap_left slot
+            top <- fmap fromIntegral $ peek $ GS.bitmap_top slot
+
+            let h = fromIntegral $ B.rows bmp
+                w = fromIntegral $ B.width bmp
+                
+            mv <- newMVec (w * h)
+
+            fillChunkedIOP (w * h) (unsafeWriteMVec mv) $ const $ return
+                $ fmap unsafeCoerce . peekElemOff (buffer bmp)
+
+            adv <- peek $ advance slot
+
+            ar :: R.Array U DIM2 Word8 <- unsafeFreezeMVec (Z:.h:.w) mv
+
+            let pixel (crd:.0) = floor $ fromIntegral (R.index ar crd) * a
+                pixel (crd:.1) = floor $ b * 255
+                pixel (crd:.2) = floor $ g * 255
+                pixel (crd:.3) = floor $ r * 255
+
+            result <- computeP (fromFunction (Z:.h:.w:.4) pixel) >>= makeStableBitmap
+            
+            return $ RenderedChar result (Vec2 left (-top)) (fromIntegral (V.x adv) / 64)
+
+renderCharacters :: Font -> Float -> Color -> String -> IO [Picture]
+renderCharacters font size color str = render str 0
     where
         render [] _ = return []
-        render (c:cs) x = do
-            Just (RenderedChar b (Vec2 o h) w) <- embedIO $ charToBitmap font color c
-            (Translate (Vec2 (x + w + o) h) (BitmapPicture b):) <$> render cs (x + w)
-
-withRenderString :: Font -> Color -> String -> (Picture -> Game a) -> Game a
-withRenderString font color str action = withRenderCharacters font color str (action . Pictures)
+        render (c:cs) pen = do
+            RenderedChar b (Vec2 x y) adv <- charToBitmap font size color c
+            let (w,h) = bitmapSize b
+                offset = Vec2 (pen + x + fromIntegral w / 2) (y + fromIntegral h / 2)
+            (Translate offset (BitmapPicture b):)
+                <$> render cs (pen + adv)

@@ -8,13 +8,13 @@
 -- Stability   :  provisional
 -- Portability :  non-portable
 --
--- Abstract structures that represents user interfaces
+-- Colors and its operations
 ----------------------------------------------------------------------------
-module Graphics.FreeGame.Data.Color (Color, fromRGBA, colorAsWord8, white, black, red, green, blue, yellow, cyan, magenta, intermediate, halfD, halfB) where
+module Graphics.FreeGame.Data.Color (Color(..), fromRGBA, colorAsWord8, transparent, white, black, red, green, blue, yellow, cyan, magenta, intermediate, halfD, halfB) where
 
 import Data.Word
 
-data Color = Color Float Float Float Float
+data Color = Color Float Float Float Float deriving (Show, Eq, Ord)
 
 fromRGBA :: Float -> Float -> Float -> Float -> Color
 fromRGBA = Color
@@ -24,6 +24,9 @@ colorAsWord8 (Color r g b a) = (floor $ r * 255, floor $ g * 255, floor $ b * 25
 
 intermediate :: Color -> Color -> Color
 intermediate (Color r0 g0 b0 a0) (Color r1 g1 b1 a1) = Color ((r0 + r1)/2) ((g0 + g1)/2) ((b0 + b1)/2) ((a0 + a1)/2)
+
+transparent :: Float -> Color -> Color
+transparent f (Color r g b a) = Color r g b (f * a)
 
 halfD :: Color -> Color
 halfD = intermediate black
