@@ -43,6 +43,7 @@ module Graphics.FreeGame.Base (
 
 import Control.Monad.Free
 import Control.Monad
+import Graphics.FreeGame.Data.Color
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.FreeGame.Input
 import Data.Vect
@@ -50,6 +51,7 @@ import Data.Vect
 infixr 5 `Translate`
 infixr 5 `Rotate`
 infixr 5 `Scale`
+infixr 5 `Colored`
 
 -- | 'Game' is a 'Monad' that abstracts user interfaces.
 type Game = Free GameAction
@@ -110,14 +112,18 @@ transPicture _ x = x
 data Picture
     -- | A 'Bitmap' as a 'Picture'.
     = BitmapPicture Bitmap
-    -- | Combined picture from some 'Picture's.
+    -- | A picture consist of some 'Picture's.
     | Pictures [Picture]
+    -- | A picture that may have side effects.
+    | IOPicture (IO Picture)
     -- | Rotated picture by the given angle (in degrees, counterclockwise).
     | Rotate Float Picture
     -- | Scaled picture.
     | Scale Vec2 Picture
     -- | A picture translated by the given coordinate.
     | Translate Vec2 Picture
+    -- | Colored picture.
+    | Colored Color Picture
 
 -- | Parameters of the application.
 data GameParam = GameParam {
