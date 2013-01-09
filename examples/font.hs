@@ -6,10 +6,10 @@ import Control.Monad
 main = do
     font <- loadFont "VL-PGothic-Regular.ttf"
     runSimple defaultGameParam 0 $ \n -> do
-        drawPicture $ Translate (Vec2 30 120) $ text font 7 (halfD red) ("Counter: " ++ show n)
+        drawPicture $ Translate (Vec2 30 120) $ Colored (halfD red) $ text font 7 ("Counter: " ++ show n)
 
-        drawPicture $ Translate (Vec2 30 240) $ text font 9 (halfD blue) "日本語も、美しくレンダリング。"
+        drawPicture $ Translate (Vec2 30 240) $ Colored (halfD blue) $ text font 9 "日本語も、美しくレンダリング。"
 
-        withRenderString font 12 yellow "★☆★☆★☆★☆" $ drawPicture . Translate (Vec2 30 360)
+        withRenderString font 12 "★☆★☆★☆★☆" $ drawPicture . Translate (Vec2 30 360) . Colored yellow
 
         return $! n + 1

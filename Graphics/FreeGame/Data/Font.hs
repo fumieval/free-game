@@ -22,7 +22,6 @@ import Data.IORef
 import qualified Data.Map as M
 import Data.Word
 import Graphics.FreeGame.Base
-import Graphics.FreeGame.Data.Color
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.Rendering.FreeType.Internal
 import Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
@@ -40,7 +39,7 @@ import Unsafe.Coerce
 import Paths_free_game
 
 -- | Font object
-data Font = Font FT_Face (IORef (M.Map (Float, Color, Char) RenderedChar))
+data Font = Font FT_Face (IORef (M.Map (Float, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
 loadFont :: FilePath -> IO Font
@@ -49,18 +48,18 @@ loadFont path = alloca $ \p -> do
     failFreeType e
     Font <$> peek p <*> newIORef M.empty
 
--- | Render a text by the specified 'Font' and 'Color' and size.
-text :: Font -> Float -> Color -> String -> Picture
-text font size color str = IOPicture $ Pictures <$> renderCharacters font size color str
+-- | Render a text by the specified 'Font'.
+text :: Font -> Float -> String -> Picture
+text font size str = IOPicture $ Pictures <$> renderCharacters font size str
 
--- | Render the string by the given font and color, and pass it to the 'Game' action. 
-withRenderCharacters :: Font -> Float -> Color -> String -> ([Picture] -> Game a) -> Game a
-withRenderCharacters font size color str action = bracket
-    $ embedIO (renderCharacters font size color str) >>= action
+-- | Render the string by the given font, and pass it to the 'Game' action. 
+withRenderCharacters :: Font -> Float -> String -> ([Picture] -> Game a) -> Game a
+withRenderCharacters font size str action = bracket
+    $ embedIO (renderCharacters font size str) >>= action
 
--- | Render the string by the given font and color, and pass it to the 'Game' action. 
-withRenderString :: Font -> Float -> Color -> String -> (Picture -> Game a) -> Game a
-withRenderString font size color str action = withRenderCharacters font size color str (action . Pictures)
+-- | Render the string by the given font, and pass it to the 'Game' action. 
+withRenderString :: Font -> Float -> String -> (Picture -> Game a) -> Game a
+withRenderString font size str action = withRenderCharacters font size str (action . Pictures)
 
 failFreeType 0 = return ()
 failFreeType e = fail $ "FreeType Error:" Prelude.++ show e
@@ -78,13 +77,13 @@ data RenderedChar = RenderedChar
         ,charAdvance :: Float
     }
 
-charToBitmap :: Font -> Float -> Color -> Char -> IO RenderedChar
-charToBitmap (Font face refCache) size col@(Color r g b a) ch = do
+charToBitmap :: Font -> Float -> Char -> IO RenderedChar
+charToBitmap (Font face refCache) size ch = do
     cache <- readIORef refCache
-    case M.lookup (size, col, ch) cache of
+    case M.lookup (size, ch) cache of
         Nothing -> do
             d <- render
-            writeIORef refCache $ M.insert (size, col, ch) d cache
+            writeIORef refCache $ M.insert (size, ch) d cache
             return d
         Just d -> return d
 
@@ -114,21 +113,19 @@ charToBitmap (Font face refCache) size col@(Color r g b a) ch = do
 
             ar :: R.Array U DIM2 Word8 <- unsafeFreezeMVec (Z:.h:.w) mv
 
-            let pixel (crd:.0) = floor $ fromIntegral (R.index ar crd) * a
-                pixel (crd:.1) = floor $ b * 255
-                pixel (crd:.2) = floor $ g * 255
-                pixel (crd:.3) = floor $ r * 255
+            let pixel (crd:.0) = R.index ar crd
+                pixel (crd:._) = 255
 
             result <- computeP (fromFunction (Z:.h:.w:.4) pixel) >>= makeStableBitmap
             
             return $ RenderedChar result (Vec2 left (-top)) (fromIntegral (V.x adv) / 64)
 
-renderCharacters :: Font -> Float -> Color -> String -> IO [Picture]
-renderCharacters font size color str = render str 0
+renderCharacters :: Font -> Float -> String -> IO [Picture]
+renderCharacters font size str = render str 0
     where
         render [] _ = return []
         render (c:cs) pen = do
-            RenderedChar b (Vec2 x y) adv <- charToBitmap font size color c
+            RenderedChar b (Vec2 x y) adv <- charToBitmap font size c
             let (w,h) = bitmapSize b
                 offset = Vec2 (pen + x + fromIntegral w / 2) (y + fromIntegral h / 2)
             (Translate offset (BitmapPicture b):)
