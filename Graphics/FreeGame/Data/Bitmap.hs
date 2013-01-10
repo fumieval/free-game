@@ -1,7 +1,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Data.Bitmap
--- Copyright   :  (C) 2012 Fumiaki Kinoshita
+-- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
 -- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>

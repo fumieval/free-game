@@ -1,7 +1,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Simple
--- Copyright   :  (C) 2012 Fumiaki Kinoshita
+-- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
 -- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
@@ -15,6 +15,7 @@ module Graphics.FreeGame.Simple (
     Game
 
     -- * Run the game
+    ,GameParam
     ,defaultGameParam
     ,runSimple
 
@@ -39,6 +40,7 @@ module Graphics.FreeGame.Simple (
 
     -- * Utilities
     ,randomness
+    ,degrees
 
     -- * Reexports
     ,module Graphics.FreeGame.Input

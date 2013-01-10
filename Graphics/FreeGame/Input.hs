@@ -1,7 +1,19 @@
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.FreeGame.Input
+-- Copyright   :  (C) 2013 Fumiaki Kinoshita
+-- License     :  BSD-style (see the file LICENSE)
+--
+-- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
+-- Stability   :  experimental
+-- Portability :  non-portable
+--
+----------------------------------------------------------------------------
 module Graphics.FreeGame.Input where
 
 import Data.Vect
 
+-- | The state of the mouse.
 data MouseState = MouseState
     { mousePosition :: Vec2
     , leftButton :: Bool
@@ -10,6 +22,7 @@ data MouseState = MouseState
     , mouseWheel :: Int
     } deriving Show
 
+-- | Keys.
 data Key
         = KeyChar Char
         | KeySpace
