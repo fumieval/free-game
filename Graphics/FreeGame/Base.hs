@@ -114,7 +114,7 @@ data Picture
     = BitmapPicture Bitmap
     -- | A picture consist of some 'Picture's.
     | Pictures [Picture]
-    -- | A picture that may have side effects.
+    -- | A picture that may have side effects(rarely needed).
     | IOPicture (IO Picture)
     -- | Rotated picture by the given angle (in degrees, counterclockwise).
     | Rotate Float Picture
@@ -131,11 +131,13 @@ data GameParam = GameParam {
         ,windowSize :: (Int, Int)
         ,windowTitle :: String
         ,windowed :: Bool
+        ,cursorVisible :: Bool
+        ,clearColor :: Color
     }
 
 -- | 640*480(windowed), 60fps
 defaultGameParam :: GameParam
-defaultGameParam = GameParam 60 (640,480) "free-game" True
+defaultGameParam = GameParam 60 (640,480) "free-game" True True white
 
 {-# DEPRECATED loadPicture "No longer needed; use BitmapPicture instead" #-}
 -- | Create a 'Picture' from 'Bitmap'.
