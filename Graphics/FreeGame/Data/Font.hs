@@ -36,7 +36,6 @@ import Foreign.C.String
 import Foreign.Storable
 import System.IO.Unsafe
 import Unsafe.Coerce
-import Paths_free_game
 
 -- | Font object
 data Font = Font FT_Face (IORef (M.Map (Float, Char) RenderedChar))

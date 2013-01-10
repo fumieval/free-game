@@ -47,16 +47,16 @@ data Bitmap = Bitmap {
     ,bitmapHash :: Maybe Int -- ^ This value is used to ensure that two bitmaps are equivalent.
     }
 
--- Create unstable 'Bitmap' from the given array.
+-- | Create unstable 'Bitmap' from the given array.
 toBitmap :: R.Array RF.F DIM3 Word8 -> Bitmap
 toBitmap ar = Bitmap ar Nothing
 
--- Create stable 'Bitmap' from the given array and compute the hash.
+-- | Create stable 'Bitmap' from the given array and compute the hash.
 toStableBitmap :: R.Array RF.F DIM3 Word8 -> Bitmap
 toStableBitmap ar = Bitmap ar $ Just $ head $ foldAllP combine 0 $ R.map fromIntegral ar where
     combine p q = hash (p, q)
 
--- Create stable 'Bitmap' with unique hash from the given array.
+-- | Create stable 'Bitmap' with unique hash from the given array.
 makeStableBitmap :: R.Array RF.F DIM3 Word8 -> IO Bitmap
 makeStableBitmap ar = Bitmap ar <$> Just <$> randomIO
 

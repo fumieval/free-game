@@ -33,6 +33,7 @@ module Graphics.FreeGame.Simple (
     ,Vec2(..)
 
     -- * Drawing texts
+    ,Font
     ,loadFont
     ,text
 
