@@ -143,7 +143,7 @@ run is (Free f) = case f of
         (x, y) <- getMousePosition
         b0 <- mouseButtonIsPressed MouseButton0
         b1 <- mouseButtonIsPressed MouseButton1
-        b2 <- mouseButtonIsPressed MouseButton1
+        b2 <- mouseButtonIsPressed MouseButton2
         w <- getMouseWheel
         run is $ fcont $ I.MouseState (Vec2 (fromIntegral x) (fromIntegral y)) b0 b2 b1 w
     QuitGame -> return Nothing
