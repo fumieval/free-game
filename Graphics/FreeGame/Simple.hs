@@ -30,6 +30,7 @@ module Graphics.FreeGame.Simple (
 
     -- * About Picture
     ,Picture(..)
+    ,Bitmap
     ,loadBitmapFromFile
     ,Vec2(..)
 
