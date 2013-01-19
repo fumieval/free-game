@@ -11,7 +11,15 @@
 --
 -- Rendering characters
 ----------------------------------------------------------------------------
-module Graphics.FreeGame.Data.Font (Font, loadFont, text, withRenderString, withRenderCharacters ) where
+module Graphics.FreeGame.Data.Font 
+  ( Font
+  , FontInfo(..)
+  , loadFont
+  , text
+  , withRenderString
+  , withRenderCharacters
+  , pixelToPoint
+  ) where
 
 import Control.Applicative
 import Data.Array.Repa as R
@@ -76,6 +84,15 @@ data RenderedChar = RenderedChar
         ,charAdvance :: Float
     }
 
+-- | The resolution used to render fonts.
+resolutionDPI :: Int
+resolutionDPI = 300
+
+-- | Takes a font size in pixels and calculates the actual needed font
+--   size in points.
+pixelToPoint :: Int -> Float
+pixelToPoint pixel = (fromIntegral pixel * 72) / (fromIntegral resolutionDPI)
+
 charToBitmap :: Font -> Float -> Char -> IO RenderedChar
 charToBitmap (Font face refCache) size ch = do
     cache <- readIORef refCache
@@ -88,7 +105,8 @@ charToBitmap (Font face refCache) size ch = do
 
     where
         render = do
-            ft_Set_Char_Size face 0 (floor $ size * 64) 300 300
+            let dpi = fromIntegral resolutionDPI
+            ft_Set_Char_Size face 0 (floor $ size * 64) dpi dpi
             ix <- ft_Get_Char_Index face (fromIntegral $ fromEnum ch)
             ft_Load_Glyph face ix ft_LOAD_DEFAULT
 
