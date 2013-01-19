@@ -13,7 +13,6 @@
 ----------------------------------------------------------------------------
 module Graphics.FreeGame.Data.Font 
   ( Font
-  , FontInfo(..)
   , loadFont
   , text
   , withRenderString
