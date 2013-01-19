@@ -36,6 +36,7 @@ module Graphics.FreeGame.Base (
     -- * Settings
     ,GameParam(..)
     ,defaultGameParam
+    ,getCurrentGameParam
 
     -- * Deprecated
     ,loadPicture
@@ -64,12 +65,14 @@ data GameAction a
     | DrawPicture Picture a
     | AskInput Key (Bool -> a)
     | GetMouseState (MouseState -> a)
+    | GetGameParam (GameParam -> a)
     | QuitGame
 
 instance Functor GameAction where
     fmap f (DrawPicture a cont) = DrawPicture a (f cont)
     fmap f (AskInput a cont)    = AskInput a (f . cont)
     fmap f (GetMouseState cont) = GetMouseState (f . cont)
+    fmap f (GetGameParam cont)  = GetGameParam (f . cont)
     fmap f (EmbedIO m) = EmbedIO (fmap f m)
     fmap f (Bracket m) = Bracket (fmap f m)
     fmap f (Tick cont) = Tick (f cont)
@@ -103,6 +106,10 @@ askInput key = wrap $ AskInput key return
 getMouseState :: MonadFree GameAction m => m MouseState
 getMouseState = wrap $ GetMouseState return
 
+-- | Get the game params that apply to the currently running game.
+getCurrentGameParam :: MonadFree GameAction m => m GameParam
+getCurrentGameParam = wrap $ GetGameParam return
+
 -- | Lift a picture transformation into transformation of 'GameAction'
 transPicture :: (Picture -> Picture) -> GameAction cont -> GameAction cont
 transPicture f (DrawPicture p cont) = DrawPicture (f p) cont
@@ -133,7 +140,7 @@ data GameParam = GameParam {
         ,windowed :: Bool
         ,cursorVisible :: Bool
         ,clearColor :: Color
-    }
+    } deriving Show
 
 -- | 640*480(windowed), 60fps
 defaultGameParam :: GameParam
