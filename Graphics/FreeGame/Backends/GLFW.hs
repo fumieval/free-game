@@ -106,6 +106,8 @@ run :: (?windowWidth :: Int, ?windowHeight :: Int
     , ?refTextures :: IORef (IM.IntMap Texture)
     , ?refFrame :: IORef Int
     , ?frameTime :: Double
+    , ?windowTitle :: String, ?windowMode :: Bool
+    , ?cursorVisible :: Bool
     ) => [Int] -> Game a -> IO (Maybe a)
 run is (Pure x) = do
     m <- readIORef ?refTextures
@@ -146,6 +148,19 @@ run is (Free f) = case f of
         b2 <- mouseButtonIsPressed MouseButton2
         w <- getMouseWheel
         run is $ fcont $ I.MouseState (Vec2 (fromIntegral x) (fromIntegral y)) b0 b2 b1 w
+    GetGameParam fcont -> do
+        dim <- GLFW.getWindowDimensions
+        GL.Color4 r g b a <- get GL.clearColor
+        run is $ fcont $ GameParam { framePerSecond = floor $ 1 / ?frameTime
+                                   , windowSize = dim
+                                   , windowTitle = ?windowTitle
+                                   , windowed = ?windowMode
+                                   , cursorVisible = ?cursorVisible
+                                   , clearColor = Color (realToFrac r) 
+                                                        (realToFrac g) 
+                                                        (realToFrac b) 
+                                                        (realToFrac a)
+                                   }
     QuitGame -> return Nothing
 
 -- | Run 'Game' using OpenGL and GLFW.
@@ -155,19 +170,22 @@ runGame param game = do
     pf <- openGLProfile
     let ?windowWidth = fst $ windowSize param
         ?windowHeight = snd $ windowSize param
-    
+        ?windowTitle = windowTitle param
+        ?windowMode = windowed param
+        ?cursorVisible = cursorVisible param
     openWindow $ defaultDisplayOptions {
         displayOptions_width = fromIntegral ?windowWidth
         ,displayOptions_height = fromIntegral ?windowHeight
-        ,displayOptions_displayMode = Window
+        ,displayOptions_displayMode = if ?windowMode then Window else Fullscreen
         ,displayOptions_windowIsResizable = False
         ,displayOptions_openGLProfile = pf
         ,displayOptions_numDepthBits = 8
     }
     
-    unless (cursorVisible param) $ disableMouseCursor
+    if ?cursorVisible then enableMouseCursor 
+                      else disableMouseCursor
 
-    setWindowTitle $ windowTitle param
+    setWindowTitle $ ?windowTitle
     
     GL.lineSmooth $= GL.Enabled
     GL.blend      $= GL.Enabled
