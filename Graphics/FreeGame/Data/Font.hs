@@ -15,9 +15,7 @@ module Graphics.FreeGame.Data.Font
   ( Font
   , loadFont
   , text
-  , withRenderString
-  , withRenderCharacters
-  , pixelToPoint
+  , renderCharacters
   ) where
 
 import Control.Applicative
@@ -58,15 +56,6 @@ loadFont path = alloca $ \p -> do
 text :: Font -> Float -> String -> Picture
 text font size str = IOPicture $ Pictures <$> renderCharacters font size str
 
--- | Render the string by the given font, and pass it to the 'Game' action. 
-withRenderCharacters :: Font -> Float -> String -> ([Picture] -> Game a) -> Game a
-withRenderCharacters font size str action = bracket
-    $ embedIO (renderCharacters font size str) >>= action
-
--- | Render the string by the given font, and pass it to the 'Game' action. 
-withRenderString :: Font -> Float -> String -> (Picture -> Game a) -> Game a
-withRenderString font size str action = withRenderCharacters font size str (action . Pictures)
-
 failFreeType 0 = return ()
 failFreeType e = fail $ "FreeType Error:" Prelude.++ show e
 
@@ -87,13 +76,8 @@ data RenderedChar = RenderedChar
 resolutionDPI :: Int
 resolutionDPI = 300
 
--- | Takes a font size in pixels and calculates the actual needed font
---   size in points.
-pixelToPoint :: Int -> Float
-pixelToPoint pixel = (fromIntegral pixel * 72) / (fromIntegral resolutionDPI)
-
 charToBitmap :: Font -> Float -> Char -> IO RenderedChar
-charToBitmap (Font face refCache) size ch = do
+charToBitmap (Font face refCache) pixel ch = do
     cache <- readIORef refCache
     case M.lookup (size, ch) cache of
         Nothing -> do
@@ -103,9 +87,12 @@ charToBitmap (Font face refCache) size ch = do
         Just d -> return d
 
     where
+        size = pixel * 72 / fromIntegral resolutionDPI
         render = do
             let dpi = fromIntegral resolutionDPI
+
             ft_Set_Char_Size face 0 (floor $ size * 64) dpi dpi
+            
             ix <- ft_Get_Char_Index face (fromIntegral $ fromEnum ch)
             ft_Load_Glyph face ix ft_LOAD_DEFAULT
 
@@ -137,12 +124,10 @@ charToBitmap (Font face refCache) size ch = do
             return $ RenderedChar result (Vec2 left (-top)) (fromIntegral (V.x adv) / 64)
 
 renderCharacters :: Font -> Float -> String -> IO [Picture]
-renderCharacters font size str = render str 0
-    where
-        render [] _ = return []
-        render (c:cs) pen = do
-            RenderedChar b (Vec2 x y) adv <- charToBitmap font size c
-            let (w,h) = bitmapSize b
-                offset = Vec2 (pen + x + fromIntegral w / 2) (y + fromIntegral h / 2)
-            (Translate offset (BitmapPicture b):)
-                <$> render cs (pen + adv)
+renderCharacters font pixel str = render str 0 where
+    render [] _ = return []
+    render (c:cs) pen = do
+        RenderedChar b (Vec2 x y) adv <- charToBitmap font pixel c
+        let (w,h) = bitmapSize b
+            offset = Vec2 (pen + x + fromIntegral w / 2) (y + fromIntegral h / 2)
+        (Translate offset (BitmapPicture b):) <$> render cs (pen + adv)
