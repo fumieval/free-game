@@ -1,0 +1,62 @@
+{-# LANGUAGE ImplicitParams, TemplateHaskell #-}
+import Graphics.FreeGame.Simple
+import Graphics.FreeGame (runGame)
+import Control.Arrow
+import Control.Applicative
+import Control.Monad
+import Data.Vect
+import Control.Monad.State
+import Graphics.FreeGame.Control.Vein
+
+import Control.Lens -- using lens (http://hackage.haskell.org/package/lens)
+
+data Object = Object
+    {
+        _position :: Vec2
+        , _velocity :: Vec2
+        , _pressed :: Bool
+    }
+
+$(makeLenses ''Object)
+
+obj :: (?pic :: Picture) => Object -> Vein Game MouseState ()
+obj = wrapStateful $ \mouse -> do
+    pos@(Vec2 x y) <- use position
+
+    vel@(Vec2 dx dy) <- use velocity
+
+    let dx' | x <= 0 = abs dx
+            | x >= 640 = -(abs dx)
+            | otherwise = dx
+        dy' | y <= 0 = abs dy
+            | y >= 480 = -(abs dy)
+            | otherwise = dy
+
+    position .= pos &+ vel
+    velocity .= Vec2 dx' dy'
+
+    if norm (mousePosition mouse &- pos) < 32
+        then do
+            drawPicture $ Translate pos ?pic
+            btn <- use pressed
+            when (not btn && leftButton mouse) $ do
+                vel' <- (&*4) <$> sinCos <$> randomness (0, 2 * pi)
+                velocity .= vel'
+
+            pressed .= leftButton mouse
+
+        else drawPicture $ Translate pos $ Colored (transparent 0.7 white) ?pic
+
+newObject :: (?pic :: Picture) => Game Object
+newObject = do
+    x <- randomness (0,640)
+    y <- randomness (0,480)
+    a <- randomness (0, 2 * pi)
+    return $ Object (Vec2 x y) (sinCos a &* 4) False
+
+main = do
+    bmp <- loadBitmapFromFile "logo.png"
+    let ?pic = BitmapPicture bmp
+    runGame defaultGameParam $ do
+        v <- bundle <$> replicateM 20 (obj <$> newObject)
+        foreverVein $ actionAfter tick $ wrapAction (const getMouseState) >>> v
