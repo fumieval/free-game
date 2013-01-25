@@ -179,7 +179,6 @@ runGame param game = do
         ,displayOptions_displayMode = if ?windowMode then Window else Fullscreen
         ,displayOptions_windowIsResizable = False
         ,displayOptions_openGLProfile = pf
-        ,displayOptions_numDepthBits = 8
     }
     
     if ?cursorVisible then enableMouseCursor 
