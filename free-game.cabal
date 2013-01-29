@@ -34,7 +34,6 @@ library
     , Graphics.FreeGame.Data.Color
     , Graphics.FreeGame.Data.Bitmap
     , Graphics.FreeGame.Data.Font
-    , Graphics.FreeGame.Control.Vein
   ghc-options:         -fexcess-precision
   build-depends: base == 4.*
     , mtl >= 2.1

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, DeriveFunctor #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Base
@@ -67,16 +67,7 @@ data GameAction a
     | GetMouseState (MouseState -> a)
     | GetGameParam (GameParam -> a)
     | QuitGame
-
-instance Functor GameAction where
-    fmap f (DrawPicture a cont) = DrawPicture a (f cont)
-    fmap f (AskInput a cont)    = AskInput a (f . cont)
-    fmap f (GetMouseState cont) = GetMouseState (f . cont)
-    fmap f (GetGameParam cont)  = GetGameParam (f . cont)
-    fmap f (EmbedIO m) = EmbedIO (fmap f m)
-    fmap f (Bracket m) = Bracket (fmap f m)
-    fmap f (Tick cont) = Tick (f cont)
-    fmap _ QuitGame = QuitGame
+    deriving Functor
 
 -- | Finalize the current frame and refresh the screen.
 tick :: MonadFree GameAction m => m ()
