@@ -14,6 +14,8 @@
 module Graphics.FreeGame.Data.Font 
   ( Font
   , loadFont
+  , Metrics
+  , getMetrics
   , text
   , renderCharacters
   ) where
@@ -27,6 +29,7 @@ import Data.IORef
 import qualified Data.Map as M
 import Data.Word
 import Graphics.FreeGame.Base
+import Graphics.FreeGame.Types
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.Rendering.FreeType.Internal
 import Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
@@ -35,7 +38,7 @@ import Graphics.Rendering.FreeType.Internal.Bitmap as B
 import Graphics.Rendering.FreeType.Internal.PrimitiveTypes as PT
 import Graphics.Rendering.FreeType.Internal.Face as F
 import Graphics.Rendering.FreeType.Internal.Library as L
-
+import Graphics.Rendering.FreeType.Internal.BBox as BB
 import Foreign.Marshal.Alloc
 import Foreign.C.String
 import Foreign.Storable
@@ -43,14 +46,30 @@ import System.IO.Unsafe
 import Unsafe.Coerce
 
 -- | Font object
-data Font = Font FT_Face (IORef (M.Map (Float, Char) RenderedChar))
+data Font = Font FT_Face Metrics BoundingBox (IORef (M.Map (Float, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
 loadFont :: FilePath -> IO Font
 loadFont path = alloca $ \p -> do
     e <- withCString path $ \str -> ft_New_Face freeType str 0 p
     failFreeType e
-    Font <$> peek p <*> newIORef M.empty
+    face <- peek p
+    b <- peek (bbox face)
+    asc <- peek (ascender face)
+    desc <- peek (descender face)
+    let m = Metrics (toPixel $ fromIntegral asc) (toPixel $ fromIntegral desc)
+        box = BoundingBox (toPixel (xMin b) `Vec2` toPixel (yMin b))
+                          (toPixel (xMax b) `Vec2` toPixel (yMax b))
+    Font face m box <$> newIORef M.empty
+    where
+        toPixel = (* fromIntegral resolutionDPI) . (/72) . (/64) . fromIntegral
+
+getMetrics :: Font -> Metrics
+getMetrics (Font _ m _ _) = m
+
+getBoundingBox :: Font -> BoundingBox
+getBoundingBox (Font _ _ b _) = b
+
 
 -- | Render a text by the specified 'Font'.
 text :: Font -> Float -> String -> Picture
@@ -66,10 +85,14 @@ freeType = unsafePerformIO $ alloca $ \p -> do
     peek p
 
 data RenderedChar = RenderedChar
-    {
-        charBitmap :: Bitmap
-        ,charOffset :: Vec2
-        ,charAdvance :: Float
+    { charBitmap :: Bitmap
+    , charOffset :: Vec2
+    ,　charAdvance :: Float
+    }
+
+data Metrics = Metrics
+    { metricsAscent :: Float
+    , metricsDescent :: Float
     }
 
 -- | The resolution used to render fonts.
@@ -77,7 +100,7 @@ resolutionDPI :: Int
 resolutionDPI = 300
 
 charToBitmap :: Font -> Float -> Char -> IO RenderedChar
-charToBitmap (Font face refCache) pixel ch = do
+charToBitmap (Font face _ _ refCache) pixel ch = do
     cache <- readIORef refCache
     case M.lookup (size, ch) cache of
         Nothing -> do
@@ -85,7 +108,6 @@ charToBitmap (Font face refCache) pixel ch = do
             writeIORef refCache $ M.insert (size, ch) d cache
             return d
         Just d -> return d
-
     where
         size = pixel * 72 / fromIntegral resolutionDPI
         render = do
@@ -122,7 +144,7 @@ charToBitmap (Font face refCache) pixel ch = do
             result <- computeP (fromFunction (Z:.h:.w:.4) pixel) >>= makeStableBitmap
             
             return $ RenderedChar result (Vec2 left (-top)) (fromIntegral (V.x adv) / 64)
-
+ 
 renderCharacters :: Font -> Float -> String -> IO [Picture]
 renderCharacters font pixel str = render str 0 where
     render [] _ = return []

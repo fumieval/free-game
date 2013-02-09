@@ -30,6 +30,7 @@ library
     , Graphics.FreeGame.Util
     , Graphics.FreeGame.Input
     , Graphics.FreeGame.Base
+    , Graphics.FreeGame.Types
     , Graphics.FreeGame.Backends.GLFW
     , Graphics.FreeGame.Data.Color
     , Graphics.FreeGame.Data.Bitmap
