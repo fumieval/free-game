@@ -73,4 +73,7 @@ data Key
         | KeyPadDecimal
         | KeyPadEqual
         | KeyPadEnter
+        | MouseLeft
+        | MouseRight
+        | MouseMiddle
         deriving (Show, Eq, Ord)
