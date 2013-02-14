@@ -31,6 +31,8 @@ module Graphics.FreeGame.Base (
     
     -- * Inputs
     ,askInput
+    ,getMousePosition
+    ,getMouseWheel
     ,getMouseState
 
     -- * Settings
@@ -64,7 +66,8 @@ data GameAction a
     | Bracket (Game a)
     | DrawPicture Picture a
     | AskInput Key (Bool -> a)
-    | GetMouseState (MouseState -> a)
+    | GetMousePosition (Vec2 -> a)
+    | GetMouseWheel (Int -> a)
     | GetGameParam (GameParam -> a)
     | QuitGame
     deriving Functor
@@ -93,9 +96,11 @@ drawPicture pic = wrap $ DrawPicture pic (return ())
 askInput :: MonadFree GameAction m => Key -> m Bool
 askInput key = wrap $ AskInput key return
 
--- | Get the mouse's state.
-getMouseState :: MonadFree GameAction m => m MouseState
-getMouseState = wrap $ GetMouseState return
+getMouseWheel :: MonadFree GameAction m => m Int
+getMouseWheel = wrap $ GetMouseWheel return
+
+getMousePosition :: MonadFree GameAction m => m Vec2
+getMousePosition = wrap $ GetMousePosition return
 
 -- | Get the game params that apply to the currently running game.
 getCurrentGameParam :: MonadFree GameAction m => m GameParam
@@ -112,7 +117,7 @@ data Picture
     = BitmapPicture Bitmap
     -- | A picture consist of some 'Picture's.
     | Pictures [Picture]
-    -- | A picture that may have side effects(rarely needed).
+    -- | A picture that may have side effects(for internal use).
     | IOPicture (IO Picture)
     -- | Rotated picture by the given angle (in degrees, counterclockwise).
     | Rotate Float Picture
@@ -136,6 +141,15 @@ data GameParam = GameParam {
 -- | 640*480(windowed), 60fps
 defaultGameParam :: GameParam
 defaultGameParam = GameParam 60 (640,480) "free-game" True True white
+
+-- | Get the mouse's state.
+getMouseState :: MonadFree GameAction m => m MouseState
+getMouseState = MouseState
+    `liftM` getMousePosition
+    `ap` askInput MouseLeft
+    `ap` askInput MouseMiddle
+    `ap` askInput MouseRight
+    `ap` getMouseWheel
 
 {-# DEPRECATED loadPicture "No longer needed; use BitmapPicture instead" #-}
 -- | Create a 'Picture' from 'Bitmap'.

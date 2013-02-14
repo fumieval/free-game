@@ -40,9 +40,8 @@ installTexture bmp = do
     [tex] <- GL.genObjectNames 1
     GL.textureBinding GL.Texture2D GL.$= Just tex
 
-    let ar = bitmapData bmp
     let (width, height) = bitmapSize bmp
-    withForeignPtr (RF.toForeignPtr ar)
+    withForeignPtr (RF.toForeignPtr $ bitmapData bmp)
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 (GL.TextureSize2D (gsizei width) (gsizei height)) 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
     return $ Texture tex width height
@@ -53,11 +52,11 @@ freeTexture (Texture tex width height) = GL.deleteObjectNames [tex]
 drawTexture :: Texture -> IO ()
 drawTexture (Texture tex width height) = do
     let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
-    GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.Clamp)
-    GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.Clamp)
-    GL.textureFilter   GL.Texture2D      $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.texture GL.Texture2D $= GL.Enabled
-    GL.textureFunction      $= GL.Combine    
+    -- GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.Clamp)
+    -- GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.Clamp)
+    GL.textureFilter   GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
+    -- GL.texture GL.Texture2D $= GL.Enabled
+    -- GL.textureFunction      $= GL.Combine
     GL.textureBinding GL.Texture2D $= Just tex
     GL.renderPrimitive GL.Polygon $ zipWithM_
         (\(pX, pY) (tX, tY) -> do
@@ -65,7 +64,7 @@ drawTexture (Texture tex width height) = do
             GL.vertex $ GL.Vertex2   (gf pX) (gf pY))
         [(-w, -h), (w, -h), (w, h), (-w, h)]
         [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
-    GL.texture GL.Texture2D GL.$= GL.Disabled
+    -- GL.texture GL.Texture2D GL.$= GL.Disabled
 
 drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> IO [Int]
 drawPic (BitmapPicture bmp) = case bitmapHash bmp of
@@ -85,13 +84,10 @@ drawPic (BitmapPicture bmp) = case bitmapHash bmp of
                 return [h]
 
 drawPic (Rotate theta p) = GL.preservingMatrix $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1) >> drawPic p
-
 drawPic (Scale (Vec2 sx sy) p) = GL.preservingMatrix $ GL.scale (gf sx) (gf sy) 1 >> drawPic p
-
 drawPic (Translate (Vec2 tx ty) p) = GL.preservingMatrix $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0) >> drawPic p
-
 drawPic (Pictures ps) = concat <$> mapM drawPic ps
-
+drawPic (IOPicture m) = m >>= drawPic
 drawPic (Colored (Color r g b a) pic) = do
     oldColor <- get GL.currentColor
     GL.currentColor  $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
@@ -99,35 +95,23 @@ drawPic (Colored (Color r g b a) pic) = do
     GL.currentColor $= oldColor
     return r
 
-drawPic (IOPicture m) = m >>= drawPic
-
 
 run :: (?windowWidth :: Int, ?windowHeight :: Int
     , ?refTextures :: IORef (IM.IntMap Texture)
     , ?refFrame :: IORef Int
     , ?frameTime :: Double
-    , ?windowTitle :: String, ?windowMode :: Bool
+    , ?windowTitle :: String
+    , ?windowMode :: Bool
     , ?cursorVisible :: Bool
     ) => [Int] -> Game a -> IO (Maybe a)
-run is (Pure x) = do
-    m <- readIORef ?refTextures
-    GL.deleteObjectNames [texObj $ m IM.! i | i <- is]
-    modifyIORef ?refTextures $ flip (foldr IM.delete) is
-    return (Just x)
 run is (Free f) = case f of
     DrawPicture pic cont -> do
-        ls <- GL.preservingMatrix $ do
-            GL.loadIdentity
-            GL.scale (gf 1) (-1) 1
-            GL.ortho 0 (fromIntegral ?windowWidth) 0 (fromIntegral ?windowHeight) 0 (-100)
-            GL.matrixMode   $= GL.Modelview 0
-            ls <- drawPic pic
-            GL.matrixMode   $= GL.Projection
-            return ls
+        ls <- drawPic pic
         flip run cont $! ls Prelude.++ is -- Strict!!!
     EmbedIO m -> m >>= run is
     Bracket m -> run [] m >>= maybe (return Nothing) (run is)
     Tick cont -> do
+        GL.matrixMode   $= GL.Projection
         swapBuffers
         t <- getTime
         n <- readIORef ?refFrame
@@ -138,16 +122,21 @@ run is (Free f) = case f of
 
         r <- windowIsOpen
         if r
-            then GL.clear [GL.ColorBuffer] >> performGC >> run is cont
+            then do
+                GL.clear [GL.ColorBuffer] 
+                performGC
+                GL.preservingMatrix $ do
+                GL.loadIdentity
+                GL.scale (gf 1) (-1) 1
+                GL.ortho 0 (fromIntegral ?windowWidth) 0 (fromIntegral ?windowHeight) 0 (-100)
+                GL.matrixMode   $= GL.Modelview 0
+                run is cont
             else return Nothing
-    AskInput key fcont -> keyIsPressed (mapKey key) >>= run is . fcont
-    GetMouseState fcont -> do
-        (x, y) <- getMousePosition
-        b0 <- mouseButtonIsPressed MouseButton0
-        b1 <- mouseButtonIsPressed MouseButton1
-        b2 <- mouseButtonIsPressed MouseButton2
-        w <- getMouseWheel
-        run is $ fcont $ I.MouseState (Vec2 (fromIntegral x) (fromIntegral y)) b0 b2 b1 w
+    AskInput key fcont -> either keyIsPressed mouseButtonIsPressed (mapKey key) >>= run is . fcont
+    GetMousePosition fcont -> do
+        (x, y) <- GLFW.getMousePosition
+        run is $ fcont $ Vec2 (fromIntegral x) (fromIntegral y)
+    GetMouseWheel fcont -> GLFW.getMouseWheel >>= run is . fcont
     GetGameParam fcont -> do
         dim <- GLFW.getWindowDimensions
         GL.Color4 r g b a <- get GL.clearColor
@@ -162,6 +151,11 @@ run is (Free f) = case f of
                                                         (realToFrac a)
                                    }
     QuitGame -> return Nothing
+run is (Pure x) = do
+    m <- readIORef ?refTextures
+    GL.deleteObjectNames [texObj $ m IM.! i | i <- is]
+    modifyIORef ?refTextures $ flip (foldr IM.delete) is
+    return (Just x)
 
 -- | Run 'Game' using OpenGL and GLFW.
 runGame :: GameParam -> Game a -> IO (Maybe a)
@@ -190,7 +184,9 @@ runGame param game = do
     GL.blend      $= GL.Enabled
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
     GL.shadeModel $= GL.Smooth
-    
+    GL.texture GL.Texture2D $= GL.Enabled
+    GL.textureFunction $= GL.Combine
+
     let Color r g b a = clearColor param
     GL.clearColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
 
@@ -206,55 +202,58 @@ runGame param game = do
     return r
 
 mapKey k = case k of
-    I.KeyChar c -> CharKey c
-    I.KeySpace -> KeySpace
-    I.KeyF1 -> KeyF1
-    I.KeyF2 -> KeyF2
-    I.KeyF3 -> KeyF3
-    I.KeyF4 -> KeyF4
-    I.KeyF5 -> KeyF5
-    I.KeyF6 -> KeyF6
-    I.KeyF7 -> KeyF7
-    I.KeyF8 -> KeyF8
-    I.KeyF9 -> KeyF9
-    I.KeyF10 -> KeyF10
-    I.KeyF11 -> KeyF11
-    I.KeyF12 -> KeyF12
-    I.KeyEsc -> KeyEsc
-    I.KeyUp -> KeyUp
-    I.KeyDown -> KeyDown
-    I.KeyLeft -> KeyLeft
-    I.KeyRight -> KeyRight
-    I.KeyLeftShift -> KeyLeftShift
-    I.KeyRightShift -> KeyLeftShift
-    I.KeyLeftControl -> KeyLeftCtrl
-    I.KeyRightControl -> KeyRightCtrl
-    I.KeyTab -> KeyTab
-    I.KeyEnter -> KeyEnter
-    I.KeyBackspace -> KeyBackspace
-    I.KeyInsert -> KeyInsert
-    I.KeyDelete -> KeyDel
-    I.KeyPageUp -> KeyPageup
-    I.KeyPageDown -> KeyPagedown
-    I.KeyHome -> KeyHome
-    I.KeyEnd -> KeyEnd
-    I.KeyPad0 -> KeyPad0
-    I.KeyPad1 -> KeyPad1
-    I.KeyPad2 -> KeyPad2
-    I.KeyPad3 -> KeyPad3
-    I.KeyPad4 -> KeyPad4
-    I.KeyPad5 -> KeyPad5
-    I.KeyPad6 -> KeyPad6
-    I.KeyPad7 -> KeyPad7
-    I.KeyPad8 -> KeyPad8
-    I.KeyPad9 -> KeyPad9
-    I.KeyPadDivide -> KeyPadDivide
-    I.KeyPadMultiply -> KeyPadMultiply
-    I.KeyPadSubtract -> KeyPadSubtract
-    I.KeyPadAdd -> KeyPadAdd
-    I.KeyPadDecimal -> KeyPadDecimal
-    I.KeyPadEqual -> KeyPadEqual
-    I.KeyPadEnter -> KeyPadEnter
+    I.KeyChar c -> Left $ CharKey c
+    I.KeySpace -> Left KeySpace
+    I.KeyF1 -> Left KeyF1
+    I.KeyF2 -> Left KeyF2
+    I.KeyF3 -> Left KeyF3
+    I.KeyF4 -> Left KeyF4
+    I.KeyF5 -> Left KeyF5
+    I.KeyF6 -> Left KeyF6
+    I.KeyF7 -> Left KeyF7
+    I.KeyF8 -> Left KeyF8
+    I.KeyF9 -> Left KeyF9
+    I.KeyF10 -> Left KeyF10
+    I.KeyF11 -> Left KeyF11
+    I.KeyF12 -> Left KeyF12
+    I.KeyEsc -> Left KeyEsc
+    I.KeyUp -> Left KeyUp
+    I.KeyDown -> Left KeyDown
+    I.KeyLeft -> Left KeyLeft
+    I.KeyRight -> Left KeyRight
+    I.KeyLeftShift -> Left KeyLeftShift
+    I.KeyRightShift -> Left KeyLeftShift
+    I.KeyLeftControl -> Left KeyLeftCtrl
+    I.KeyRightControl -> Left KeyRightCtrl
+    I.KeyTab -> Left KeyTab
+    I.KeyEnter -> Left KeyEnter
+    I.KeyBackspace -> Left KeyBackspace
+    I.KeyInsert -> Left KeyInsert
+    I.KeyDelete -> Left KeyDel
+    I.KeyPageUp -> Left KeyPageup
+    I.KeyPageDown -> Left KeyPagedown
+    I.KeyHome -> Left KeyHome
+    I.KeyEnd -> Left KeyEnd
+    I.KeyPad0 -> Left KeyPad0
+    I.KeyPad1 -> Left KeyPad1
+    I.KeyPad2 -> Left KeyPad2
+    I.KeyPad3 -> Left KeyPad3
+    I.KeyPad4 -> Left KeyPad4
+    I.KeyPad5 -> Left KeyPad5
+    I.KeyPad6 -> Left KeyPad6
+    I.KeyPad7 -> Left KeyPad7
+    I.KeyPad8 -> Left KeyPad8
+    I.KeyPad9 -> Left KeyPad9
+    I.KeyPadDivide -> Left KeyPadDivide
+    I.KeyPadMultiply -> Left KeyPadMultiply
+    I.KeyPadSubtract -> Left KeyPadSubtract
+    I.KeyPadAdd -> Left KeyPadAdd
+    I.KeyPadDecimal -> Left KeyPadDecimal
+    I.KeyPadEqual -> Left KeyPadEqual
+    I.KeyPadEnter -> Left KeyPadEnter
+    I.MouseLeft -> Right MouseButton0
+    I.MouseRight -> Right MouseButton1
+    I.MouseMiddle -> Right MouseButton2
 
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
