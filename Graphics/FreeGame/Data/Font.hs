@@ -14,8 +14,9 @@
 module Graphics.FreeGame.Data.Font 
   ( Font
   , loadFont
-  , Metrics
-  , getMetrics
+  , Metrics(..)
+  , Graphics.FreeGame.Data.Font.metrics
+  , fontBoundingBox
   , text
   , renderCharacters
   ) where
@@ -57,19 +58,17 @@ loadFont path = alloca $ \p -> do
     b <- peek (bbox face)
     asc <- peek (ascender face)
     desc <- peek (descender face)
-    let m = Metrics (toPixel $ fromIntegral asc) (toPixel $ fromIntegral desc)
-        box = BoundingBox (toPixel (xMin b) `Vec2` toPixel (yMin b))
-                          (toPixel (xMax b) `Vec2` toPixel (yMax b))
+    u <- fromIntegral <$> peek (units_per_EM face)
+    let m = Metrics (fromIntegral asc/u) (fromIntegral desc/u)
+        box = BoundingBox (Vec2 (fromIntegral (xMin b)/u) (fromIntegral (yMin b)/u))
+                          (Vec2 (fromIntegral (xMax b)/u) (fromIntegral (yMin b)/u))
     Font face m box <$> newIORef M.empty
-    where
-        toPixel = (* fromIntegral resolutionDPI) . (/72) . (/64) . fromIntegral
+-- | Get the font's metrics.
+metrics :: Font -> Metrics
+metrics (Font _ m _ _) = m
 
-getMetrics :: Font -> Metrics
-getMetrics (Font _ m _ _) = m
-
-getBoundingBox :: Font -> BoundingBox
-getBoundingBox (Font _ _ b _) = b
-
+fontBoundingBox :: Font -> BoundingBox
+fontBoundingBox (Font _ _ b _) = b
 
 -- | Render a text by the specified 'Font'.
 text :: Font -> Float -> String -> Picture
