@@ -59,4 +59,4 @@ main = do
     bmp <- loadBitmapFromFile "logo.png"
     let ?pic = BitmapPicture bmp
 
-    runSimple defaultGameParam (replicate 10 initial) $ mapM untickGame
+    runSimple defaultGameParam (replicate 100 initial) $ mapM untickGame
