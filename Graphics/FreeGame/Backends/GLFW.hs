@@ -15,7 +15,6 @@ import Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
-import Graphics.FreeGame.Data.Color
 import qualified Graphics.FreeGame.Input as I
 import Control.Applicative
 import Control.Monad.Free
@@ -85,7 +84,7 @@ drawPic (Colored (Color r g b a) pic) = do
     GL.currentColor $= oldColor
     return xs
 
-run :: (?windowWidth :: Int, ?windowHeight :: Int
+run :: (?windowT :: GL.GLdouble, ?windowB :: GL.GLdouble, ?windowL :: GL.GLdouble, ?windowR :: GL.GLdouble
     , ?refTextures :: IORef (IM.IntMap Texture)
     , ?refFrame :: IORef Int
     , ?frameTime :: Double
@@ -117,11 +116,11 @@ run is (Free f) = case f of
                 GL.preservingMatrix $ do
                 GL.loadIdentity
                 GL.scale (gf 1) (-1) 1
-                GL.ortho 0 (fromIntegral ?windowWidth) 0 (fromIntegral ?windowHeight) 0 (-100)
+                GL.ortho ?windowL ?windowR ?windowT ?windowB 0 (-100)
                 GL.matrixMode   $= GL.Modelview 0
                 run is cont
             else return Nothing
-    AskInput key fcont -> either keyIsPressed mouseButtonIsPressed (mapKey key) >>= run is . fcont
+    GetButtonState key fcont -> either keyIsPressed mouseButtonIsPressed (mapKey key) >>= run is . fcont
     GetMousePosition fcont -> do
         (x, y) <- GLFW.getMousePosition
         run is $ fcont $ Vec2 (fromIntegral x) (fromIntegral y)
@@ -138,6 +137,7 @@ run is (Free f) = case f of
                                                         (realToFrac g) 
                                                         (realToFrac b) 
                                                         (realToFrac a)
+                                   , windowOrigin = Vec2 (realToFrac ?windowL) (realToFrac ?windowT)
                                    }
     QuitGame -> return Nothing
 run is (Pure x) = do
@@ -151,14 +151,17 @@ runGame :: GameParam -> Game a -> IO (Maybe a)
 runGame param game = do
     True <- initialize
     pf <- openGLProfile
-    let ?windowWidth = fst $ windowSize param
-        ?windowHeight = snd $ windowSize param
+    let Vec2 ox oy = windowOrigin param
+    let ?windowL = realToFrac ox
+        ?windowR = realToFrac ox + fromIntegral (fst $ windowSize param)
+        ?windowT = realToFrac oy
+        ?windowB = realToFrac oy + fromIntegral (snd $ windowSize param)
         ?windowTitle = windowTitle param
         ?windowMode = windowed param
         ?cursorVisible = cursorVisible param
     True <- openWindow $ defaultDisplayOptions {
-        displayOptions_width = fromIntegral ?windowWidth
-        ,displayOptions_height = fromIntegral ?windowHeight
+        displayOptions_width = fromIntegral $ fst $ windowSize param
+        ,displayOptions_height = fromIntegral $ snd $ windowSize param
         ,displayOptions_displayMode = if ?windowMode then Window else Fullscreen
         ,displayOptions_windowIsResizable = False
         ,displayOptions_openGLProfile = pf
@@ -189,7 +192,7 @@ runGame param game = do
     terminate
     return r
 
-mapKey :: I.Key -> Either Key MouseButton
+mapKey :: I.Button -> Either Key MouseButton
 mapKey k = case k of
     I.KeyChar c -> Left $ CharKey c
     I.KeySpace -> Left KeySpace

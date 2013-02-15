@@ -31,10 +31,9 @@ module Graphics.FreeGame.Base (
     ,drawPicture
     
     -- * Inputs
-    ,askInput
+    ,getButtonState
     ,getMousePosition
     ,getMouseWheel
-    ,getMouseState
 
     -- * Settings
     ,GameParam(..)
@@ -42,7 +41,8 @@ module Graphics.FreeGame.Base (
     ,getCurrentGameParam
 
     -- * Deprecated
-    ,loadPicture
+    ,askInput
+    ,getMouseState
 ) where
 
 import Control.Monad.Free
@@ -66,7 +66,7 @@ data GameAction a
     | EmbedIO (IO a)
     | Bracket (Game a)
     | DrawPicture Picture a
-    | AskInput Key (Bool -> a)
+    | GetButtonState Button (Bool -> a)
     | GetMousePosition (Vec2 -> a)
     | GetMouseWheel (Int -> a)
     | GetGameParam (GameParam -> a)
@@ -93,9 +93,9 @@ quitGame = wrap QuitGame
 drawPicture :: MonadFree GameAction m => Picture -> m ()
 drawPicture pic = wrap $ DrawPicture pic (return ())
 
--- | Is the specified 'Key' is pressed?
-askInput :: MonadFree GameAction m => Key -> m Bool
-askInput key = wrap $ AskInput key return
+-- | Is the specified 'Button' is pressed?
+getButtonState :: MonadFree GameAction m => Button -> m Bool
+getButtonState key = wrap $ GetButtonState key return
 
 getMouseWheel :: MonadFree GameAction m => m Int
 getMouseWheel = wrap $ GetMouseWheel return
@@ -130,20 +130,21 @@ data Picture
     | Colored Color Picture
 
 -- | Parameters of the application.
-data GameParam = GameParam {
-        framePerSecond :: Int
+data GameParam = GameParam
+    {    framePerSecond :: Int
         ,windowSize :: (Int, Int)
         ,windowTitle :: String
         ,windowed :: Bool
         ,cursorVisible :: Bool
         ,clearColor :: Color
+        ,windowOrigin :: Vec2
     } deriving Show
 
 -- | 640*480(windowed), 60fps
 defaultGameParam :: GameParam
-defaultGameParam = GameParam 60 (640,480) "free-game" True True white
+defaultGameParam = GameParam 60 (640,480) "free-game" True True white (Vec2 0 0)
 
--- | Get the mouse's state.
+-- | Deprecated synonym for 'getMouseState'.
 getMouseState :: MonadFree GameAction m => m MouseState
 getMouseState = MouseState
     `liftM` getMousePosition
@@ -151,8 +152,9 @@ getMouseState = MouseState
     `ap` askInput MouseMiddle
     `ap` askInput MouseRight
     `ap` getMouseWheel
+{-# DEPRECATED getMouseState "use getMousePosition and getMouseWheel instead." #-}
 
-{-# DEPRECATED loadPicture "No longer needed; use BitmapPicture instead" #-}
--- | Create a 'Picture' from 'Bitmap'.
-loadPicture :: MonadFree GameAction m => Bitmap -> m Picture
-loadPicture = return . BitmapPicture
+-- | Deprecated synonym for 'getButtonState'.
+askInput :: MonadFree GameAction m => Button -> m Bool
+askInput = getButtonState
+{-# DEPRECATED askInput "use getButtonState instead." #-}

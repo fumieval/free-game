@@ -17,6 +17,8 @@ module Graphics.FreeGame.Data.Font
   , Metrics(..)
   , Graphics.FreeGame.Data.Font.metrics
   , fontBoundingBox
+  , charToBitmap
+  , RenderedChar(..)
   , text
   , renderCharacters
   ) where
