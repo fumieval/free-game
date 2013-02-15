@@ -52,7 +52,6 @@ where
 
 import Graphics.FreeGame
 import Graphics.FreeGame.Data.Color
-import Graphics.FreeGame.Data.Font
 import Graphics.FreeGame.Input
 import Control.Monad
 
