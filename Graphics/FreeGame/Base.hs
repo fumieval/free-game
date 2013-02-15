@@ -25,6 +25,7 @@ module Graphics.FreeGame.Base (
 
     -- * Pictures
     ,Vec2(..)
+    ,Color(..)
     ,Picture(..)
     ,transPicture
     ,drawPicture

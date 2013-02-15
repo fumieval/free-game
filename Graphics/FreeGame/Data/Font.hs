@@ -24,7 +24,6 @@ module Graphics.FreeGame.Data.Font
 import Control.Applicative
 import Data.Array.Repa as R
 import Data.Array.Repa.Eval
-import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Data.Vect
 import Data.IORef
 import qualified Data.Map as M
@@ -33,14 +32,15 @@ import Graphics.FreeGame.Base
 import Graphics.FreeGame.Types
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.Rendering.FreeType.Internal
-import Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
-import Graphics.Rendering.FreeType.Internal.Vector as V
+import qualified Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
+import qualified Graphics.Rendering.FreeType.Internal.Vector as V
 import Graphics.Rendering.FreeType.Internal.Bitmap as B
 import Graphics.Rendering.FreeType.Internal.PrimitiveTypes as PT
 import Graphics.Rendering.FreeType.Internal.Face as F
 import Graphics.Rendering.FreeType.Internal.Library as L
 import Graphics.Rendering.FreeType.Internal.BBox as BB
 import Foreign.Marshal.Alloc
+import Foreign.C.Types
 import Foreign.C.String
 import Foreign.Storable
 import System.IO.Unsafe
@@ -54,15 +54,15 @@ loadFont :: FilePath -> IO Font
 loadFont path = alloca $ \p -> do
     e <- withCString path $ \str -> ft_New_Face freeType str 0 p
     failFreeType e
-    face <- peek p
-    b <- peek (bbox face)
-    asc <- peek (ascender face)
-    desc <- peek (descender face)
-    u <- fromIntegral <$> peek (units_per_EM face)
+    f <- peek p
+    b <- peek (bbox f)
+    asc <- peek (ascender f)
+    desc <- peek (descender f)
+    u <- fromIntegral <$> peek (units_per_EM f)
     let m = Metrics (fromIntegral asc/u) (fromIntegral desc/u)
         box = BoundingBox (Vec2 (fromIntegral (xMin b)/u) (fromIntegral (yMin b)/u))
                           (Vec2 (fromIntegral (xMax b)/u) (fromIntegral (yMin b)/u))
-    Font face m box <$> newIORef M.empty
+    Font f m box <$> newIORef M.empty
 -- | Get the font's metrics.
 metrics :: Font -> Metrics
 metrics (Font _ m _ _) = m
@@ -72,15 +72,15 @@ fontBoundingBox (Font _ _ b _) = b
 
 -- | Render a text by the specified 'Font'.
 text :: Font -> Float -> String -> Picture
-text font size str = IOPicture $ Pictures <$> renderCharacters font size str
+text font siz str = IOPicture $ Pictures <$> renderCharacters font siz str
 
+failFreeType :: Monad m => CInt -> m ()
 failFreeType 0 = return ()
 failFreeType e = fail $ "FreeType Error:" Prelude.++ show e
 
 freeType :: FT_Library
 freeType = unsafePerformIO $ alloca $ \p -> do
-    e <- ft_Init_FreeType p
-    failFreeType e
+    failFreeType =<< ft_Init_FreeType p
     peek p
 
 data RenderedChar = RenderedChar
@@ -101,25 +101,24 @@ resolutionDPI = 300
 charToBitmap :: Font -> Float -> Char -> IO RenderedChar
 charToBitmap (Font face _ _ refCache) pixel ch = do
     cache <- readIORef refCache
-    case M.lookup (size, ch) cache of
+    case M.lookup (siz, ch) cache of
         Nothing -> do
             d <- render
-            writeIORef refCache $ M.insert (size, ch) d cache
+            writeIORef refCache $ M.insert (siz, ch) d cache
             return d
         Just d -> return d
     where
-        size = pixel * 72 / fromIntegral resolutionDPI
+        siz = pixel * 72 / fromIntegral resolutionDPI
         render = do
             let dpi = fromIntegral resolutionDPI
 
-            ft_Set_Char_Size face 0 (floor $ size * 64) dpi dpi
+            failFreeType =<< ft_Set_Char_Size face 0 (floor $ siz * 64) dpi dpi
             
             ix <- ft_Get_Char_Index face (fromIntegral $ fromEnum ch)
-            ft_Load_Glyph face ix ft_LOAD_DEFAULT
+            failFreeType =<< ft_Load_Glyph face ix ft_LOAD_DEFAULT
 
             slot <- peek $ glyph face
-            e <- ft_Render_Glyph slot ft_RENDER_MODE_NORMAL
-            failFreeType e
+            failFreeType =<< ft_Render_Glyph slot ft_RENDER_MODE_NORMAL
 
             bmp <- peek $ GS.bitmap slot
             left <- fmap fromIntegral $ peek $ GS.bitmap_left slot
@@ -133,12 +132,12 @@ charToBitmap (Font face _ _ refCache) pixel ch = do
             fillChunkedIOP (w * h) (unsafeWriteMVec mv) $ const $ return
                 $ fmap unsafeCoerce . peekElemOff (buffer bmp)
 
-            adv <- peek $ advance slot
+            adv <- peek $ GS.advance slot
 
             ar :: R.Array U DIM2 Word8 <- unsafeFreezeMVec (Z:.h:.w) mv
 
             let pixel (crd:.0) = R.index ar crd
-                pixel (crd:._) = 255
+                pixel (_:._) = 255
 
             result <- computeP (fromFunction (Z:.h:.w:.4) pixel) >>= makeStableBitmap
             

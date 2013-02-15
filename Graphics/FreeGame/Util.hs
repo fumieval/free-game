@@ -13,7 +13,6 @@
 
 module Graphics.FreeGame.Util (untickGame, randomness, degrees, radians, loadPictureFromFile) where
 import Control.Monad.Free
-import qualified Control.Monad.Trans.Free as T
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
 import System.Random
