@@ -1,7 +1,7 @@
 name:                free-game
-version:             0.3.1.6
+version:             0.3.2.0
 synopsis:            Create graphical applications for free.
-description:         Cross-platform GUI library based on free monads.
+description:         Cross-platform GUI library based on free monads
 homepage:            https://github.com/fumieval/free-game
 bug-reports:         https://github.com/fumieval/free-game/issues
 license:             BSD3
@@ -35,7 +35,7 @@ library
     , Graphics.FreeGame.Data.Color
     , Graphics.FreeGame.Data.Bitmap
     , Graphics.FreeGame.Data.Font
-  ghc-options:         -fexcess-precision
+  ghc-options: -Wall -fexcess-precision -O
   build-depends: base == 4.*
     , mtl >= 2.1
     , transformers

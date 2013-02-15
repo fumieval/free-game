@@ -17,23 +17,18 @@ import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.FreeGame.Data.Color
 import qualified Graphics.FreeGame.Input as I
-import Codec.Picture.Repa
 import Control.Applicative
 import Control.Monad.Free
 import Control.Monad
-import System.Random
-import Data.Unique
 import Data.IORef
-import Data.Array.Repa as R
 import Data.StateVar
 import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Foreign.ForeignPtr
 import qualified Data.IntMap as IM
 import Unsafe.Coerce
-import Data.Vect
 import System.Mem
 
-data Texture = Texture {texObj :: GL.TextureObject, texWidth :: Int, texHeight :: Int}
+data Texture = Texture GL.TextureObject Int Int
 
 installTexture :: Bitmap -> IO Texture
 installTexture bmp = do
@@ -47,16 +42,12 @@ installTexture bmp = do
     return $ Texture tex width height
 
 freeTexture :: Texture -> IO ()
-freeTexture (Texture tex width height) = GL.deleteObjectNames [tex]
+freeTexture (Texture tex _ _) = GL.deleteObjectNames [tex]
 
 drawTexture :: Texture -> IO ()
 drawTexture (Texture tex width height) = do
     let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
-    -- GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.Clamp)
-    -- GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.Clamp)
     GL.textureFilter   GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
-    -- GL.texture GL.Texture2D $= GL.Enabled
-    -- GL.textureFunction      $= GL.Combine
     GL.textureBinding GL.Texture2D $= Just tex
     GL.renderPrimitive GL.Polygon $ zipWithM_
         (\(pX, pY) (tX, tY) -> do
@@ -64,7 +55,6 @@ drawTexture (Texture tex width height) = do
             GL.vertex $ GL.Vertex2   (gf pX) (gf pY))
         [(-w, -h), (w, -h), (w, h), (-w, h)]
         [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
-    -- GL.texture GL.Texture2D GL.$= GL.Disabled
 
 drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> IO [Int]
 drawPic (BitmapPicture bmp) = case bitmapHash bmp of
@@ -91,10 +81,9 @@ drawPic (IOPicture m) = m >>= drawPic
 drawPic (Colored (Color r g b a) pic) = do
     oldColor <- get GL.currentColor
     GL.currentColor  $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
-    r <- drawPic pic
+    xs <- drawPic pic
     GL.currentColor $= oldColor
-    return r
-
+    return xs
 
 run :: (?windowWidth :: Int, ?windowHeight :: Int
     , ?refTextures :: IORef (IM.IntMap Texture)
@@ -153,21 +142,21 @@ run is (Free f) = case f of
     QuitGame -> return Nothing
 run is (Pure x) = do
     m <- readIORef ?refTextures
-    GL.deleteObjectNames [texObj $ m IM.! i | i <- is]
+    GL.deleteObjectNames [obj | i <- is, let Texture obj _ _ = m IM.! i]
     modifyIORef ?refTextures $ flip (foldr IM.delete) is
     return (Just x)
 
 -- | Run 'Game' using OpenGL and GLFW.
 runGame :: GameParam -> Game a -> IO (Maybe a)
 runGame param game = do
-    initialize
+    True <- initialize
     pf <- openGLProfile
     let ?windowWidth = fst $ windowSize param
         ?windowHeight = snd $ windowSize param
         ?windowTitle = windowTitle param
         ?windowMode = windowed param
         ?cursorVisible = cursorVisible param
-    openWindow $ defaultDisplayOptions {
+    True <- openWindow $ defaultDisplayOptions {
         displayOptions_width = fromIntegral ?windowWidth
         ,displayOptions_height = fromIntegral ?windowHeight
         ,displayOptions_displayMode = if ?windowMode then Window else Fullscreen
@@ -187,8 +176,7 @@ runGame param game = do
     GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFunction $= GL.Combine
 
-    let Color r g b a = clearColor param
-    GL.clearColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
+    let Color r g b a = clearColor param in GL.clearColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
 
     ref <- newIORef IM.empty
     ref' <- newIORef 0
@@ -201,6 +189,7 @@ runGame param game = do
     terminate
     return r
 
+mapKey :: I.Key -> Either Key MouseButton
 mapKey k = case k of
     I.KeyChar c -> Left $ CharKey c
     I.KeySpace -> Left KeySpace
