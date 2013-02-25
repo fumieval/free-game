@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types, FlexibleContexts #-}
 {-|
 Module      :  Graphics.FreeGame
 Copyright   :  (C) 2012 Fumiaki Kinoshita
@@ -16,7 +17,8 @@ module Graphics.FreeGame
     module Graphics.FreeGame.Data.Font,
     module Graphics.FreeGame.Input,
     module Graphics.FreeGame.Util,
-    runGame
+    runGame,
+    runGame'
 ) where
 
 import Graphics.FreeGame.Base
@@ -25,10 +27,15 @@ import Graphics.FreeGame.Util
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.FreeGame.Data.Font
 import qualified Graphics.FreeGame.Backends.GLFW as GLFW
+import Control.Monad.Free
 
 -- | Run a 'Game' computation.
 runGame :: GameParam -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
+
+-- | Run more efficiently.
+runGame' :: GameParam -> (forall m. MonadFree GameAction m => m a) -> IO (Maybe a)
+runGame' = GLFW.runGame'
 
 {- $example
 

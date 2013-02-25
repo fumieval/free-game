@@ -74,7 +74,6 @@ data Button
     | MouseMiddle
     deriving (Show, Eq, Ord)
 
-{-# DEPRECATED MouseState "no longer needed" #-}
 data MouseState = MouseState
     { mousePosition :: Vec2
     , leftButton :: Bool

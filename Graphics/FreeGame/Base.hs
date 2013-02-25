@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, DeriveFunctor #-}
+{-# LANGUAGE FlexibleContexts, DeriveFunctor, FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Base
@@ -46,11 +46,15 @@ module Graphics.FreeGame.Base (
 ) where
 
 import Control.Monad.Free
+import Control.Monad.Free.Church
 import Control.Monad
 import Graphics.FreeGame.Data.Color
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.FreeGame.Input
+import Graphics.FreeGame.Internal.Resource
+import Control.Monad.IO.Class
 import Data.Vect
+import Data.Void
 
 infixr 5 `Translate`
 infixr 5 `Rotate`
@@ -59,6 +63,9 @@ infixr 5 `Colored`
 
 -- | 'Game' is a 'Monad' that abstracts user interfaces.
 type Game = Free GameAction
+
+instance MonadIO Game where
+    liftIO = embedIO
 
 -- | A base for 'Game' monad.
 data GameAction a
@@ -86,7 +93,7 @@ bracket :: MonadFree GameAction m => Game a -> m a
 bracket m = wrap $ Bracket $ liftM return m
 
 -- | Break the current computation.
-quitGame :: MonadFree GameAction m => m a
+quitGame :: MonadFree GameAction m => m Void
 quitGame = wrap QuitGame
 
 -- | Draw a 'Picture'.
@@ -119,7 +126,7 @@ data Picture
     -- | A picture consist of some 'Picture's.
     | Pictures [Picture]
     -- | A picture that may have side effects(for internal use).
-    | IOPicture (IO Picture)
+    | ResourcePicture (ResourceT IO Picture)
     -- | Rotated picture by the given angle (in degrees, counterclockwise).
     | Rotate Float Picture
     -- | Scaled picture.

@@ -15,6 +15,7 @@ module Graphics.FreeGame.Util (untickGame, randomness, degrees, radians, loadPic
 import Control.Monad.Free
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
+import Control.Monad.Free.Church
 import System.Random
 
 -- | Run a 'Game' as one frame.

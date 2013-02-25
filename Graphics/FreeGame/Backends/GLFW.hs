@@ -9,44 +9,46 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-{-# LANGUAGE ImplicitParams, ScopedTypeVariables #-}
-module Graphics.FreeGame.Backends.GLFW (runGame) where
-import Graphics.UI.GLFW as GLFW
-import qualified Graphics.Rendering.OpenGL.GL as GL
-import Graphics.FreeGame.Base
-import Graphics.FreeGame.Data.Bitmap
-import qualified Graphics.FreeGame.Input as I
+{-# LANGUAGE ImplicitParams, ScopedTypeVariables, Rank2Types #-}
+module Graphics.FreeGame.Backends.GLFW (runGame, runGame') where
 import Control.Applicative
-import Control.Monad.Free
 import Control.Monad
+import Control.Monad.Free
+import Control.Monad.Free.Church
+import Control.Monad.IO.Class
 import Data.IORef
 import Data.StateVar
-import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Foreign.ForeignPtr
+import Graphics.FreeGame.Base
+import Graphics.FreeGame.Data.Bitmap
+import Graphics.FreeGame.Internal.Resource
+import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
+import Graphics.UI.GLFW as GLFW
+import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import qualified Data.IntMap as IM
-import Unsafe.Coerce
+import qualified Graphics.FreeGame.Input as I
+import qualified Graphics.Rendering.OpenGL.GL as GL
 import System.Mem
+import Unsafe.Coerce
 
 data Texture = Texture GL.TextureObject Int Int
 
-installTexture :: Bitmap -> IO Texture
+installTexture :: Bitmap -> ResourceT IO Texture
 installTexture bmp = do
-    [tex] <- GL.genObjectNames 1
-    GL.textureBinding GL.Texture2D GL.$= Just tex
+    [tex] <- liftIO $ GL.genObjectNames 1
+    liftIO $ GL.textureBinding GL.Texture2D GL.$= Just tex
 
     let (width, height) = bitmapSize bmp
-    withForeignPtr (RF.toForeignPtr $ bitmapData bmp)
+    liftIO $ withForeignPtr (RF.toForeignPtr $ bitmapData bmp)
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 (GL.TextureSize2D (gsizei width) (gsizei height)) 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
+    finalizer $ GL.deleteObjectNames [tex]
     return $ Texture tex width height
-
-freeTexture :: Texture -> IO ()
-freeTexture (Texture tex _ _) = GL.deleteObjectNames [tex]
 
 drawTexture :: Texture -> IO ()
 drawTexture (Texture tex width height) = do
     let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
-    GL.textureFilter   GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureBinding GL.Texture2D $= Just tex
     GL.renderPrimitive GL.Polygon $ zipWithM_
         (\(pX, pY) (tX, tY) -> do
@@ -55,123 +57,118 @@ drawTexture (Texture tex width height) = do
         [(-w, -h), (w, -h), (w, h), (-w, h)]
         [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
 
-drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> IO [Int]
+preservingMatrix' m = do
+    liftIO $ glPushMatrix
+    m
+    liftIO $ glPopMatrix
+
+drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> ResourceT IO ()
 drawPic (BitmapPicture bmp) = case bitmapHash bmp of
-    Nothing -> do
-        t <- installTexture bmp
-        drawTexture t
-        freeTexture t
-        return []
     Just h -> do
-        m <- readIORef ?refTextures
+        m <- liftIO $ readIORef ?refTextures
         case IM.lookup h m of
-            Just t -> [] <$ drawTexture t
+            Just t -> liftIO $ drawTexture t
             Nothing -> do
                 t <- installTexture bmp
-                writeIORef ?refTextures $ IM.insert h t m
-                drawTexture t
-                return [h]
+                liftIO $ writeIORef ?refTextures $ IM.insert h t m
+                liftIO $ drawTexture t
+                finalizer $ modifyIORef ?refTextures $ IM.delete h 
+    Nothing -> liftIO $ runResourceT $ installTexture bmp >>= liftIO . drawTexture
 
-drawPic (Rotate theta p) = GL.preservingMatrix $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1) >> drawPic p
-drawPic (Scale (Vec2 sx sy) p) = GL.preservingMatrix $ GL.scale (gf sx) (gf sy) 1 >> drawPic p
-drawPic (Translate (Vec2 tx ty) p) = GL.preservingMatrix $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0) >> drawPic p
-drawPic (Pictures ps) = concat <$> mapM drawPic ps
-drawPic (IOPicture m) = m >>= drawPic
+drawPic (Rotate theta p) = preservingMatrix' $ do
+    liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
+    drawPic p
+
+drawPic (Scale (Vec2 sx sy) p) = preservingMatrix' $ do
+    liftIO $ GL.scale (gf sx) (gf sy) 1
+    drawPic p
+
+drawPic (Translate (Vec2 tx ty) p) = preservingMatrix' $ do
+    liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
+    drawPic p
+
+drawPic (Pictures ps) = mapM_ drawPic ps
+drawPic (ResourcePicture m) = m >>= drawPic
 drawPic (Colored (Color r g b a) pic) = do
-    oldColor <- get GL.currentColor
-    GL.currentColor  $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
-    xs <- drawPic pic
-    GL.currentColor $= oldColor
-    return xs
+    oldColor <- liftIO $ get GL.currentColor
+    liftIO $ GL.currentColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
+    drawPic pic
+    liftIO $ GL.currentColor $= oldColor
 
-run :: (?windowT :: GL.GLdouble, ?windowB :: GL.GLdouble, ?windowL :: GL.GLdouble, ?windowR :: GL.GLdouble
-    , ?refTextures :: IORef (IM.IntMap Texture)
-    , ?refFrame :: IORef Int
-    , ?frameTime :: Double
-    , ?windowTitle :: String
-    , ?windowMode :: Bool
-    , ?cursorVisible :: Bool
-    ) => [Int] -> Game a -> IO (Maybe a)
-run is (Free f) = case f of
-    DrawPicture pic cont -> do
-        ls <- drawPic pic
-        flip run cont $! ls Prelude.++ is -- Strict!!!
-    EmbedIO m -> m >>= run is
-    Bracket m -> run [] m >>= maybe (return Nothing) (run is)
+runAction :: GameParam
+    -> IORef (IM.IntMap Texture)
+    -> IORef Int
+    -> GameAction (ResourceT IO (Maybe a)) -> ResourceT IO (Maybe a)
+runAction param refTextures refFrame r = case r of
+    DrawPicture pic cont -> let ?refTextures = refTextures in drawPic pic >> cont
+    EmbedIO m -> join (liftIO m)
+    Bracket m -> liftIO (runResourceT $ runFreeGame param refTextures refFrame m) >>= maybe (return Nothing) id
     Tick cont -> do
-        GL.matrixMode   $= GL.Projection
-        swapBuffers
-        t <- getTime
-        n <- readIORef ?refFrame
-        sleep (fromIntegral n * ?frameTime - t)
-        if t > 1
-            then resetTime >> writeIORef ?refFrame 0
-            else writeIORef ?refFrame (succ n)
+        liftIO $ do
+            GL.matrixMode $= GL.Projection
+            swapBuffers
+            t <- getTime
+            n <- readIORef refFrame
+            sleep (fromIntegral n / fromIntegral (framePerSecond param) - t)
+            if t > 1
+                then resetTime >> writeIORef refFrame 0
+                else writeIORef refFrame (succ n)
 
-        r <- windowIsOpen
-        if r
-            then do
+        r <- liftIO $ windowIsOpen
+        if not r then return Nothing else do
+            liftIO $ do
                 GL.clear [GL.ColorBuffer] 
                 performGC
                 GL.preservingMatrix $ do
                 GL.loadIdentity
                 GL.scale (gf 1) (-1) 1
-                GL.ortho ?windowL ?windowR ?windowT ?windowB 0 (-100)
-                GL.matrixMode   $= GL.Modelview 0
-                run is cont
-            else return Nothing
-    GetButtonState key fcont -> either keyIsPressed mouseButtonIsPressed (mapKey key) >>= run is . fcont
+                let Vec2 ox oy = windowOrigin param
+                    windowL = realToFrac ox
+                    windowR = realToFrac ox + fromIntegral (fst $ windowSize param)
+                    windowT = realToFrac oy
+                    windowB = realToFrac oy + fromIntegral (snd $ windowSize param)
+                GL.ortho windowL windowR windowT windowB 0 (-100)
+                GL.matrixMode $= GL.Modelview 0
+            cont
+    GetButtonState key fcont -> liftIO (either keyIsPressed mouseButtonIsPressed (mapKey key)) >>= fcont
     GetMousePosition fcont -> do
-        (x, y) <- GLFW.getMousePosition
-        run is $ fcont $ Vec2 (fromIntegral x) (fromIntegral y)
-    GetMouseWheel fcont -> GLFW.getMouseWheel >>= run is . fcont
-    GetGameParam fcont -> do
-        dim <- GLFW.getWindowDimensions
-        GL.Color4 r g b a <- get GL.clearColor
-        run is $ fcont $ GameParam { framePerSecond = floor $ 1 / ?frameTime
-                                   , windowSize = dim
-                                   , windowTitle = ?windowTitle
-                                   , windowed = ?windowMode
-                                   , cursorVisible = ?cursorVisible
-                                   , clearColor = Color (realToFrac r) 
-                                                        (realToFrac g) 
-                                                        (realToFrac b) 
-                                                        (realToFrac a)
-                                   , windowOrigin = Vec2 (realToFrac ?windowL) (realToFrac ?windowT)
-                                   }
+        (x, y) <- liftIO $ GLFW.getMousePosition
+        fcont $ Vec2 (fromIntegral x) (fromIntegral y)
+    GetMouseWheel fcont -> liftIO GLFW.getMouseWheel >>= fcont
+    GetGameParam fcont -> do -- There may be a better way
+        dim <- liftIO GLFW.getWindowDimensions
+        fcont $ param { windowSize = dim }
     QuitGame -> return Nothing
-run is (Pure x) = do
-    m <- readIORef ?refTextures
-    GL.deleteObjectNames [obj | i <- is, let Texture obj _ _ = m IM.! i]
-    modifyIORef ?refTextures $ flip (foldr IM.delete) is
-    return (Just x)
+
+runFreeGame :: GameParam -> IORef (IM.IntMap Texture) -> IORef Int -> Free GameAction a -> ResourceT IO (Maybe a)
+runFreeGame p r s = go where
+    go (Free f) = runAction p r s $ go <$> f
+    go (Pure a) = return $ Just a
 
 -- | Run 'Game' using OpenGL and GLFW.
 runGame :: GameParam -> Game a -> IO (Maybe a)
-runGame param game = do
+runGame param m = launch param $ \r s -> runFreeGame param r s m
+
+runGame' :: GameParam -> (forall m. MonadFree GameAction m => m a) -> IO (Maybe a)
+runGame' param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
+
+launch :: GameParam -> (IORef (IM.IntMap Texture) -> IORef Int -> ResourceT IO (Maybe a)) -> IO (Maybe a)
+launch param m = do
     True <- initialize
     pf <- openGLProfile
-    let Vec2 ox oy = windowOrigin param
-    let ?windowL = realToFrac ox
-        ?windowR = realToFrac ox + fromIntegral (fst $ windowSize param)
-        ?windowT = realToFrac oy
-        ?windowB = realToFrac oy + fromIntegral (snd $ windowSize param)
-        ?windowTitle = windowTitle param
-        ?windowMode = windowed param
-        ?cursorVisible = cursorVisible param
     True <- openWindow $ defaultDisplayOptions {
         displayOptions_width = fromIntegral $ fst $ windowSize param
         ,displayOptions_height = fromIntegral $ snd $ windowSize param
-        ,displayOptions_displayMode = if ?windowMode then Window else Fullscreen
+        ,displayOptions_displayMode = if windowed param then Window else Fullscreen
         ,displayOptions_windowIsResizable = False
         ,displayOptions_openGLProfile = pf
-    }
+        }
     
-    if ?cursorVisible then enableMouseCursor 
-                      else disableMouseCursor
+    if cursorVisible param
+        then enableMouseCursor 
+        else disableMouseCursor
 
-    setWindowTitle $ ?windowTitle
-    
+    setWindowTitle $ windowTitle param
     GL.lineSmooth $= GL.Enabled
     GL.blend      $= GL.Enabled
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
@@ -183,10 +180,7 @@ runGame param game = do
 
     ref <- newIORef IM.empty
     ref' <- newIORef 0
-    let ?refTextures = ref
-        ?refFrame = ref'
-        ?frameTime = 1 / fromIntegral (framePerSecond param)
-    r <- run [] game
+    r <- runResourceT $ m ref ref'
 
     closeWindow
     terminate

@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes, FlexibleContexts #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.FreeGame.Simple
@@ -13,16 +14,19 @@
 module Graphics.FreeGame.Simple (
     -- * Basic type
     Game
+    ,GameAction
 
     -- * Run the game
     ,GameParam
     ,defaultGameParam
     ,runSimple
+    ,runSimple'
 
     -- * In the Game monad
     ,drawPicture
-    ,askInput
-    ,getMouseState
+    ,getButtonState
+    ,getMousePosition
+    ,getMouseWheel
     ,embedIO
     ,quitGame
     ,tick
@@ -43,6 +47,10 @@ module Graphics.FreeGame.Simple (
     ,randomness
     ,degrees
 
+    -- * Deprecated
+    ,askInput
+    ,getMouseState
+
     -- * Reexports
     ,module Graphics.FreeGame.Input
     ,module Graphics.FreeGame.Data.Color
@@ -54,6 +62,7 @@ import Graphics.FreeGame
 import Graphics.FreeGame.Data.Color
 import Graphics.FreeGame.Input
 import Control.Monad
+import Control.Monad.Free
 
 -- | Run a 'Game' by the given initial state and updating function.
 runSimple :: GameParam
@@ -61,6 +70,17 @@ runSimple :: GameParam
     -> (world -> Game world) -- ^ A computation yielding new world
     -> IO ()
 runSimple param initial m = void $ runGame param $ looping initial where
+    looping world = do
+        world' <- m world
+        tick
+        looping world'
+
+-- | Run more efficiently.
+runSimple' :: GameParam
+    -> world -- ^ An initial world
+    -> (world -> forall m. MonadFree GameAction m => m world) -- ^ A computation yielding new world
+    -> IO ()
+runSimple' param initial m = void $ runGame' param $ looping initial where
     looping world = do
         world' <- m world
         tick
