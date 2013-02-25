@@ -35,10 +35,11 @@ library
     , Graphics.FreeGame.Data.Color
     , Graphics.FreeGame.Data.Bitmap
     , Graphics.FreeGame.Data.Font
+    , Graphics.FreeGame.Internal.Resource
   ghc-options: -Wall -fexcess-precision -O2
   build-depends: base == 4.*
     , mtl >= 2.1
-    , transformers
+    , transformers >= 0.3
     , containers >= 0.4
     , free == 3.*
     , random == 1.*
@@ -50,5 +51,7 @@ library
     , freetype2 >= 0.1
     , hashable >= 1.0
     , OpenGL >= 2.5
+    , OpenGLRaw >= 1.1
     , GLFW-b >= 0.1
     , StateVar
+    , void >= 0.1

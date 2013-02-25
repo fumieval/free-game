@@ -24,6 +24,7 @@ module Graphics.FreeGame.Data.Font
   ) where
 
 import Control.Applicative
+import Control.Monad.IO.Class
 import Data.Array.Repa as R
 import Data.Array.Repa.Eval
 import Data.Vect
@@ -33,6 +34,7 @@ import Data.Word
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Types
 import Graphics.FreeGame.Data.Bitmap
+import Graphics.FreeGame.Internal.Resource
 import Graphics.Rendering.FreeType.Internal
 import qualified Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
 import qualified Graphics.Rendering.FreeType.Internal.Vector as V
@@ -74,7 +76,7 @@ fontBoundingBox (Font _ _ b _) = b
 
 -- | Render a text by the specified 'Font'.
 text :: Font -> Float -> String -> Picture
-text font siz str = IOPicture $ Pictures <$> renderCharacters font siz str
+text font siz str = ResourcePicture $ Pictures <$> renderCharacters font siz str
 
 failFreeType :: Monad m => CInt -> m ()
 failFreeType 0 = return ()
@@ -100,13 +102,14 @@ data Metrics = Metrics
 resolutionDPI :: Int
 resolutionDPI = 300
 
-charToBitmap :: Font -> Float -> Char -> IO RenderedChar
+charToBitmap :: Font -> Float -> Char -> ResourceT IO RenderedChar
 charToBitmap (Font face _ _ refCache) pixel ch = do
-    cache <- readIORef refCache
+    cache <- liftIO $ readIORef refCache
     case M.lookup (siz, ch) cache of
         Nothing -> do
-            d <- render
-            writeIORef refCache $ M.insert (siz, ch) d cache
+            d <- liftIO render
+            liftIO $ writeIORef refCache $ M.insert (siz, ch) d cache
+            finalizer $ modifyIORef refCache $ M.delete (siz, ch)
             return d
         Just d -> return d
     where
@@ -145,7 +148,7 @@ charToBitmap (Font face _ _ refCache) pixel ch = do
             
             return $ RenderedChar result (Vec2 left (-top)) (fromIntegral (V.x adv) / 64)
  
-renderCharacters :: Font -> Float -> String -> IO [Picture]
+renderCharacters :: Font -> Float -> String -> ResourceT IO [Picture]
 renderCharacters font pixel str = render str 0 where
     render [] _ = return []
     render (c:cs) pen = do
