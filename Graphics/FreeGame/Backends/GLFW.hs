@@ -119,7 +119,6 @@ runAction param refTextures refFrame r = case r of
             liftIO $ do
                 GL.clear [GL.ColorBuffer] 
                 performGC
-                GL.preservingMatrix $ do
                 GL.loadIdentity
                 GL.scale (gf 1) (-1) 1
                 let Vec2 ox oy = windowOrigin param
