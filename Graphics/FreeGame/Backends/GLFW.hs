@@ -57,9 +57,10 @@ drawTexture (Texture tex width height) = do
         [(-w, -h), (w, -h), (w, h), (-w, h)]
         [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
 
+preservingMatrix' :: MonadIO m => m () -> m ()
 preservingMatrix' m = do
     liftIO $ glPushMatrix
-    m
+    _ <- m
     liftIO $ glPopMatrix
 
 drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> ResourceT IO ()
@@ -99,7 +100,7 @@ runAction :: GameParam
     -> IORef (IM.IntMap Texture)
     -> IORef Int
     -> GameAction (ResourceT IO (Maybe a)) -> ResourceT IO (Maybe a)
-runAction param refTextures refFrame r = case r of
+runAction param refTextures refFrame _f = case _f of
     DrawPicture pic cont -> let ?refTextures = refTextures in drawPic pic >> cont
     EmbedIO m -> join (liftIO m)
     Bracket m -> liftIO (runResourceT $ runFreeGame param refTextures refFrame m) >>= maybe (return Nothing) id

@@ -46,7 +46,6 @@ module Graphics.FreeGame.Base (
 ) where
 
 import Control.Monad.Free
-import Control.Monad.Free.Church
 import Control.Monad
 import Graphics.FreeGame.Data.Color
 import Graphics.FreeGame.Data.Bitmap
