@@ -15,11 +15,10 @@ module Graphics.FreeGame.Util (untickGame, randomness, degrees, radians, loadPic
 import Control.Monad.Free
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
-import Control.Monad.Free.Church
 import System.Random
 
 -- | Run a 'Game' as one frame.
-untickGame :: Game a -> Game (Game a)
+untickGame :: Free GameAction a -> Free GameAction (Free GameAction a)
 untickGame (Pure a) = Pure (Pure a)
 untickGame (Free (Tick cont)) = Pure cont
 untickGame (Free fm) = Free $ fmap untickGame fm
@@ -39,5 +38,5 @@ radians :: Float -> Float
 radians x = x / 180 * pi
 
 -- | Create a 'Picture' from the given file.
-loadPictureFromFile :: FilePath -> Game Picture
+loadPictureFromFile :: MonadFree GameAction m => FilePath -> m Picture
 loadPictureFromFile = embedIO . fmap BitmapPicture . loadBitmapFromFile

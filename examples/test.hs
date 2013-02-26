@@ -8,10 +8,9 @@ import Control.Monad.State
 import Control.Lens -- using lens (http://hackage.haskell.org/package/lens)
 
 data Object = Object
-    {
-        _position :: Vec2
-        , _velocity :: Vec2
-        , _pressed :: Bool
+    { _position :: Vec2
+    , _velocity :: Vec2
+    , _pressed :: Bool
     }
 
 $(makeLenses ''Object)
@@ -32,17 +31,15 @@ obj = forever $ do
     position .= pos &+ vel
     velocity .= Vec2 dx' dy'
 
-    mouse <- getMouseState
+    mpos <- getMousePosition
 
-    if norm (mousePosition mouse &- pos) < 32
+    if norm (mpos &- pos) < 32
         then do
             drawPicture $ Translate pos ?pic
             btn <- use pressed
-            when (not btn && leftButton mouse) $ do
-                vel' <- (&*4) <$> sinCos <$> randomness (0, 2 * pi)
-                velocity .= vel'
-
-            pressed .= leftButton mouse
+            btn' <- getButtonState MouseLeft
+            when (not btn && btn') $ velocity <~ (&*4) <$> sinCos <$> randomness (0, 2 * pi)
+            pressed .= btn'
 
         else drawPicture $ Translate pos $ Colored (transparent 0.7 white) ?pic
 

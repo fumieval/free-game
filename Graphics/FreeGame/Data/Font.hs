@@ -141,10 +141,10 @@ charToBitmap (Font face _ _ refCache) pixel ch = do
 
             ar :: R.Array U DIM2 Word8 <- unsafeFreezeMVec (Z:.h:.w) mv
 
-            let pixel (crd:.0) = R.index ar crd
-                pixel (_:._) = 255
+            let pix (crd:.0) = R.index ar crd
+                pix (_:._) = 255
 
-            result <- computeP (fromFunction (Z:.h:.w:.4) pixel) >>= makeStableBitmap
+            result <- computeP (fromFunction (Z:.h:.w:.4) pix) >>= makeStableBitmap
             
             return $ RenderedChar result (Vec2 left (-top)) (fromIntegral (V.x adv) / 64)
  
