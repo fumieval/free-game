@@ -66,7 +66,7 @@ bitmapSize bmp = let (Z :. h :. w :. _) = R.extent (bitmapData bmp) in (w, h)
 
 -- | Create a 'Bitmap' from the given file.
 loadBitmapFromFile :: FilePath -> IO Bitmap
-loadBitmapFromFile path = readImageRGBA path >>= makeStableBitmap . imgData . either error id
+loadBitmapFromFile path = readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData
 
 -- | Convert the 'Bitmap' by the given function.
 onBitmap :: (R.Array RF.F DIM3 Word8 -> R.Array RF.F DIM3 Word8) -> Bitmap -> Bitmap

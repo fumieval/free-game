@@ -50,7 +50,7 @@ import Control.Monad
 import Graphics.FreeGame.Data.Color
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.FreeGame.Input
-import Graphics.FreeGame.Internal.Resource
+import Graphics.FreeGame.Internal.Finalizer
 import Control.Monad.IO.Class
 import Data.Vect
 import Data.Void
@@ -121,11 +121,13 @@ transPicture _ x = x
 -- | A 2D Picture.
 data Picture
     -- | A 'Bitmap' as a 'Picture'.
-    = BitmapPicture Bitmap
+    = Bitmap Bitmap
+    -- | Deprecated synonym for 'Bitmap'.
+    | BitmapPicture Bitmap
     -- | A picture consist of some 'Picture's.
     | Pictures [Picture]
     -- | A picture that may have side effects(for internal use).
-    | ResourcePicture (ResourceT IO Picture)
+    | PictureWithFinalizer (FinalizerT IO Picture)
     -- | Rotated picture by the given angle (in degrees, counterclockwise).
     | Rotate Float Picture
     -- | Scaled picture.
@@ -134,6 +136,8 @@ data Picture
     | Translate Vec2 Picture
     -- | Colored picture.
     | Colored Color Picture
+
+{-# DEPRECATED BitmapPicture "use Bitmap instead" #-}
 
 -- | Parameters of the application.
 data GameParam = GameParam
@@ -150,7 +154,7 @@ data GameParam = GameParam
 defaultGameParam :: GameParam
 defaultGameParam = GameParam 60 (640,480) "free-game" True True white (Vec2 0 0)
 
--- | Deprecated synonym for 'getMouseState'.
+-- | Yields the mouse's state.
 getMouseState :: MonadFree GameAction m => m MouseState
 getMouseState = MouseState
     `liftM` getMousePosition

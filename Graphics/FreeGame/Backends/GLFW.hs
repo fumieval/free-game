@@ -10,6 +10,7 @@
 --
 ----------------------------------------------------------------------------
 {-# LANGUAGE ImplicitParams, ScopedTypeVariables, Rank2Types #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 module Graphics.FreeGame.Backends.GLFW (runGame, runGame') where
 import Control.Applicative
 import Control.Monad
@@ -21,7 +22,7 @@ import Data.StateVar
 import Foreign.ForeignPtr
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
-import Graphics.FreeGame.Internal.Resource
+import Graphics.FreeGame.Internal.Finalizer
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
 import Graphics.UI.GLFW as GLFW
 import qualified Data.Array.Repa.Repr.ForeignPtr as RF
@@ -33,7 +34,7 @@ import Unsafe.Coerce
 
 data Texture = Texture GL.TextureObject Int Int
 
-installTexture :: Bitmap -> ResourceT IO Texture
+installTexture :: Bitmap -> FinalizerT IO Texture
 installTexture bmp = do
     [tex] <- liftIO $ GL.genObjectNames 1
     liftIO $ GL.textureBinding GL.Texture2D GL.$= Just tex
@@ -63,8 +64,8 @@ preservingMatrix' m = do
     _ <- m
     liftIO $ glPopMatrix
 
-drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> ResourceT IO ()
-drawPic (BitmapPicture bmp) = case bitmapHash bmp of
+drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> FinalizerT IO ()
+drawPic (Bitmap bmp) = case bitmapHash bmp of
     Just h -> do
         m <- liftIO $ readIORef ?refTextures
         case IM.lookup h m of
@@ -74,8 +75,8 @@ drawPic (BitmapPicture bmp) = case bitmapHash bmp of
                 liftIO $ writeIORef ?refTextures $ IM.insert h t m
                 liftIO $ drawTexture t
                 finalizer $ modifyIORef ?refTextures $ IM.delete h 
-    Nothing -> liftIO $ runResourceT $ installTexture bmp >>= liftIO . drawTexture
-
+    Nothing -> liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
+drawPic (BitmapPicture bmp) = drawPic (Bitmap bmp)
 drawPic (Rotate theta p) = preservingMatrix' $ do
     liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
     drawPic p
@@ -89,7 +90,7 @@ drawPic (Translate (Vec2 tx ty) p) = preservingMatrix' $ do
     drawPic p
 
 drawPic (Pictures ps) = mapM_ drawPic ps
-drawPic (ResourcePicture m) = m >>= drawPic
+drawPic (PictureWithFinalizer m) = m >>= drawPic
 drawPic (Colored (Color r g b a) pic) = do
     oldColor <- liftIO $ get GL.currentColor
     liftIO $ GL.currentColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
@@ -99,11 +100,11 @@ drawPic (Colored (Color r g b a) pic) = do
 runAction :: GameParam
     -> IORef (IM.IntMap Texture)
     -> IORef Int
-    -> GameAction (ResourceT IO (Maybe a)) -> ResourceT IO (Maybe a)
+    -> GameAction (FinalizerT IO (Maybe a)) -> FinalizerT IO (Maybe a)
 runAction param refTextures refFrame _f = case _f of
     DrawPicture pic cont -> let ?refTextures = refTextures in drawPic pic >> cont
     EmbedIO m -> join (liftIO m)
-    Bracket m -> liftIO (runResourceT $ runFreeGame param refTextures refFrame m) >>= maybe (return Nothing) id
+    Bracket m -> liftIO (runFinalizerT $ runFreeGame param refTextures refFrame m) >>= maybe (return Nothing) id
     Tick cont -> do
         liftIO $ do
             GL.matrixMode $= GL.Projection
@@ -140,7 +141,7 @@ runAction param refTextures refFrame _f = case _f of
         fcont $ param { windowSize = dim }
     QuitGame -> return Nothing
 
-runFreeGame :: GameParam -> IORef (IM.IntMap Texture) -> IORef Int -> Free GameAction a -> ResourceT IO (Maybe a)
+runFreeGame :: GameParam -> IORef (IM.IntMap Texture) -> IORef Int -> Free GameAction a -> FinalizerT IO (Maybe a)
 runFreeGame p r s = go where
     go (Free f) = runAction p r s $ go <$> f
     go (Pure a) = return $ Just a
@@ -152,7 +153,7 @@ runGame param m = launch param $ \r s -> runFreeGame param r s m
 runGame' :: GameParam -> (forall m. MonadFree GameAction m => m a) -> IO (Maybe a)
 runGame' param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
 
-launch :: GameParam -> (IORef (IM.IntMap Texture) -> IORef Int -> ResourceT IO (Maybe a)) -> IO (Maybe a)
+launch :: GameParam -> (IORef (IM.IntMap Texture) -> IORef Int -> FinalizerT IO (Maybe a)) -> IO (Maybe a)
 launch param m = do
     True <- initialize
     pf <- openGLProfile
@@ -180,7 +181,7 @@ launch param m = do
 
     ref <- newIORef IM.empty
     ref' <- newIORef 0
-    r <- runResourceT $ m ref ref'
+    r <- runFinalizerT $ m ref ref'
 
     closeWindow
     terminate
