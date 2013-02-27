@@ -17,7 +17,7 @@ module Graphics.FreeGame.Simple (
     ,GameAction
 
     -- * Run the game
-    ,GameParam
+    ,GameParam(..)
     ,defaultGameParam
     ,runSimple
     ,runSimple'
@@ -36,6 +36,7 @@ module Graphics.FreeGame.Simple (
     ,Picture(..)
     ,Bitmap
     ,loadBitmapFromFile
+    ,loadBitmaps
     ,Vec2(..)
 
     -- * Drawing texts

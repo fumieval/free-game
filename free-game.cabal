@@ -1,5 +1,5 @@
 name:                free-game
-version:             0.3.2.2
+version:             0.3.2.3
 synopsis:            Create graphical applications for free.
 description:         Cross-platform GUI library based on free monads
 homepage:            https://github.com/fumieval/free-game
@@ -35,23 +35,25 @@ library
     , Graphics.FreeGame.Data.Color
     , Graphics.FreeGame.Data.Bitmap
     , Graphics.FreeGame.Data.Font
-    , Graphics.FreeGame.Internal.Resource
+    , Graphics.FreeGame.Internal.Finalizer
   ghc-options: -Wall -fexcess-precision -O2
   build-depends: base == 4.*
-    , mtl >= 2.1
-    , transformers >= 0.3
-    , containers >= 0.4
-    , free == 3.*
-    , random == 1.*
-    , repa >= 3.2
-    , JuicyPixels-repa >= 0.4
-    , vect >= 0.4.6
     , array >= 0.3
+    , containers >= 0.4
+    , directory >= 1.0
     , filepath >= 1.3
+    , free == 3.*
     , freetype2 >= 0.1
+    , GLFW-b >= 0.1
     , hashable >= 1.0
+    , JuicyPixels-repa >= 0.4
+    , mtl >= 2.1
     , OpenGL >= 2.5
     , OpenGLRaw >= 1.1
-    , GLFW-b >= 0.1
+    , random == 1.*
+    , repa >= 3.2
     , StateVar
+    , transformers >= 0.3
+    , vect >= 0.4.6
     , void >= 0.1
+    , template-haskell

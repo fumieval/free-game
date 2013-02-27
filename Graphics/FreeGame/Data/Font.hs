@@ -34,7 +34,7 @@ import Data.Word
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Types
 import Graphics.FreeGame.Data.Bitmap
-import Graphics.FreeGame.Internal.Resource
+import Graphics.FreeGame.Internal.Finalizer
 import Graphics.Rendering.FreeType.Internal
 import qualified Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
 import qualified Graphics.Rendering.FreeType.Internal.Vector as V
@@ -76,7 +76,7 @@ fontBoundingBox (Font _ _ b _) = b
 
 -- | Render a text by the specified 'Font'.
 text :: Font -> Float -> String -> Picture
-text font siz str = ResourcePicture $ Pictures <$> renderCharacters font siz str
+text font siz str = PictureWithFinalizer $ Pictures <$> renderCharacters font siz str
 
 failFreeType :: Monad m => CInt -> m ()
 failFreeType 0 = return ()
@@ -102,7 +102,7 @@ data Metrics = Metrics
 resolutionDPI :: Int
 resolutionDPI = 300
 
-charToBitmap :: Font -> Float -> Char -> ResourceT IO RenderedChar
+charToBitmap :: Font -> Float -> Char -> FinalizerT IO RenderedChar
 charToBitmap (Font face _ _ refCache) pixel ch = do
     cache <- liftIO $ readIORef refCache
     case M.lookup (siz, ch) cache of
@@ -148,11 +148,11 @@ charToBitmap (Font face _ _ refCache) pixel ch = do
             
             return $ RenderedChar result (Vec2 left (-top)) (fromIntegral (V.x adv) / 64)
  
-renderCharacters :: Font -> Float -> String -> ResourceT IO [Picture]
+renderCharacters :: Font -> Float -> String -> FinalizerT IO [Picture]
 renderCharacters font pixel str = render str 0 where
     render [] _ = return []
     render (c:cs) pen = do
         RenderedChar b (Vec2 x y) adv <- charToBitmap font pixel c
         let (w,h) = bitmapSize b
             offset = Vec2 (pen + x + fromIntegral w / 2) (y + fromIntegral h / 2)
-        (Translate offset (BitmapPicture b):) <$> render cs (pen + adv)
+        (Translate offset (Bitmap b):) <$> render cs (pen + adv)
