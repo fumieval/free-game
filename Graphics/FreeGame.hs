@@ -15,6 +15,7 @@ module Graphics.FreeGame
     module Graphics.FreeGame.Base,
     module Graphics.FreeGame.Data.Bitmap,
     module Graphics.FreeGame.Data.Font,
+    module Graphics.FreeGame.Data.Color,
     module Graphics.FreeGame.Input,
     module Graphics.FreeGame.Util,
     runGame,
@@ -26,6 +27,7 @@ import Graphics.FreeGame.Input
 import Graphics.FreeGame.Util
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.FreeGame.Data.Font
+import Graphics.FreeGame.Data.Color
 import qualified Graphics.FreeGame.Backends.GLFW as GLFW
 import Control.Monad.Free
 

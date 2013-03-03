@@ -4,9 +4,11 @@ module Graphics.FreeGame.Internal.Finalizer (FinalizerT(..), finalizer, runFinal
 import Control.Monad.IO.Class
 import Control.Applicative
 
+-- | An action with explicit releasing action.
 newtype FinalizerT m a = FinalizerT
     { unFinalizerT :: forall r. (a -> m r) -> (IO () -> r -> m r) -> m r }
 
+-- | Add a finalizer.
 finalizer :: Monad m => IO () -> FinalizerT m ()
 finalizer m = FinalizerT $ \p f -> p () >>= f m
 
@@ -24,6 +26,7 @@ instance Monad (FinalizerT m) where
 instance MonadIO m => MonadIO (FinalizerT m) where
     liftIO m = FinalizerT $ \r _ -> liftIO m >>= r
 
+-- | Run the action and run all associated finalizers.
 runFinalizerT :: MonadIO m => FinalizerT m a -> m a
 runFinalizerT (FinalizerT z) = do
     (fin, a) <- z (\a -> return (return (), a)) (\m (fs, r) -> return (m >> fs,　r))
