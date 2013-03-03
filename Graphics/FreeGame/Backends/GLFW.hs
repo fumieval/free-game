@@ -9,7 +9,7 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-{-# LANGUAGE ImplicitParams, ScopedTypeVariables, Rank2Types #-}
+{-# LANGUAGE ImplicitParams, ScopedTypeVariables, Rank2Types, FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 module Graphics.FreeGame.Backends.GLFW (runGame, runGame') where
 import Control.Applicative
