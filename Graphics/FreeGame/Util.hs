@@ -11,7 +11,7 @@
 --
 ----------------------------------------------------------------------------
 
-module Graphics.FreeGame.Util (untickGame, randomness, degrees, radians, loadPictureFromFile, loadBitmaps) where
+module Graphics.FreeGame.Util (untick, untickGame, untickInfinite, randomness, degrees, radians, loadPictureFromFile, loadBitmaps) where
 import Control.Monad
 import Control.Monad.Free
 import Data.Char
@@ -21,12 +21,23 @@ import System.Random
 import Language.Haskell.TH
 import System.Directory
 import System.IO.Unsafe
+import Data.Void
+
+untickGame :: MonadFree GameAction m => Free GameAction a -> m (Free GameAction a)
+untickGame (Pure a) = return (Pure a)
+untickGame (Free (Tick cont)) = return cont
+untickGame (Free fm) = wrap $ fmap untickGame fm
+{-# DEPRECATED untickGame "use untick or untickInfinite instead" #-}
 
 -- | Run a 'Game' as one frame.
-untickGame :: Free GameAction a -> Free GameAction (Free GameAction a)
-untickGame (Pure a) = Pure (Pure a)
-untickGame (Free (Tick cont)) = Pure cont
-untickGame (Free fm) = Free $ fmap untickGame fm
+untick :: MonadFree GameAction m => Free GameAction a -> m (Either (Free GameAction a) a)
+untick (Pure a) = return (Right a)
+untick (Free (Tick cont)) = return (Left cont)
+untick (Free f) = wrap $ fmap untick f
+
+-- | An infinite version of 'untick'.
+untickInfinite :: MonadFree GameAction m => Free GameAction Void -> m (Free GameAction Void)
+untickInfinite = liftM (either id absurd) . untick
 
 -- | Get a given range of value.
 randomness :: (Random r, MonadFree GameAction m) => (r, r) -> m r
@@ -57,7 +68,7 @@ loadBitmaps path = do
             runIO $ putStrLn $ "Defined: " ++ fp ++ " as `" ++ name ++ "'"
             appE (varE 'unsafePerformIO) $ appE (varE 'loadBitmapFromFile) (litE $ StringL fp)
 
-getFileList :: Prelude.FilePath -> IO [FilePath]
+getFileList :: FilePath -> IO [FilePath]
 getFileList path = do
     allContents <- filter notHidden `fmap` getDirectoryContents path
     files <- filterM (doesFileExist . (path</>)) allContents

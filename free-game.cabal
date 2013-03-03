@@ -14,10 +14,8 @@ build-type:          Simple
 stability:           experimental
 cabal-version:       >=1.8
 extra-source-files:
-  examples/test.hs
-  examples/logo.png
-  examples/font.hs
-  examples/bitmap.hs
+  examples/*.hs
+  examples/images/*.png
   examples/VL-PGothic-Regular.ttf
 
 source-repository head
