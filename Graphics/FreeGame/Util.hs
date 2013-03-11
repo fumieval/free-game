@@ -61,8 +61,13 @@ loadPictureFromFile = embedIO . fmap Bitmap . loadBitmapFromFile
 loadBitmaps :: FilePath -> Q [Dec]
 loadBitmaps path = do
     paths <- runIO $ getFileList path
-    forM paths $ \p -> let name = pathToName p
-        in funD (mkName name) [clause [] (normalB $ load name $ path ++ '/' : p) []]
+    
+    sequence $ do
+        p <- paths
+        let name = pathToName p
+        [ return $ SigD (mkName name) (ConT ''Bitmap)
+            , funD (mkName name) [clause [] (normalB $ load name $ path ++ '/' : p) []]
+            ]
     where
         load name fp = do
             runIO $ putStrLn $ "Defined: " ++ fp ++ " as `" ++ name ++ "'"
