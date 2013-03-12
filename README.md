@@ -1,3 +1,7 @@
+free-game
+=========
+
+[![Build Status](https://secure.travis-ci.org/fumieval/free-game.png?branch=master)](http://travis-ci.org/fumieval/free-game)
 
 free-game is a library that abstracts and purifies GUI applications with simple interfaces.
 
