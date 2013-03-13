@@ -4,7 +4,7 @@ import Control.Applicative
 import Control.Monad
 import Data.Vect
 import Control.Monad.State
-
+import Data.Void
 import Control.Lens -- using lens (http://hackage.haskell.org/package/lens)
 
 $(loadBitmaps "images")
@@ -17,7 +17,7 @@ data Object = Object
 
 $(makeLenses ''Object)
 
-obj :: StateT Object Game ()
+obj :: StateT Object Game Void
 obj = forever $ do
     pos@(Vec2 x y) <- use position
 
@@ -49,11 +49,11 @@ obj = forever $ do
 
     tick
 
-initial :: Game ()
+initial :: Game Void
 initial = do
     x <- randomness (0,640)
     y <- randomness (0,480)
     a <- randomness (0, 2 * pi)
     evalStateT obj $ Object (Vec2 x y) (sinCos a &* 4) False
 
-main = runSimple defaultGameParam (replicate 100 initial) $ mapM untickGame
+main = runSimple defaultGameParam (replicate 100 initial) $ mapM untickInfinite

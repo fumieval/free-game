@@ -11,15 +11,26 @@
 --
 ----------------------------------------------------------------------------
 
-module Graphics.FreeGame.Util (untick, untickGame, untickInfinite, randomness, degrees, radians, loadPictureFromFile, loadBitmaps) where
+module Graphics.FreeGame.Util (
+    untick,
+    untickGame,
+    untickInfinite,
+    randomness,
+    degrees,
+    radians,
+    loadPictureFromFile,
+    loadBitmaps,
+    loadBitmapsWith) where
 import Control.Monad
 import Control.Monad.Free
+import Control.Applicative
 import Data.Char
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
 import System.Random
 import Language.Haskell.TH
 import System.Directory
+import System.FilePath
 import System.IO.Unsafe
 import Data.Void
 
@@ -58,20 +69,27 @@ loadPictureFromFile :: MonadFree GameAction m => FilePath -> m Picture
 loadPictureFromFile = embedIO . fmap Bitmap . loadBitmapFromFile
 
 -- | Load and define all pictures in the specified directory.
-loadBitmaps :: FilePath -> Q [Dec]
-loadBitmaps path = do
-    paths <- runIO $ getFileList path
+loadBitmapsWith :: Name -> FilePath -> Q [Dec]
+loadBitmapsWith getFullPath path = do
+    loc <- (</>path) <$> takeDirectory <$> loc_filename <$> location
+    paths <- runIO $ getFileList loc
     
     sequence $ do
         p <- paths
         let name = pathToName p
         [ return $ SigD (mkName name) (ConT ''Bitmap)
-            , funD (mkName name) [clause [] (normalB $ load name $ path ++ '/' : p) []]
+            , funD (mkName name) [clause [] (normalB $ load name $ loc </> p) []]
             ]
     where
         load name fp = do
             runIO $ putStrLn $ "Defined: " ++ fp ++ " as `" ++ name ++ "'"
-            appE (varE 'unsafePerformIO) $ appE (varE 'loadBitmapFromFile) (litE $ StringL fp)
+            appE (varE 'unsafePerformIO) $ uInfixE (appE (varE getFullPath) (litE $ StringL fp))
+                (varE '(>>=))
+                (varE 'loadBitmapFromFile)
+
+-- | use with getDataFileName
+loadBitmaps :: FilePath -> Q [Dec]
+loadBitmaps = loadBitmapsWith 'canonicalizePath
 
 getFileList :: FilePath -> IO [FilePath]
 getFileList path = do
@@ -82,7 +100,6 @@ getFileList path = do
     where
         notHidden ('.':_) = False
         notHidden _ = True
-        p </> q = p ++ '/' : q
 
 pathToName :: FilePath -> String
 pathToName = ('_':) . map p where

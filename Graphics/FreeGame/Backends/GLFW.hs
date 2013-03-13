@@ -32,70 +32,16 @@ import qualified Graphics.Rendering.OpenGL.GL as GL
 import System.Mem
 import Unsafe.Coerce
 
-data Texture = Texture GL.TextureObject Int Int
+runGame :: GameParam -> Game a -> IO (Maybe a)
+runGame param m = launch param $ \r s -> runFreeGame param r s m
 
-installTexture :: Bitmap -> FinalizerT IO Texture
-installTexture bmp = do
-    [tex] <- liftIO $ GL.genObjectNames 1
-    liftIO $ GL.textureBinding GL.Texture2D GL.$= Just tex
+runGame' :: GameParam -> (forall m. MonadFree GameAction m => m a) -> IO (Maybe a)
+runGame' param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
 
-    let (width, height) = bitmapSize bmp
-    liftIO $ withForeignPtr (RF.toForeignPtr $ bitmapData bmp)
-        $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 (GL.TextureSize2D (gsizei width) (gsizei height)) 0
-        . GL.PixelData GL.RGBA GL.UnsignedInt8888
-    finalizer $ GL.deleteObjectNames [tex]
-    return $ Texture tex width height
-
-drawTexture :: Texture -> IO ()
-drawTexture (Texture tex width height) = do
-    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
-    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.textureBinding GL.Texture2D $= Just tex
-    GL.renderPrimitive GL.Polygon $ zipWithM_
-        (\(pX, pY) (tX, tY) -> do
-            GL.texCoord $ GL.TexCoord2 (gf tX) (gf tY)
-            GL.vertex $ GL.Vertex2   (gf pX) (gf pY))
-        [(-w, -h), (w, -h), (w, h), (-w, h)]
-        [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
-
-preservingMatrix' :: MonadIO m => m () -> m ()
-preservingMatrix' m = do
-    liftIO $ glPushMatrix
-    _ <- m
-    liftIO $ glPopMatrix
-
-drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> FinalizerT IO ()
-drawPic (Bitmap bmp) = case bitmapHash bmp of
-    Just h -> do
-        m <- liftIO $ readIORef ?refTextures
-        case IM.lookup h m of
-            Just t -> liftIO $ drawTexture t
-            Nothing -> do
-                t <- installTexture bmp
-                liftIO $ writeIORef ?refTextures $ IM.insert h t m
-                liftIO $ drawTexture t
-                finalizer $ modifyIORef ?refTextures $ IM.delete h 
-    Nothing -> liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
-drawPic (BitmapPicture bmp) = drawPic (Bitmap bmp)
-drawPic (Rotate theta p) = preservingMatrix' $ do
-    liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
-    drawPic p
-
-drawPic (Scale (Vec2 sx sy) p) = preservingMatrix' $ do
-    liftIO $ GL.scale (gf sx) (gf sy) 1
-    drawPic p
-
-drawPic (Translate (Vec2 tx ty) p) = preservingMatrix' $ do
-    liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
-    drawPic p
-
-drawPic (Pictures ps) = mapM_ drawPic ps
-drawPic (PictureWithFinalizer m) = m >>= drawPic
-drawPic (Colored (Color r g b a) pic) = do
-    oldColor <- liftIO $ get GL.currentColor
-    liftIO $ GL.currentColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
-    drawPic pic
-    liftIO $ GL.currentColor $= oldColor
+runFreeGame :: GameParam -> IORef (IM.IntMap Texture) -> IORef Int -> Free GameAction a -> FinalizerT IO (Maybe a)
+runFreeGame p r s = go where
+    go (Free f) = runAction p r s $ go <$> f
+    go (Pure a) = return $ Just a
 
 runAction :: GameParam
     -> IORef (IM.IntMap Texture)
@@ -141,17 +87,7 @@ runAction param refTextures refFrame _f = case _f of
         fcont $ param { windowSize = dim }
     QuitGame -> return Nothing
 
-runFreeGame :: GameParam -> IORef (IM.IntMap Texture) -> IORef Int -> Free GameAction a -> FinalizerT IO (Maybe a)
-runFreeGame p r s = go where
-    go (Free f) = runAction p r s $ go <$> f
-    go (Pure a) = return $ Just a
-
--- | Run 'Game' using OpenGL and GLFW.
-runGame :: GameParam -> Game a -> IO (Maybe a)
-runGame param m = launch param $ \r s -> runFreeGame param r s m
-
-runGame' :: GameParam -> (forall m. MonadFree GameAction m => m a) -> IO (Maybe a)
-runGame' param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
+data Texture = Texture GL.TextureObject Int Int
 
 launch :: GameParam -> (IORef (IM.IntMap Texture) -> IORef Int -> FinalizerT IO (Maybe a)) -> IO (Maybe a)
 launch param m = do
@@ -186,6 +122,73 @@ launch param m = do
     closeWindow
     terminate
     return r
+
+installTexture :: Bitmap -> FinalizerT IO Texture
+installTexture bmp = do
+    [tex] <- liftIO $ GL.genObjectNames 1
+    liftIO $ GL.textureBinding GL.Texture2D GL.$= Just tex
+
+    let (width, height) = bitmapSize bmp
+    liftIO $ withForeignPtr (RF.toForeignPtr $ bitmapData bmp)
+        $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 (GL.TextureSize2D (gsizei width) (gsizei height)) 0
+        . GL.PixelData GL.RGBA GL.UnsignedInt8888
+    finalizer $ GL.deleteObjectNames [tex]
+    return $ Texture tex width height
+
+drawTexture :: Texture -> IO ()
+drawTexture (Texture tex width height) = do
+    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
+    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.textureBinding GL.Texture2D $= Just tex
+    GL.renderPrimitive GL.Polygon $ zipWithM_
+        (\(pX, pY) (tX, tY) -> do
+            GL.texCoord $ GL.TexCoord2 (gf tX) (gf tY)
+            GL.vertex $ GL.Vertex2   (gf pX) (gf pY))
+        [(-w, -h), (w, -h), (w, h), (-w, h)]
+        [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
+
+drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> FinalizerT IO ()
+drawPic (Bitmap bmp) = case bitmapHash bmp of
+    Just h -> do
+        m <- liftIO $ readIORef ?refTextures
+        case IM.lookup h m of
+            Just t -> liftIO $ drawTexture t
+            Nothing -> do
+                t <- installTexture bmp
+                liftIO $ writeIORef ?refTextures $ IM.insert h t m
+                liftIO $ drawTexture t
+                finalizer $ modifyIORef ?refTextures $ IM.delete h 
+    Nothing -> liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
+
+drawPic (BitmapPicture bmp) = drawPic (Bitmap bmp)
+
+drawPic (Rotate theta p) = preservingMatrix' $ do
+    liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
+    drawPic p
+
+drawPic (Scale (Vec2 sx sy) p) = preservingMatrix' $ do
+    liftIO $ GL.scale (gf sx) (gf sy) 1
+    drawPic p
+
+drawPic (Translate (Vec2 tx ty) p) = preservingMatrix' $ do
+    liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
+    drawPic p
+
+drawPic (Pictures ps) = mapM_ drawPic ps
+
+drawPic (PictureWithFinalizer m) = m >>= drawPic
+
+drawPic (Colored (Color r g b a) pic) = do
+    oldColor <- liftIO $ get GL.currentColor
+    liftIO $ GL.currentColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
+    drawPic pic
+    liftIO $ GL.currentColor $= oldColor
+
+preservingMatrix' :: MonadIO m => m () -> m ()
+preservingMatrix' m = do
+    liftIO $ glPushMatrix
+    _ <- m
+    liftIO $ glPopMatrix
 
 mapKey :: I.Button -> Either Key MouseButton
 mapKey k = case k of
