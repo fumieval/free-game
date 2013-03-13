@@ -30,6 +30,8 @@ module Graphics.FreeGame.Simple (
     ,embedIO
     ,quitGame
     ,tick
+    ,untick
+    ,untickInfinite
     ,untickGame
 
     -- * About Picture
@@ -37,6 +39,7 @@ module Graphics.FreeGame.Simple (
     ,Bitmap
     ,loadBitmapFromFile
     ,loadBitmaps
+    ,loadBitmapsWith
     ,Vec2(..)
 
     -- * Drawing texts
@@ -76,7 +79,8 @@ runSimple param initial m = void $ runGame param $ looping initial where
         tick
         looping world'
 
--- | Run more efficiently.
+-- | In most cases there's no unwrapping (Game a -> GameAction (Game a)).
+-- | The use of ('>>=') is more efficient than 'runGame' in such situation.
 runSimple' :: GameParam
     -> world -- ^ An initial world
     -> (world -> forall m. MonadFree GameAction m => m world) -- ^ A computation yielding new world

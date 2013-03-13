@@ -35,7 +35,8 @@ import Control.Monad.Free
 runGame :: GameParam -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
 
--- | Run more efficiently.
+-- | In most cases there's no unwrapping (Game a -> GameAction (Game a)).
+-- | The use of ('>>=') is more efficient than 'runGame' in such situation.
 runGame' :: GameParam -> (forall m. MonadFree GameAction m => m a) -> IO (Maybe a)
 runGame' = GLFW.runGame'
 

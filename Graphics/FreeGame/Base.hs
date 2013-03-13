@@ -126,7 +126,7 @@ data Picture
     | BitmapPicture Bitmap
     -- | A picture consist of some 'Picture's.
     | Pictures [Picture]
-    -- | A picture that may have side effects(for internal use).
+    -- | A picture that may have side effects(internal use only).
     | PictureWithFinalizer (FinalizerT IO Picture)
     -- | Rotated picture by the given angle (in degrees, counterclockwise).
     | Rotate Float Picture
@@ -141,13 +141,13 @@ data Picture
 
 -- | Parameters of the application.
 data GameParam = GameParam
-    {    framePerSecond :: Int
-        ,windowSize :: (Int, Int)
-        ,windowTitle :: String
-        ,windowed :: Bool
-        ,cursorVisible :: Bool
-        ,clearColor :: Color
-        ,windowOrigin :: Vec2
+    { framePerSecond :: Int
+    , windowSize :: (Int, Int)
+    , windowTitle :: String
+    , windowed :: Bool
+    , cursorVisible :: Bool
+    , clearColor :: Color
+    , windowOrigin :: Vec2
     } deriving Show
 
 -- | 640*480(windowed), 60fps
