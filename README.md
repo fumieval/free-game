@@ -12,3 +12,5 @@ free-game is a library that abstracts and purifies GUI applications with simple 
 # Special Thanks
 
 * [jbracker](https://github.com/jbracker), extended features and fixed minor bugs
+
+Bug reports, pull requests, feature requests are welcome.
