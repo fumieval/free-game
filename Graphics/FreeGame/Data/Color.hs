@@ -51,7 +51,7 @@ lighten :: Float -> Color -> Color
 lighten f (Color r g b a) = Color (r * (1 - f) + f) (g * (1 - f) + f) (b * (1 - f) + f) a
 
 darken :: Float -> Color -> Color
-darken f (Color r g b a) = Color (r * (1 - f) + f) (g * (1 - f) + f) (b * (1 - f) + f) a
+darken f (Color r g b a) = Color (r * (1 - f)) (g * (1 - f)) (b * (1 - f)) a
 
 -- | An intermediate between the given colors.
 intermediate :: Color -> Color -> Color
