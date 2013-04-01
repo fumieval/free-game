@@ -18,13 +18,13 @@ import Control.Monad.Free
 import Control.Monad.Free.Church
 import Control.Monad.IO.Class
 import Data.IORef
-import Data.StateVar
 import Foreign.ForeignPtr
 import Graphics.FreeGame.Base
 import Graphics.FreeGame.Data.Bitmap
 import Graphics.FreeGame.Internal.Finalizer
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
 import Graphics.UI.GLFW as GLFW
+import Graphics.Rendering.OpenGL.GL.StateVar
 import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import qualified Data.IntMap as IM
 import qualified Graphics.FreeGame.Input as I
