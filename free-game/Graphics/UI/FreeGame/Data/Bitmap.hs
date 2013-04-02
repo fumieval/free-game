@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.FreeGame.Data.Bitmap
+-- Module      :  Graphics.UI.FreeGame.Data.Bitmap
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -11,11 +11,9 @@
 -- Manipulating bitmaps
 ----------------------------------------------------------------------------
 
-module Graphics.FreeGame.Data.Bitmap (
+module Graphics.UI.FreeGame.Data.Bitmap (
     -- * Basic types and functions
-    Bitmap
-    ,bitmapData
-    ,bitmapHash
+    Bitmap(..)
     ,bitmapSize
 
     -- * Loading from a file
@@ -42,23 +40,23 @@ import System.Random
 import Data.Hashable
 
 -- | Concrete bitmap data
-data Bitmap = Bitmap {
+data Bitmap = BitmapData {
     bitmapData :: R.Array RF.F DIM3 Word8 -- ^ Bare the 'Bitmap''s internal representation (y * x * RGBA).
     ,bitmapHash :: Maybe Int -- ^ This value is used to ensure that two bitmaps are equivalent.
     }
 
 -- | Create unstable 'Bitmap' from the given array.
 toBitmap :: R.Array RF.F DIM3 Word8 -> Bitmap
-toBitmap ar = Bitmap ar Nothing
+toBitmap ar = BitmapData  ar Nothing
 
 -- | Create stable 'Bitmap' from the given array and compute the hash.
 toStableBitmap :: R.Array RF.F DIM3 Word8 -> Bitmap
-toStableBitmap ar = Bitmap ar $ Just $ head $ foldAllP combine 0 $ R.map fromIntegral ar where
+toStableBitmap ar = BitmapData  ar $ Just $ head $ foldAllP combine 0 $ R.map fromIntegral ar where
     combine p q = hash (p, q)
 
 -- | Create stable 'Bitmap' with unique hash from the given array.
 makeStableBitmap :: R.Array RF.F DIM3 Word8 -> IO Bitmap
-makeStableBitmap ar = Bitmap ar <$> Just <$> randomIO
+makeStableBitmap ar = BitmapData ar <$> Just <$> randomIO
 
 -- | Get the size of the 'Bitmap'.
 bitmapSize :: Bitmap -> (Int, Int)
@@ -74,7 +72,7 @@ onBitmap f = toStableBitmap . f . bitmapData
 
 -- | Convert the 'Bitmap' uniformalized by the 'Hashable' value by the given function.
 onBitmapWithHashable :: Hashable h => h -> (R.Array RF.F DIM3 Word8 -> R.Array RF.F DIM3 Word8) -> Bitmap -> Bitmap
-onBitmapWithHashable v f (Bitmap ar h) = Bitmap (f ar) (hash <$> (,) v <$> h)
+onBitmapWithHashable v f (BitmapData ar h) = BitmapData (f ar) (hash <$> (,) v <$> h)
 
 -- | Extract a 'Bitmap' from the specified range.
 cropBitmap :: Bitmap -- ^original bitmap

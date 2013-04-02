@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.FreeGame.Data.Color
+-- Module      :  Graphics.UI.FreeGame.Data.Color
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -10,7 +10,7 @@
 --
 -- Colors and its operations
 ----------------------------------------------------------------------------
-module Graphics.FreeGame.Data.Color (
+module Graphics.UI.FreeGame.Data.Color (
     -- * The type
     Color(..)
     -- * Color operations

@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.FreeGame.Data.Font
+-- Module      :  Graphics.UI.FreeGame.Data.Font
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -11,11 +11,11 @@
 --
 -- Rendering characters
 ----------------------------------------------------------------------------
-module Graphics.FreeGame.Data.Font 
+module Graphics.UI.FreeGame.Data.Font 
   ( Font
   , loadFont
   , Metrics(..)
-  , Graphics.FreeGame.Data.Font.metrics
+  , Graphics.UI.FreeGame.Data.Font.metrics
   , fontBoundingBox
   , charToBitmap
   , RenderedChar(..)
@@ -25,16 +25,15 @@ module Graphics.FreeGame.Data.Font
 
 import Control.Applicative
 import Control.Monad.IO.Class
+import Data.IORef
 import Data.Array.Repa as R
 import Data.Array.Repa.Eval
-import Data.Vect
-import Data.IORef
 import qualified Data.Map as M
 import Data.Word
-import Graphics.FreeGame.Base
-import Graphics.FreeGame.Types
-import Graphics.FreeGame.Data.Bitmap
-import Graphics.FreeGame.Internal.Finalizer
+import Linear
+import Graphics.UI.FreeGame.Types
+import Graphics.UI.FreeGame.Data.Bitmap
+import Graphics.UI.FreeGame.Internal.Finalizer
 import Graphics.Rendering.FreeType.Internal
 import qualified Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
 import qualified Graphics.Rendering.FreeType.Internal.Vector as V
@@ -51,7 +50,7 @@ import System.IO.Unsafe
 import Unsafe.Coerce
 
 -- | Font object
-data Font = Font FT_Face Metrics BoundingBox (IORef (M.Map (Float, Char) RenderedChar))
+data Font = Font FT_Face Metrics (BoundingBox Float) (IORef (M.Map (Float, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
 loadFont :: FilePath -> IO Font
@@ -64,14 +63,15 @@ loadFont path = alloca $ \p -> do
     desc <- peek (descender f)
     u <- fromIntegral <$> peek (units_per_EM f)
     let m = Metrics (fromIntegral asc/u) (fromIntegral desc/u)
-        box = BoundingBox (Vec2 (fromIntegral (xMin b)/u) (fromIntegral (yMin b)/u))
-                          (Vec2 (fromIntegral (xMax b)/u) (fromIntegral (yMin b)/u))
+        box = BoundingBox (V2 (fromIntegral (xMin b)/u) (fromIntegral (yMin b)/u))
+                          (V2 (fromIntegral (xMax b)/u) (fromIntegral (yMin b)/u))
     Font f m box <$> newIORef M.empty
+
 -- | Get the font's metrics.
 metrics :: Font -> Metrics
 metrics (Font _ m _ _) = m
 
-fontBoundingBox :: Font -> BoundingBox
+fontBoundingBox :: Font -> BoundingBox Float
 fontBoundingBox (Font _ _ b _) = b
 
 -- | Render a text by the specified 'Font'.
@@ -89,7 +89,7 @@ freeType = unsafePerformIO $ alloca $ \p -> do
 
 data RenderedChar = RenderedChar
     { charBitmap :: Bitmap
-    , charOffset :: Vec2
+    , charOffset :: V2 Float
     ,　charAdvance :: Float
     }
 
@@ -146,13 +146,13 @@ charToBitmap (Font face _ _ refCache) pixel ch = do
 
             result <- computeP (fromFunction (Z:.h:.w:.4) pix) >>= makeStableBitmap
             
-            return $ RenderedChar result (Vec2 left (-top)) (fromIntegral (V.x adv) / 64)
+            return $ RenderedChar result (V2 left (-top)) (fromIntegral (V.x adv) / 64)
  
 renderCharacters :: Font -> Float -> String -> FinalizerT IO [Picture]
 renderCharacters font pixel str = render str 0 where
     render [] _ = return []
     render (c:cs) pen = do
-        RenderedChar b (Vec2 x y) adv <- charToBitmap font pixel c
+        RenderedChar b (V2 x y) adv <- charToBitmap font pixel c
         let (w,h) = bitmapSize b
-            offset = Vec2 (pen + x + fromIntegral w / 2) (y + fromIntegral h / 2)
+            offset = V2 (pen + x + fromIntegral w / 2) (y + fromIntegral h / 2)
         (Translate offset (Bitmap b):) <$> render cs (pen + adv)
