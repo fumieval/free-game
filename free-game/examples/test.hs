@@ -34,19 +34,19 @@ obj = forever $ do
     position .= pos + vel
     velocity .= V2 dx' dy'
 
-    mpos <- input mousePosition
+    mpos <- lift mousePosition
 
     w <- if norm (mpos - pos) < 32
         then do
             btn <- use pressed
-            btn' <- input mouseButtonL
+            btn' <- lift mouseButtonL
             when (not btn && btn') $ velocity <~ (^*4) <$> sinCos <$> randomness (0, 2 * pi)
             pressed .= btn'
             return id
 
-        else return $ Colored (transparent 0.7 white)
+        else return $ colored (transparent 0.7 white)
 
-    draw $ Translate pos $ w (Bitmap _logo_png)
+    lift $ translate pos $ w (fromBitmap _logo_png)
 
     tick
 

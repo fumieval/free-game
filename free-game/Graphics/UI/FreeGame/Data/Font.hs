@@ -24,6 +24,7 @@ module Graphics.UI.FreeGame.Data.Font
   ) where
 
 import Control.Applicative
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.IORef
 import Data.Array.Repa as R
@@ -31,6 +32,7 @@ import Data.Array.Repa.Eval
 import qualified Data.Map as M
 import Data.Word
 import Linear
+import Graphics.UI.FreeGame.Base
 import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Internal.Finalizer
@@ -75,8 +77,8 @@ fontBoundingBox :: Font -> BoundingBox Float
 fontBoundingBox (Font _ _ b _) = b
 
 -- | Render a text by the specified 'Font'.
-text :: Font -> Float -> String -> Picture
-text font siz str = PictureWithFinalizer $ Pictures <$> renderCharacters font siz str
+text :: (Monad p, Picture2D p) => Font -> Float -> String -> p ()
+text font siz str = join $ withFinalizer $ fmap sequence_ (renderCharacters font siz str)
 
 failFreeType :: Monad m => CInt -> m ()
 failFreeType 0 = return ()
@@ -148,11 +150,11 @@ charToBitmap (Font face _ _ refCache) pixel ch = do
             
             return $ RenderedChar result (V2 left (-top)) (fromIntegral (V.x adv) / 64)
  
-renderCharacters :: Font -> Float -> String -> FinalizerT IO [Picture]
+renderCharacters :: (Monad p, Picture2D p) => Font -> Float -> String -> FinalizerT IO [p ()]
 renderCharacters font pixel str = render str 0 where
     render [] _ = return []
     render (c:cs) pen = do
         RenderedChar b (V2 x y) adv <- charToBitmap font pixel c
         let (w,h) = bitmapSize b
             offset = V2 (pen + x + fromIntegral w / 2) (y + fromIntegral h / 2)
-        (Translate offset (Bitmap b):) <$> render cs (pen + adv)
+        (translate offset (fromBitmap b):) <$> render cs (pen + adv)

@@ -12,15 +12,18 @@
 {-# LANGUAGE ImplicitParams, ScopedTypeVariables, Rank2Types, FlexibleContexts #-}
 module Graphics.UI.FreeGame.GUI.GLFW (runGame) where
 import Control.Applicative
-import Control.Applicative.Free
+import Control.Applicative.Free as Ap
+import Control.MonadPlus.Free as MonadPlus
 import Control.Monad
 import Control.Monad.Free.Church
 import Control.Monad.IO.Class
 import Data.IORef
+import Data.Monoid
 import Foreign.ForeignPtr
 import Graphics.UI.FreeGame.Base
 import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Data.Bitmap
+import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Internal.Finalizer
 import Graphics.UI.FreeGame.GUI
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
@@ -36,28 +39,16 @@ import Linear
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
 runGame param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
 
-runInput :: Ap GUIInput a -> IO a
-runInput (Pure a) = pure a
-runInput (Ap v af) = (runInput af <*>) $ case v of
-    ICharKey ch cont -> cont <$> GLFW.keyIsPressed (GLFW.CharKey ch)
-    ISpecialKey x cont -> cont <$> GLFW.keyIsPressed (mapSpecialKey x)
-    IMouseButtonL cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton0
-    IMouseButtonR cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton1
-    IMouseButtonM cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton2
-    IMousePosition cont -> do
-        (x, y) <- GLFW.getMousePosition
-        return $ cont $ V2 (fromIntegral x) (fromIntegral y)
-    IMouseWheel cont -> cont <$> GLFW.getMouseWheel
 
 runAction :: GUIParam
     -> IORef (IM.IntMap Texture)
     -> IORef Int
     -> GUI (FinalizerT IO (Maybe a)) -> FinalizerT IO (Maybe a)
 runAction param refTextures refFrame _f = case _f of
-    Draw pic cont -> let ?refTextures = refTextures in drawPic pic >> cont
+    LiftUI (Draw pic) -> let ?refTextures = refTextures in join $ runPicture pic
     EmbedIO m -> join (liftIO m)
     Bracket m -> liftIO (runFinalizerT $ runF m (return.Just) (runAction param refTextures refFrame)) >>= maybe (return Nothing) id
-    Input i -> join $ liftIO $ runInput i
+    LiftUI (Input i) -> join $ liftIO $ runInput i
     Quit -> return Nothing
     Tick cont -> do
         liftIO $ do
@@ -87,7 +78,7 @@ runAction param refTextures refFrame _f = case _f of
                 GL.matrixMode $= GL.Modelview 0
             cont
 
-data Texture = Texture GL.TextureObject Int Int
+data Texture = Texture GL.TextureObject !Int !Int
 
 bool :: a -> a -> Bool -> a
 bool r _ False = r
@@ -134,20 +125,21 @@ installTexture bmp = do
     finalizer $ GL.deleteObjectNames [tex]
     return $ Texture tex width height
 
-drawTexture :: Texture -> IO ()
-drawTexture (Texture tex width height) = do
-    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
-    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.textureBinding GL.Texture2D $= Just tex
-    GL.renderPrimitive GL.Polygon $ zipWithM_
-        (\(pX, pY) (tX, tY) -> do
-            GL.texCoord $ GL.TexCoord2 (gf tX) (gf tY)
-            GL.vertex $ GL.Vertex2   (gf pX) (gf pY))
-        [(-w, -h), (w, -h), (w, h), (-w, h)]
-        [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
+runInput :: Ap GUIInput a -> IO a
+runInput (Ap.Pure a) = pure a
+runInput (Ap.Ap v af) = (runInput af <*>) $ case v of
+    ICharKey ch cont -> cont <$> GLFW.keyIsPressed (GLFW.CharKey ch)
+    ISpecialKey x cont -> cont <$> GLFW.keyIsPressed (mapSpecialKey x)
+    IMouseButtonL cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton0
+    IMouseButtonR cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton1
+    IMouseButtonM cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton2
+    IMousePosition cont -> do
+        (x, y) <- GLFW.getMousePosition
+        return $ cont $ V2 (fromIntegral x) (fromIntegral y)
+    IMouseWheel cont -> cont <$> GLFW.getMouseWheel
 
-drawPic :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture -> FinalizerT IO ()
-drawPic (Bitmap bmp@(BitmapData _ (Just h))) = do
+runPicture :: (?refTextures :: IORef (IM.IntMap Texture)) => Picture a -> FinalizerT IO a
+runPicture (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
     m <- liftIO $ readIORef ?refTextures
     case IM.lookup h m of
         Just t -> liftIO $ drawTexture t
@@ -156,29 +148,33 @@ drawPic (Bitmap bmp@(BitmapData _ (Just h))) = do
             liftIO $ writeIORef ?refTextures $ IM.insert h t m
             liftIO $ drawTexture t
             finalizer $ modifyIORef ?refTextures $ IM.delete h
-drawPic (Bitmap bmp@(BitmapData _ Nothing)) = liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
-drawPic (Rotate theta p) = preservingMatrix' $ do
+    return r
+runPicture (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
+    liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
+    return r
+runPicture (Rotate theta cont) = preservingMatrix' $ do
     liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
-    drawPic p
-drawPic (Scale (V2 sx sy) p) = preservingMatrix' $ do
+    runPicture cont
+runPicture (Scale (V2 sx sy) cont) = preservingMatrix' $ do
     liftIO $ GL.scale (gf sx) (gf sy) 1
-    drawPic p
-drawPic (Translate (V2 tx ty) p) = preservingMatrix' $ do
+    runPicture cont
+runPicture (Translate (V2 tx ty) cont) = preservingMatrix' $ do
     liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
-    drawPic p
-drawPic (Pictures ps) = mapM_ drawPic ps
-drawPic (PictureWithFinalizer m) = m >>= drawPic
-drawPic (Colored (Color r g b a) pic) = do
+    runPicture cont
+runPicture (PictureWithFinalizer m) = m
+runPicture (Colored (Color r g b a) cont) = do
     oldColor <- liftIO $ get GL.currentColor
     liftIO $ GL.currentColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
-    drawPic pic
+    r <- runPicture cont
     liftIO $ GL.currentColor $= oldColor
+    return r
 
-preservingMatrix' :: MonadIO m => m () -> m ()
+preservingMatrix' :: MonadIO m => m a -> m a
 preservingMatrix' m = do
     liftIO $ glPushMatrix
-    _ <- m
+    r <- m
     liftIO $ glPopMatrix
+    return r
 
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
@@ -188,6 +184,19 @@ gsizei :: Int -> GL.GLsizei
 {-# INLINE gsizei #-}
 gsizei x = unsafeCoerce x
 
+drawTexture :: Texture -> IO ()
+drawTexture (Texture tex width height) = do
+    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
+    GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.textureBinding GL.Texture2D $= Just tex
+    GL.renderPrimitive GL.Polygon $ zipWithM_
+        (\(pX, pY) (tX, tY) -> do
+            GL.texCoord $ GL.TexCoord2 (gf tX) (gf tY)
+            GL.vertex $ GL.Vertex2 (gf pX) (gf pY))
+        [(-w, -h), (w, -h), (w, h), (-w, h)]
+        [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
+
+mapSpecialKey :: SpecialKey -> GLFW.Key
 mapSpecialKey KeySpace = GLFW.KeySpace
 mapSpecialKey KeyEsc = GLFW.KeyEsc
 mapSpecialKey KeyLeftShift = GLFW.KeyLeftShift

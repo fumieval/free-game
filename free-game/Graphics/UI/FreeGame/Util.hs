@@ -29,7 +29,7 @@ import Control.Applicative
 import Data.Char
 import Graphics.UI.FreeGame.Base
 import Graphics.UI.FreeGame.Data.Bitmap
-import Graphics.UI.FreeGame.GUI (Picture(..))
+import Graphics.UI.FreeGame.Types
 import System.Random
 import Language.Haskell.TH
 import System.Directory
@@ -48,17 +48,17 @@ sinCos :: Floating a => a -> V2 a
 sinCos t = V2 (cos t) (sin t)
 
 -- | Run a 'Game' as one frame.
-untick :: (Functor i, MonadFree (UI p i o) m) => Free (UI p i o) a -> m (Either (Free (UI p i o) a) a)
+untick :: (Functor n, MonadFree (UI p n) m) => Free (UI p n) a -> m (Either (Free (UI p n) a) a)
 untick (Pure a) = return (Right a)
 untick (Free (Tick cont)) = return (Left cont)
 untick (Free f) = wrap $ fmap untick f
 
 -- | An infinite version of 'untick'.
-untickInfinite :: (Functor i, MonadFree (UI p i o) m) => Free (UI p i o) Void -> m (Free (UI p i o) Void)
+untickInfinite :: (Functor n, MonadFree (UI p n) m) => Free (UI p n) Void -> m (Free (UI p n) Void)
 untickInfinite = liftM (either id absurd) . untick
 
 -- | Get a given range of value.
-randomness :: (Random r, MonadFree (UI p i o) m) => (r, r) -> m r
+randomness :: (Random r, MonadFree (UI p n) m) => (r, r) -> m r
 randomness = embedIO . randomRIO
 
 -- | Convert radians to degrees.
@@ -72,8 +72,8 @@ radians :: Float -> Float
 radians x = x / 180 * pi
 
 -- | Create a 'Picture' from the given file.
-loadPictureFromFile :: MonadFree (UI p i o) m => FilePath -> m Picture
-loadPictureFromFile = embedIO . fmap Bitmap . loadBitmapFromFile
+loadPictureFromFile :: (Picture2D p, MonadFree (UI param n) m) => FilePath -> m (p ())
+loadPictureFromFile = embedIO . fmap fromBitmap . loadBitmapFromFile
 
 -- | Load and define all pictures in the specified directory.
 loadBitmapsWith :: Name -> FilePath -> Q [Dec]
