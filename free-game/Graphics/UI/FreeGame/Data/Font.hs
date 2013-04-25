@@ -77,8 +77,8 @@ fontBoundingBox :: Font -> BoundingBox Float
 fontBoundingBox (Font _ _ b _) = b
 
 -- | Render a text by the specified 'Font'.
-text :: (Monad p, Picture2D p) => Font -> Float -> String -> p ()
-text font siz str = join $ withFinalizer $ fmap sequence_ (renderCharacters font siz str)
+text :: (Monad p, Picture2D p, FromFinalizer p) => Font -> Float -> String -> p ()
+text font siz str = join $ fromFinalizer $ fmap sequence_ (renderCharacters font siz str)
 
 failFreeType :: Monad m => CInt -> m ()
 failFreeType 0 = return ()

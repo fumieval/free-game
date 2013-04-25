@@ -13,15 +13,12 @@
 module Graphics.UI.FreeGame.GUI.GLFW (runGame) where
 import Control.Applicative
 import Control.Applicative.Free as Ap
-import Control.MonadPlus.Free as MonadPlus
 import Control.Monad
 import Control.Monad.Free.Church
 import Control.Monad.IO.Class
 import Data.IORef
-import Data.Monoid
 import Foreign.ForeignPtr
 import Graphics.UI.FreeGame.Base
-import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Internal.Finalizer
@@ -38,7 +35,6 @@ import Linear
 
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
 runGame param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
-
 
 runAction :: GUIParam
     -> IORef (IM.IntMap Texture)
@@ -165,9 +161,9 @@ runPicture (PictureWithFinalizer m) = m
 runPicture (Colored (Color r g b a) cont) = do
     oldColor <- liftIO $ get GL.currentColor
     liftIO $ GL.currentColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
-    r <- runPicture cont
+    res <- runPicture cont
     liftIO $ GL.currentColor $= oldColor
-    return r
+    return res
 
 preservingMatrix' :: MonadIO m => m a -> m a
 preservingMatrix' m = do

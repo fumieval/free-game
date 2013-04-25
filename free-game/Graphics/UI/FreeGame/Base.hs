@@ -1,10 +1,10 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.FreeGame.Base
+-- Module      :  Graphics.UI.FreeGame.Base
 -- Copyright   :  (C) 2012-2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -29,116 +29,96 @@ module Graphics.UI.FreeGame.Base (
     -- * Classes
     ,Picture2D(..)
     ,Keyboard(..)
-    ,Mouse(..) 
+    ,Mouse(..)
+    ,FromFinalizer(..)
     ,SpecialKey(..)
 ) where
 
 import Control.Applicative
 import Control.Applicative.Free as Ap
 import Control.Lens
-import Control.Monad.Free.Church
-import Control.Monad.Free.Class
 import Control.Monad.IO.Class
-import Control.Monad.State.Class
 import Data.Monoid
 import Data.Void
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Internal.Finalizer
 import Linear hiding (rotate)
+
+import Control.Monad.Free.Class
+import Control.Monad.Free.Church
 import qualified Control.Monad.Free as Free
+
+import Control.Monad.Trans
+import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Cont
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.List
+import Control.Monad.Trans.Error
+import Control.Monad.Trans.Identity
+import qualified Control.Monad.State.Lazy as Lazy
+import qualified Control.Monad.State.Strict as Strict
+import qualified Control.Monad.Writer.Lazy as Lazy
+import qualified Control.Monad.Writer.Strict as Strict
+import qualified Control.Monad.Trans.RWS.Strict as Strict
+import qualified Control.Monad.Trans.RWS.Lazy as Lazy
 
 infixr 5 `translate`
 infixr 5 `rotate`
 infixr 5 `scale`
 infixr 5 `colored`
 
-instance (Functor m) => MonadIO (F (UI p m)) where
+instance (Functor m) => MonadIO (F (UI m)) where
     liftIO = embedIO
 
-instance (Functor m) => MonadState p (F (UI p m)) where
-    get = wrap $ GetParam return
-    put x = wrap $ PutParam x (return ())
-
-instance (Functor m) => MonadIO (Free.Free (UI p m)) where
+instance (Functor m) => MonadIO (Free.Free (UI m)) where
     liftIO = embedIO
 
-instance (Functor m) => MonadState p (Free.Free (UI p m)) where
-    get = wrap $ GetParam return
-    put x = wrap $ PutParam x (return ())
-
-data UI p m a
+data UI m a
     = Tick a
     | EmbedIO (IO a)
     | LiftUI (m a)
-    | Bracket (F (UI p m) a)
+    | Bracket (F (UI m) a)
     | Quit
-    | GetParam (p -> a)
-    | PutParam p a
     deriving Functor
 
 -- | Finalize the current frame and refresh the screen.
-tick :: MonadFree (UI p n) m => m ()
+tick :: MonadFree (UI n) m => m ()
 tick = wrap $ Tick (return ())
 
 -- | Run a Game monad in a Game monad. resources (e.g. pictures) will be released when inner computation is done.
-bracket :: MonadFree (UI p n) m => F (UI p n) a -> m a
-bracket m = wrap $ Bracket $ fmap return m
+bracket :: MonadFree (UI n) m => F (UI n) a -> m a
+bracket = wrap . Bracket . fmap return
 
 -- | Break the entire computation.
-quit :: MonadFree (UI p n) m => m Void
+quit :: MonadFree (UI n) m => m Void
 quit = wrap Quit
 
-liftUI :: (Functor n, MonadFree (UI p n) m) => n a -> m a
+liftUI :: (Functor n, MonadFree (UI n) m) => n a -> m a
 liftUI = wrap . LiftUI . fmap return
 
-embedIO :: (MonadFree (UI p n) m) => IO a -> m a
+embedIO :: (MonadFree (UI n) m) => IO a -> m a
 embedIO = wrap . EmbedIO . fmap return
 
-_LiftUI :: Applicative f => (m cont -> f (m cont)) -> UI p m cont -> f (UI p m cont)
+_LiftUI :: Applicative f => (m cont -> f (m cont)) -> UI m cont -> f (UI m cont)
 _LiftUI f (LiftUI o) = fmap LiftUI (f o)
 _LiftUI _ x = pure x
 
+hoistFreeR :: (Functor f, MonadFree g m) => (f (m a) -> g (m a)) -> Free.Free f a -> m a
+hoistFreeR t (Free.Pure a) = return a
+hoistFreeR t (Free.Free f) = wrap . t $ fmap (hoistFreeR t) f
+{-# INLINE hoistFreeR #-}
+
+hoistFR :: MonadFree g m => (f (m a) -> g (m a)) -> F f a -> m a
+hoistFR t (F m) = m return (wrap . t)
+{-# INLINE hoistFR #-}
+
 class Picture2D p where
     fromBitmap :: Bitmap -> p ()
-    withFinalizer :: FinalizerT IO a -> p a
     rotate :: Float -> p a -> p a
     scale :: V2 Float -> p a -> p a
     translate :: V2 Float -> p a -> p a
     colored :: Color -> p a -> p a
-
-instance (Picture2D m) => Picture2D (UI param m) where
-    fromBitmap = LiftUI . fromBitmap
-    withFinalizer = LiftUI . withFinalizer
-    rotate = over _LiftUI . rotate
-    scale = over _LiftUI . scale
-    translate = over _LiftUI . translate
-    colored = over _LiftUI . colored
-
-instance (Functor f, Picture2D f) => Picture2D (F f) where
-    fromBitmap = liftF . fromBitmap
-    withFinalizer = liftF . withFinalizer
-    rotate = hoistF' . rotate
-    scale = hoistF' . scale
-    translate = hoistF' . translate
-    colored = hoistF' . colored
-
-instance (Functor f, Picture2D f) => Picture2D (Free.Free f) where
-    fromBitmap = Free.liftF . fromBitmap
-    withFinalizer = Free.liftF . withFinalizer
-    rotate = hoistFree' . rotate
-    scale = hoistFree' . scale
-    translate = hoistFree' . translate
-    colored = hoistFree' . colored
-
-hoistFree' :: (Functor f, MonadFree g m) => (f (m a) -> g (m a)) -> Free.Free f a -> m a
-hoistFree' t (Free.Pure a) = return a
-hoistFree' t (Free.Free f) = wrap . t $ fmap (hoistFree' t) f
-{-# INLINE hoistFree' #-}
-
-hoistF' :: MonadFree g m => (f (m a) -> g (m a)) -> F f a -> m a
-hoistF' t (F m) = m return (wrap . t)
-{-# INLINE hoistF' #-}
 
 class Keyboard t where
     keyChar :: Char -> t Bool
@@ -151,49 +131,8 @@ class Mouse t where
     mouseButtonM :: t Bool
     mouseButtonR :: t Bool
 
-instance Keyboard t => Keyboard (Ap t) where
-    keyChar = liftAp . keyChar
-    keySpecial = liftAp . keySpecial
-
-instance Mouse t => Mouse (Ap t) where
-    mousePosition = liftAp mousePosition
-    mouseWheel = liftAp mouseWheel
-    mouseButtonL = liftAp mouseButtonL
-    mouseButtonR = liftAp mouseButtonR
-    mouseButtonM = liftAp mouseButtonR
-
-instance Keyboard m => Keyboard (UI p m) where
-    keyChar = LiftUI . keyChar
-    keySpecial = LiftUI . keySpecial
-
-instance Mouse m => Mouse (UI p m) where
-    mousePosition = LiftUI mousePosition
-    mouseWheel = LiftUI mouseWheel
-    mouseButtonL = LiftUI mouseButtonL
-    mouseButtonR = LiftUI mouseButtonR
-    mouseButtonM = LiftUI mouseButtonR
-
-instance (Functor f, Keyboard f) => Keyboard (F f) where
-    keyChar = liftF . keyChar
-    keySpecial = liftF . keySpecial
-
-instance (Functor f, Mouse f) => Mouse (F f) where
-    mousePosition = liftF mousePosition
-    mouseWheel = liftF mouseWheel
-    mouseButtonL = liftF mouseButtonL
-    mouseButtonR = liftF mouseButtonR
-    mouseButtonM = liftF mouseButtonR
-
-instance (Functor f, Keyboard f) => Keyboard (Free.Free f) where
-    keyChar = Free.liftF . keyChar
-    keySpecial = Free.liftF . keySpecial
-
-instance (Functor f, Mouse f) => Mouse (Free.Free f) where
-    mousePosition = Free.liftF mousePosition
-    mouseWheel = Free.liftF mouseWheel
-    mouseButtonL = Free.liftF mouseButtonL
-    mouseButtonR = Free.liftF mouseButtonR
-    mouseButtonM = Free.liftF mouseButtonR
+class FromFinalizer m where
+    fromFinalizer :: FinalizerT IO a -> m a
 
 data SpecialKey = KeySpace
     | KeyEsc
@@ -227,3 +166,92 @@ data SpecialKey = KeySpace
     | KeyF11
     | KeyF12
     deriving (Show, Eq, Ord, Enum)
+
+#define _COMMA_ ,
+
+#define MK_PICTURE_2D(cxt, ty, l, t) instance (Picture2D m cxt) => Picture2D (ty) where { \
+    fromBitmap = (l) . fromBitmap; \
+    rotate = (t) . rotate; \
+    translate = (t) . translate; \
+    scale = (t) . scale; \
+    colored = (t) . colored }
+
+#define MK_KEYBOARD(cxt, ty, l) instance (Keyboard m cxt) => Keyboard (ty) where { \
+    keyChar = (l) . keyChar; \
+    keySpecial = (l) . keySpecial }
+
+#define MK_MOUSE(cxt, ty, l) instance (Mouse m cxt) => Mouse (ty) where { \
+    mousePosition = (l) mousePosition; \
+    mouseWheel = (l) mouseWheel; \
+    mouseButtonL = (l) mouseButtonL; \
+    mouseButtonR = (l) mouseButtonR; \
+    mouseButtonM = (l) mouseButtonM }
+
+#define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \
+    fromFinalizer = (l) . fromFinalizer }
+
+
+MK_PICTURE_2D(_COMMA_ Functor m, F m, liftF, hoistFR)
+MK_PICTURE_2D( , UI m, LiftUI, over _LiftUI)
+MK_PICTURE_2D(_COMMA_ Functor m, Free.Free m, Free.liftF, hoistFreeR)
+MK_PICTURE_2D(_COMMA_ Monad m, ReaderT r m, lift, mapReaderT)
+MK_PICTURE_2D(_COMMA_ Monad m, Lazy.StateT s m, lift, Lazy.mapStateT)
+MK_PICTURE_2D(_COMMA_ Monad m, Strict.StateT s m, lift, Strict.mapStateT)
+MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift, Lazy.mapWriterT)
+MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift, Strict.mapWriterT)
+MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift, Lazy.mapRWST)
+MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift, Strict.mapRWST)
+MK_PICTURE_2D(_COMMA_ Monad m, IdentityT m, lift, mapIdentityT)
+MK_PICTURE_2D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
+MK_PICTURE_2D(_COMMA_ Monad m, ListT m, lift, mapListT)
+MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
+MK_PICTURE_2D(_COMMA_ Monad m, ContT r m, lift, mapContT)
+
+MK_KEYBOARD(, Ap m, liftAp)
+MK_KEYBOARD(, UI m, LiftUI)
+MK_KEYBOARD(_COMMA_ Functor m, F m, liftF)
+MK_KEYBOARD(_COMMA_ Functor m, Free.Free m, Free.liftF)
+MK_KEYBOARD(_COMMA_ Monad m, ReaderT s m, lift)
+MK_KEYBOARD(_COMMA_ Monad m, Lazy.StateT s m, lift)
+MK_KEYBOARD(_COMMA_ Monad m, Strict.StateT s m, lift)
+MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift)
+MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift)
+MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift)
+MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
+MK_KEYBOARD(_COMMA_ Monad m, IdentityT m, lift)
+MK_KEYBOARD(_COMMA_ Monad m, MaybeT m, lift)
+MK_KEYBOARD(_COMMA_ Monad m, ListT m, lift)
+MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_KEYBOARD(_COMMA_ Monad m, ContT r m, lift)
+
+MK_MOUSE(, Ap m, liftAp)
+MK_MOUSE(, UI m, LiftUI)
+MK_MOUSE(_COMMA_ Functor m, F m, liftF)
+MK_MOUSE(_COMMA_ Functor m, Free.Free m, Free.liftF)
+MK_MOUSE(_COMMA_ Monad m, ReaderT r m, lift)
+MK_MOUSE(_COMMA_ Monad m, Lazy.StateT s m, lift)
+MK_MOUSE(_COMMA_ Monad m, Strict.StateT s m, lift)
+MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift)
+MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift)
+MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift)
+MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
+MK_MOUSE(_COMMA_ Monad m, IdentityT m, lift)
+MK_MOUSE(_COMMA_ Monad m, MaybeT m, lift)
+MK_MOUSE(_COMMA_ Monad m, ListT m, lift)
+MK_MOUSE(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_MOUSE(_COMMA_ Monad m, ContT r m, lift)
+
+MK_FROM_FINALIZER(, UI m, LiftUI)
+MK_FROM_FINALIZER(_COMMA_ Functor m, F m, liftF)
+MK_FROM_FINALIZER(_COMMA_ Functor m, Free.Free m, Free.liftF)
+MK_FROM_FINALIZER(_COMMA_ Monad m, Lazy.StateT s m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m, Strict.StateT s m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m, IdentityT m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m, MaybeT m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m, ListT m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m, ContT r m, lift)

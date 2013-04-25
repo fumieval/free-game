@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor, FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
 module Graphics.UI.FreeGame.GUI (
-    GUI
+    Game
+    , GUI
     , GUIBase(..)
     , GUIInput(..)
     , Picture(..)
@@ -20,8 +21,9 @@ import Data.Default
 import Linear hiding (rotate)
 import Control.Lens
 
+type Game = F GUI
 
-type GUI = UI GUIParam GUIBase
+type GUI = UI GUIBase
 
 data GUIBase a = Input (Ap GUIInput a) | Draw (Picture a) deriving Functor
 
@@ -31,7 +33,6 @@ _Draw _ x = pure x
 
 instance Picture2D GUIBase where
     fromBitmap = Draw . fromBitmap
-    withFinalizer = Draw . withFinalizer
     rotate = over _Draw . rotate
     scale = over _Draw . scale
     translate = over _Draw . translate
@@ -48,7 +49,8 @@ instance Mouse GUIBase where
     mouseButtonR = Input mouseButtonR
     mouseButtonM = Input mouseButtonR
 
-
+instance FromFinalizer GUIBase where
+    fromFinalizer = Draw . fromFinalizer
 data GUIInput a = 
       ICharKey Char (Bool -> a)
     | ISpecialKey SpecialKey (Bool -> a)
@@ -59,28 +61,24 @@ data GUIInput a =
     | IMouseButtonR (Bool -> a)
     deriving Functor
 
--- | a 2D Picture.
 data Picture a
     = LiftBitmap Bitmap a
-    -- | A picture that may have side effects(internal use only).
     | PictureWithFinalizer (FinalizerT IO a)
-    -- | Rotated picture by the given angle (in degrees,counterclockwise).
     | Rotate Float (Picture a)
-    -- | Scaled picture.
     | Scale (V2 Float) (Picture a)
-    -- | A picture translated by the given coordinate.
     | Translate (V2 Float) (Picture a)
-    -- | Colored picture.
     | Colored Color (Picture a)
     deriving Functor
 
 instance Picture2D Picture where
     fromBitmap = flip LiftBitmap ()
-    withFinalizer = PictureWithFinalizer
     rotate = Rotate
     scale = Scale
     translate = Translate
     colored = Colored
+
+instance FromFinalizer Picture where
+    fromFinalizer = PictureWithFinalizer
 
 instance Keyboard GUIInput where
     keyChar x = ICharKey x id
@@ -93,7 +91,6 @@ instance Mouse GUIInput where
     mouseButtonR = IMouseButtonR id
     mouseButtonM = IMouseButtonM id
 
--- | Parameters of the application.
 data GUIParam = GUIParam
     { _framePerSecond :: Int
     , _windowSize :: V2 Int

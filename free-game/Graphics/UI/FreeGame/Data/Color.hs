@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.UI.FreeGame.Data.Color
@@ -15,22 +16,36 @@ module Graphics.UI.FreeGame.Data.Color (
     Color(..)
     -- * Color operations
     , transparent
-    , lighten
-    , darken
-    , intermediate
-    -- * Deprecated
-    , halfD
-    , halfB
+    , blend
+    -- * Lenses
+    , _Red, _Green, _Blue, _Alpha, _8Bit
     -- * Basic colors
     , white, black, red, green, blue, yellow, cyan, magenta
     ) where
 
 import Data.String
 import Data.Char
+import Data.Profunctor
+import Data.Word
 
 -- | A color that has red, green, blue, alpha as its component.
 data Color = Color Float Float Float Float deriving (Show, Eq, Ord)
 
+_8Bit :: forall p f. (Profunctor p, Functor f) => p Word8 (f Word8) -> p Float (f Float)
+_8Bit = dimap (floor.(*255)) (fmap ((/255) . fromIntegral))
+
+_Red :: Functor f => (Float -> f Float) -> Color -> f Color
+_Red f (Color r g b a) = fmap (\r' -> Color r' g b a) (f r)
+
+_Green :: Functor f => (Float -> f Float) -> Color -> f Color
+_Green f (Color r g b a) = fmap (\g' -> Color r g' b a) (f g)
+
+_Blue :: Functor f => (Float -> f Float) -> Color -> f Color
+_Blue f (Color r g b a) = fmap (\b' -> Color r g b' a) (f b)
+
+_Alpha :: Functor f => (Float -> f Float) -> Color -> f Color
+_Alpha f (Color r g b a) = fmap (\a' -> Color r g b a) (f a)
+    
 hf :: Char -> Float
 hf x = fromIntegral (digitToInt x) / 15
 
@@ -47,25 +62,12 @@ instance IsString Color where
 transparent :: Float -> Color -> Color
 transparent f (Color r g b a) = Color r g b (f * a)
 
-lighten :: Float -> Color -> Color
-lighten f (Color r g b a) = Color (r * (1 - f) + f) (g * (1 - f) + f) (b * (1 - f) + f) a
-
-darken :: Float -> Color -> Color
-darken f (Color r g b a) = Color (r * (1 - f)) (g * (1 - f)) (b * (1 - f)) a
-
--- | An intermediate between the given colors.
-intermediate :: Color -> Color -> Color
-intermediate (Color r0 g0 b0 a0) (Color r1 g1 b1 a1) = Color ((r0 + r1)/2) ((g0 + g1)/2) ((b0 + b1)/2) ((a0 + a1)/2)
-
-{-# DEPRECATED halfD "use darken 0.5 instead" #-}
--- | An intermediate between the black and the given color
-halfD :: Color -> Color
-halfD = intermediate black
-
-{-# DEPRECATED halfB "use lighten 0.5 instead" #-}
--- | An intermediate between the white and the given color
-halfB :: Color -> Color
-halfB = intermediate white
+blend :: Float -> Color -> Color -> Color
+blend t (Color r0 g0 b0 a0) (Color r1 g1 b1 a1) = Color
+    (r0 * (1 - t) + r1 * t)
+    (g0 * (1 - t) + g1 * t)
+    (b0 * (1 - t) + b1 * t)
+    (a0 * (1 - t) + a1 * t)
 
 white :: Color
 white = Color 1.0 1.0 1.0 1.0

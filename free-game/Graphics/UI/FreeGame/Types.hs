@@ -12,6 +12,8 @@
 ----------------------------------------------------------------------------
 module Graphics.UI.FreeGame.Types (
     BoundingBox(..),
+    _TopLeft,
+    _BottomRight
     ) where
 
 import Linear hiding (rotate)
@@ -19,8 +21,8 @@ import Linear hiding (rotate)
 -- | FIXME: this should inherit more classes
 data BoundingBox a = BoundingBox (V2 a) (V2 a) deriving (Show, Eq, Ord, Functor, Read)
 
-_topLeft :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
-_topLeft f (BoundingBox a b) = fmap (`BoundingBox` b) (f a)
+_TopLeft :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
+_TopLeft f (BoundingBox a b) = fmap (`BoundingBox` b) (f a)
 
-_bottomRight :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
-_bottomRight f (BoundingBox a b) = fmap (a `BoundingBox`) (f b)
+_BottomRight :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
+_BottomRight f (BoundingBox a b) = fmap (a `BoundingBox`) (f b)
