@@ -165,6 +165,23 @@ data SpecialKey = KeySpace
     | KeyF10
     | KeyF11
     | KeyF12
+    | KeyPad0
+    | KeyPad1
+    | KeyPad2
+    | KeyPad3
+    | KeyPad4
+    | KeyPad5
+    | KeyPad6
+    | KeyPad7
+    | KeyPad8
+    | KeyPad9
+    | KeyPadDivide
+    | KeyPadMultiply
+    | KeyPadSubtract
+    | KeyPadAdd
+    | KeyPadDecimal
+    | KeyPadEqual
+    | KeyPadEnter
     deriving (Show, Eq, Ord, Enum)
 
 #define _COMMA_ ,
