@@ -51,7 +51,7 @@ toBitmap ar = BitmapData  ar Nothing
 
 -- | Create stable 'Bitmap' from the given array and compute the hash.
 toStableBitmap :: R.Array RF.F DIM3 Word8 -> Bitmap
-toStableBitmap ar = BitmapData  ar $ Just $ head $ foldAllP combine 0 $ R.map fromIntegral ar where
+toStableBitmap ar = BitmapData ar $ Just $ head $ foldAllP combine 0 $ R.map fromIntegral ar where
     combine p q = hash (p, q)
 
 -- | Create stable 'Bitmap' with unique hash from the given array.

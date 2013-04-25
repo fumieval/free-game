@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.UI.FreeGame.Data.Font
@@ -141,7 +140,7 @@ charToBitmap (Font face _ _ refCache) pixel ch = do
 
             adv <- peek $ GS.advance slot
 
-            ar :: R.Array U DIM2 Word8 <- unsafeFreezeMVec (Z:.h:.w) mv
+            ar <- unsafeFreezeMVec (Z:.h:.w) mv :: IO (R.Array U DIM2 Word8)
 
             let pix (crd:.0) = R.index ar crd
                 pix (_:._) = 255

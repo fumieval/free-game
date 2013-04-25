@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, TemplateHaskell #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.FreeGame.Util
+-- Module      :  Graphics.UI.FreeGame.Util
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -12,17 +12,24 @@
 ----------------------------------------------------------------------------
 
 module Graphics.UI.FreeGame.Util (
+    -- * Combinators
+    notF,
     (<&&>),
     (<||>),
-    sinCos,
+    -- * Controlling
     untick,
     untickInfinite,
+    -- * Random
     randomness,
+    -- * Helper
     degrees,
     radians,
+    sinCos,
+    -- * Loading
     loadPictureFromFile,
     loadBitmaps,
-    loadBitmapsWith) where
+    loadBitmapsWith
+    ) where
 import Control.Monad
 import Control.Monad.Free
 import Control.Applicative
@@ -36,6 +43,9 @@ import System.FilePath
 import System.IO.Unsafe
 import Data.Void
 import Linear
+
+notF :: Functor f => f Bool -> f Bool
+notF = fmap not
 
 (<&&>) :: Applicative f => f Bool -> f Bool -> f Bool
 (<&&>) = liftA2 (&&)

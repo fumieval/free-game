@@ -1,4 +1,15 @@
-{-# LANGUAGE DeriveFunctor, FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE DeriveFunctor #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.UI.FreeGame.GUI
+-- Copyright   :  (C) 2013 Fumiaki Kinoshita
+-- License     :  BSD-style (see the file LICENSE)
+--
+-- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  non-portable
+--
+----------------------------------------------------------------------------
 module Graphics.UI.FreeGame.GUI (
     GUI
     , GUIBase(..)

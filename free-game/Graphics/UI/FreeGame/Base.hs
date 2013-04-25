@@ -1,5 +1,5 @@
 {-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE CPP #-}
 -----------------------------------------------------------------------------

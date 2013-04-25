@@ -1,3 +1,4 @@
+{-# LANGUAGE ImplicitParams #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.UI.FreeGame.GUI.GLFW
@@ -9,7 +10,6 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-{-# LANGUAGE ImplicitParams, ScopedTypeVariables, Rank2Types, FlexibleContexts #-}
 module Graphics.UI.FreeGame.GUI.GLFW (runGame) where
 import Control.Applicative
 import Control.Applicative.Free as Ap

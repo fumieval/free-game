@@ -1,7 +1,7 @@
-{-# LANGUAGE DeriveFunctor, Rank2Types, FlexibleInstances #-}
+{-# LANGUAGE DeriveFunctor #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.FreeGame.Types
+-- Module      :  Graphics.UI.FreeGame.Types
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
