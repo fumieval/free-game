@@ -44,7 +44,7 @@ _Blue :: Functor f => (Float -> f Float) -> Color -> f Color
 _Blue f (Color r g b a) = fmap (\b' -> Color r g b' a) (f b)
 
 _Alpha :: Functor f => (Float -> f Float) -> Color -> f Color
-_Alpha f (Color r g b a) = fmap (\a' -> Color r g b a) (f a)
+_Alpha f (Color r g b a) = fmap (\a' -> Color r g b a') (f a)
     
 hf :: Char -> Float
 hf x = fromIntegral (digitToInt x) / 15

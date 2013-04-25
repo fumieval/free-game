@@ -36,13 +36,13 @@ module Graphics.UI.FreeGame.Base (
 
 import Control.Applicative
 import Control.Applicative.Free as Ap
-import Control.Lens
 import Control.Monad.IO.Class
 import Data.Monoid
 import Data.Void
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Internal.Finalizer
+import Graphics.UI.FreeGame.Internal.Raindrop
 import Linear hiding (rotate)
 
 import Control.Monad.Free.Class
@@ -105,7 +105,7 @@ _LiftUI f (LiftUI o) = fmap LiftUI (f o)
 _LiftUI _ x = pure x
 
 hoistFreeR :: (Functor f, MonadFree g m) => (f (m a) -> g (m a)) -> Free.Free f a -> m a
-hoistFreeR t (Free.Pure a) = return a
+hoistFreeR _ (Free.Pure a) = return a
 hoistFreeR t (Free.Free f) = wrap . t $ fmap (hoistFreeR t) f
 {-# INLINE hoistFreeR #-}
 
@@ -189,7 +189,6 @@ data SpecialKey = KeySpace
 
 #define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \
     fromFinalizer = (l) . fromFinalizer }
-
 
 MK_PICTURE_2D(_COMMA_ Functor m, F m, liftF, hoistFR)
 MK_PICTURE_2D( , UI m, LiftUI, over _LiftUI)

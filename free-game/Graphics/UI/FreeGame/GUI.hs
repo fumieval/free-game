@@ -1,27 +1,23 @@
 {-# LANGUAGE DeriveFunctor, FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
 module Graphics.UI.FreeGame.GUI (
-    Game
-    , GUI
+    GUI
     , GUIBase(..)
+    , _Draw
+    , _Input
     , GUIInput(..)
     , Picture(..)
     , GUIParam(..)
 ) where
 
 import Graphics.UI.FreeGame.Base
-import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Internal.Finalizer
+import Graphics.UI.FreeGame.Internal.Raindrop
 import Control.Applicative
 import Control.Applicative.Free (Ap)
-import Control.Monad.Free.Church
-import Control.Monad.Free.Class
 import Data.Default
 import Linear hiding (rotate)
-import Control.Lens
-
-type Game = F GUI
 
 type GUI = UI GUIBase
 
@@ -30,6 +26,10 @@ data GUIBase a = Input (Ap GUIInput a) | Draw (Picture a) deriving Functor
 _Draw :: Applicative f => (Picture a -> f (Picture a)) -> GUIBase a -> f (GUIBase a)
 _Draw f (Draw o) = fmap Draw (f o)
 _Draw _ x = pure x
+
+_Input :: Applicative f => (Ap GUIInput a -> f (Ap GUIInput a)) -> GUIBase a -> f (GUIBase a)
+_Input f (Input o) = fmap Input (f o)
+_Input _ x = pure x
 
 instance Picture2D GUIBase where
     fromBitmap = Draw . fromBitmap
@@ -51,6 +51,7 @@ instance Mouse GUIBase where
 
 instance FromFinalizer GUIBase where
     fromFinalizer = Draw . fromFinalizer
+
 data GUIInput a = 
       ICharKey Char (Bool -> a)
     | ISpecialKey SpecialKey (Bool -> a)
