@@ -12,7 +12,7 @@
 -- Stability   :  experimental
 -- Portability :  non-portable
 --
--- Abstract structures that represents user interfaces
+-- Abstract structures for descripting user interfaces
 ----------------------------------------------------------------------------
 
 module Graphics.UI.FreeGame.Base (
@@ -74,6 +74,7 @@ instance (Functor m) => MonadIO (F (UI m)) where
 instance (Functor m) => MonadIO (Free.Free (UI m)) where
     liftIO = embedIO
 
+-- | A functor enriches given functor with cibtrik structure.
 data UI m a
     = Tick a
     | EmbedIO (IO a)

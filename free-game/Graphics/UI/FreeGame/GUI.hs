@@ -8,7 +8,7 @@
 -- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
 -- Stability   :  provisional
 -- Portability :  non-portable
---
+-- Provides the "free" embodiment.
 ----------------------------------------------------------------------------
 module Graphics.UI.FreeGame.GUI (
     GUI
@@ -30,6 +30,7 @@ import Control.Applicative.Free (Ap)
 import Data.Default
 import Linear hiding (rotate)
 
+-- | A 'Functor' which represents graphical user interfaces.
 type GUI = UI GUIBase
 
 data GUIBase a = Input (Ap GUIInput a) | Draw (Picture a) deriving Functor

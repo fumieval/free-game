@@ -39,12 +39,14 @@ import qualified Graphics.UI.FreeGame.GUI.GLFW as GLFW
 import Control.Monad.Free.Church
 import Data.Default
 
+-- | This is a limited form (and also extended form) of 'IO' monad.
 type Game = F GUI
 
--- | Run a 'Game' computation.
+-- | Run a 'Game'.
 runGame :: GUIParam -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
 
+-- | Run a 'Game' with modifying function
 runSimple :: GUIParam
     -> world -- ^ An initial world
     -> (world -> Game world) -- ^ A computation yielding new world
@@ -57,7 +59,7 @@ runSimple param initial m = fmap (const ()) $ runGame param $ looping initial wh
 
 {- $example
 
-> import Graphics.FreeGame.Simple
+> import Graphics.UI.FreeGame
 > main = runSimple def () return
 
 shows a window and does nothing.

@@ -64,8 +64,8 @@ loadFont path = alloca $ \p -> do
     desc <- peek (descender f)
     u <- fromIntegral <$> peek (units_per_EM f)
     let m = Metrics (fromIntegral asc/u) (fromIntegral desc/u)
-        box = BoundingBox (V2 (fromIntegral (xMin b)/u) (fromIntegral (yMin b)/u))
-                          (V2 (fromIntegral (xMax b)/u) (fromIntegral (yMin b)/u))
+        box = BoundingBox (fromIntegral (xMin b)/u) (fromIntegral (yMin b)/u))
+                          (fromIntegral (xMax b)/u) (fromIntegral (yMax b)/u))
     Font f m box <$> newIORef M.empty
 
 -- | Get the font's metrics.
