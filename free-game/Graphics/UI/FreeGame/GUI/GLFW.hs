@@ -110,12 +110,12 @@ launch param m = do
     return res
 
 installTexture :: Bitmap -> FinalizerT IO Texture
-installTexture bmp = do
+installTexture bmp@(BitmapData ar _) = do
     [tex] <- liftIO $ GL.genObjectNames 1
     liftIO $ GL.textureBinding GL.Texture2D GL.$= Just tex
     let (width, height) = bitmapSize bmp
     let siz = GL.TextureSize2D (gsizei width) (gsizei height)
-    liftIO $ withForeignPtr (RF.toForeignPtr $ bitmapData bmp)
+    liftIO $ withForeignPtr (RF.toForeignPtr ar)
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 siz 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
     finalizer $ GL.deleteObjectNames [tex]

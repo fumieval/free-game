@@ -74,7 +74,7 @@ instance (Functor m) => MonadIO (F (UI m)) where
 instance (Functor m) => MonadIO (Free.Free (UI m)) where
     liftIO = embedIO
 
--- | A functor enriches given functor with cibtrik structure.
+-- | A functor enriches given functor with control structure.
 data UI m a
     = Tick a
     | EmbedIO (IO a)
@@ -95,13 +95,16 @@ bracket = wrap . Bracket . fmap return
 quit :: MonadFree (UI n) m => m Void
 quit = wrap Quit
 
+-- | Lift 'UI''s base functor.
 liftUI :: (Functor n, MonadFree (UI n) m) => n a -> m a
 liftUI = wrap . LiftUI . fmap return
 
+-- | Lift an arbitrary 'IO' action.
 embedIO :: (MonadFree (UI n) m) => IO a -> m a
 embedIO = wrap . EmbedIO . fmap return
 
-_LiftUI :: Applicative f => (m cont -> f (m cont)) -> UI m cont -> f (UI m cont)
+-- | @'_LiftUI' :: Traversal' ('UI' m a) (m a)@
+_LiftUI :: Applicative f => (m a -> f (m a)) -> UI m a -> f (UI m a)
 _LiftUI f (LiftUI o) = fmap LiftUI (f o)
 _LiftUI _ x = pure x
 
@@ -114,17 +117,22 @@ hoistFR :: MonadFree g m => (f (m a) -> g (m a)) -> F f a -> m a
 hoistFR t (F m) = m return (wrap . t)
 {-# INLINE hoistFR #-}
 
+-- | The class of types that can be regarded as a kind of picture.
 class Picture2D p where
+    -- | Construct a 'Picture2D' from a 'Bitmap'.
     fromBitmap :: Bitmap -> p ()
+    -- | Counterclockwise, degrees
     rotate :: Float -> p a -> p a
     scale :: V2 Float -> p a -> p a
     translate :: V2 Float -> p a -> p a
     colored :: Color -> p a -> p a
 
+-- | The class of types that can handle inputs of the keyboard.
 class Keyboard t where
     keyChar :: Char -> t Bool
     keySpecial :: SpecialKey -> t Bool
 
+-- | The class of types that can handle inputs of the mouse.
 class Mouse t where
     mousePosition :: t (V2 Float)
     mouseWheel :: t Int

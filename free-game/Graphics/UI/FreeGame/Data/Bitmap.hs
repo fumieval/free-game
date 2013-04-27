@@ -14,6 +14,8 @@
 module Graphics.UI.FreeGame.Data.Bitmap (
     -- * Basic types and functions
     Bitmap(..)
+    , _BitmapArray
+    , _BitmapHash
     ,bitmapSize
 
     -- * Loading from a file
@@ -25,7 +27,6 @@ module Graphics.UI.FreeGame.Data.Bitmap (
     ,makeStableBitmap
 
     -- * Bitmap operations
-    ,onBitmap
     ,onBitmapWithHashable
     ,cropBitmap
     
@@ -39,15 +40,20 @@ import Data.Word
 import System.Random
 import Data.Hashable
 
--- | Concrete bitmap data
-data Bitmap = BitmapData {
-    bitmapData :: R.Array RF.F DIM3 Word8 -- ^ Bare the 'Bitmap''s internal representation (y * x * RGBA).
-    ,bitmapHash :: Maybe Int -- ^ This value is used to ensure that two bitmaps are equivalent.
-    }
+-- | Concrete bitmap data. Internal representation is stored as y * x * RGBA.
+data Bitmap = BitmapData (R.Array RF.F DIM3 Word8) (Maybe Int) -- ^ This value is used to ensure that two bitmaps are equivalent.
+
+-- | @'_BitmapArray' :: Lens' 'Bitmap' ('R.Array' 'RF.F' 'DIM3' 'Word8')@
+_BitmapArray :: Functor f => (R.Array RF.F DIM3 Word8 -> f (R.Array RF.F DIM3 Word8)) -> Bitmap -> f Bitmap
+_BitmapArray f (BitmapData a h) = fmap (\a' -> BitmapData a' h) (f a)
+
+-- | @'_BitmapHash' :: Lens' 'Bitmap' ('Maybe' 'Int')@
+_BitmapHash :: Functor f => (Maybe Int -> f (Maybe Int)) -> Bitmap -> f Bitmap
+_BitmapHash f (BitmapData a h) = fmap (\h' -> BitmapData a h') (f h)
 
 -- | Create unstable 'Bitmap' from the given array.
 toBitmap :: R.Array RF.F DIM3 Word8 -> Bitmap
-toBitmap ar = BitmapData  ar Nothing
+toBitmap ar = BitmapData ar Nothing
 
 -- | Create stable 'Bitmap' from the given array and compute the hash.
 toStableBitmap :: R.Array RF.F DIM3 Word8 -> Bitmap
@@ -60,15 +66,11 @@ makeStableBitmap ar = BitmapData ar <$> Just <$> randomIO
 
 -- | Get the size of the 'Bitmap'.
 bitmapSize :: Bitmap -> (Int, Int)
-bitmapSize bmp = let (Z :. h :. w :. _) = R.extent (bitmapData bmp) in (w, h)
+bitmapSize (BitmapData a _) = let (Z :. h :. w :. _) = R.extent a in (w, h)
 
 -- | Create a 'Bitmap' from the given file.
 loadBitmapFromFile :: FilePath -> IO Bitmap
 loadBitmapFromFile path = readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData
-
--- | Convert the 'Bitmap' by the given function.
-onBitmap :: (R.Array RF.F DIM3 Word8 -> R.Array RF.F DIM3 Word8) -> Bitmap -> Bitmap
-onBitmap f = toStableBitmap . f . bitmapData
 
 -- | Convert the 'Bitmap' uniformalized by the 'Hashable' value by the given function.
 onBitmapWithHashable :: Hashable h => h -> (R.Array RF.F DIM3 Word8 -> R.Array RF.F DIM3 Word8) -> Bitmap -> Bitmap

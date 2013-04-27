@@ -15,7 +15,6 @@ module Graphics.UI.FreeGame.Data.Color (
     -- * The type
     Color(..)
     -- * Color operations
-    , transparent
     , blend
     -- * Lenses
     , _Red, _Green, _Blue, _Alpha, _8Bit
@@ -31,21 +30,26 @@ import Data.Word
 -- | A color that has red, green, blue, alpha as its component.
 data Color = Color Float Float Float Float deriving (Show, Eq, Ord)
 
+-- | @'_8Bit' :: Iso' 'Float' 'Word8'@
 _8Bit :: forall p f. (Profunctor p, Functor f) => p Word8 (f Word8) -> p Float (f Float)
 _8Bit = dimap (floor.(*255)) (fmap ((/255) . fromIntegral))
 
+-- | @'_Red' :: Lens' 'Color' 'Float'@
 _Red :: Functor f => (Float -> f Float) -> Color -> f Color
 _Red f (Color r g b a) = fmap (\r' -> Color r' g b a) (f r)
 
+-- | @'_Green' :: Lens' 'Color' 'Float'@
 _Green :: Functor f => (Float -> f Float) -> Color -> f Color
 _Green f (Color r g b a) = fmap (\g' -> Color r g' b a) (f g)
 
+-- | @'_Blue' :: Lens' 'Color' 'Float'@
 _Blue :: Functor f => (Float -> f Float) -> Color -> f Color
 _Blue f (Color r g b a) = fmap (\b' -> Color r g b' a) (f b)
 
+-- | @'_Alpha' :: Lens' 'Color' 'Float'@
 _Alpha :: Functor f => (Float -> f Float) -> Color -> f Color
 _Alpha f (Color r g b a) = fmap (\a' -> Color r g b a') (f a)
-    
+
 hf :: Char -> Float
 hf x = fromIntegral (digitToInt x) / 15
 
@@ -59,9 +63,7 @@ instance IsString Color where
     fromString xs@[r1,r0,g1,g0,b1,b0] | all isHexDigit xs = Color (hf' r1 r0) (hf' g1 g0) (hf' b1 b0) 1
     fromString x = error $ "Invalid color representation: " ++ x
 
-transparent :: Float -> Color -> Color
-transparent f (Color r g b a) = Color r g b (f * a)
-
+-- | Blend two colors.
 blend :: Float -> Color -> Color -> Color
 blend t (Color r0 g0 b0 a0) (Color r1 g1 b1 a1) = Color
     (r0 * (1 - t) + r1 * t)

@@ -1,4 +1,3 @@
-{-# LANGUAGE Rank2Types, FlexibleContexts #-}
 {-|
 Module      :  Graphics.UI.FreeGame
 Copyright   :  (C) 2013 Fumiaki Kinoshita
@@ -10,13 +9,10 @@ free-game is a library that abstracts and purifies GUI applications with simple 
 module Graphics.UI.FreeGame
   ( -- * Examples
     -- $example
-
     -- * Main
     Game,
     runGame,
-    runSimple,
     def,
-    
     -- * Reexports
     module Graphics.UI.FreeGame.Base,
     module Graphics.UI.FreeGame.Data.Bitmap,
@@ -39,28 +35,25 @@ import qualified Graphics.UI.FreeGame.GUI.GLFW as GLFW
 import Control.Monad.Free.Church
 import Data.Default
 
--- | This is a limited form (and also extended form) of 'IO' monad.
+-- | 'Game' is a "free" monad which describes GUIs.
+-- This monad is an instance of 'Picture2D' so you can create it using 'fromBitmap' and can be transformed with 'translate', 'scale', 'rotate', 'colored'.
+--
+-- It is also an instance of 'Keyboard' and 'Mouse'.
+--
+-- You have to call 'tick' at the end of the current frame.
+--
+-- The only way to embody 'Game' as real thing is to apply 'runGame'.
 type Game = F GUI
 
 -- | Run a 'Game'.
 runGame :: GUIParam -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
 
--- | Run a 'Game' with modifying function
-runSimple :: GUIParam
-    -> world -- ^ An initial world
-    -> (world -> Game world) -- ^ A computation yielding new world
-    -> IO ()
-runSimple param initial m = fmap (const ()) $ runGame param $ looping initial where
-    looping world = do
-        world' <- m world
-        tick
-        looping world'
-
 {- $example
 
+> import Control.Monad
 > import Graphics.UI.FreeGame
-> main = runSimple def () return
+> main = runGame def $ forever tick
 
 shows a window and does nothing.
 

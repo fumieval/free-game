@@ -44,19 +44,23 @@ import System.IO.Unsafe
 import Data.Void
 import Linear
 
+-- | A lifted 'not'.
 notF :: Functor f => f Bool -> f Bool
 notF = fmap not
 
+-- | A lifted '(&&)'.
 (<&&>) :: Applicative f => f Bool -> f Bool -> f Bool
 (<&&>) = liftA2 (&&)
 
+-- | A lifted '(||)'
 (<||>) :: Applicative f => f Bool -> f Bool -> f Bool
 (<||>) = liftA2 (||)
 
+-- | Create a unit vector from a direction.
 sinCos :: Floating a => a -> V2 a
 sinCos t = V2 (cos t) (sin t)
 
--- | Run a 'Game' as one frame.
+-- | Extract the next frame of the action.
 untick :: (Functor n, MonadFree (UI n) m) => Free (UI n) a -> m (Either (Free (UI n) a) a)
 untick (Pure a) = return (Right a)
 untick (Free (Tick cont)) = return (Left cont)
