@@ -30,6 +30,7 @@ library
     Graphics.UI.FreeGame.GUI
     Graphics.UI.FreeGame.GUI.GLFW
     Graphics.UI.FreeGame.Internal.Finalizer
+    Graphics.UI.FreeGame.Internal.Raindrop
     Graphics.UI.FreeGame.Types
     Graphics.UI.FreeGame.Util
 
