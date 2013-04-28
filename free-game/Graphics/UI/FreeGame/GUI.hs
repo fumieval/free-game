@@ -35,10 +35,12 @@ type GUI = UI GUIBase
 
 data GUIBase a = Input (Ap GUIInput a) | Draw (Picture a) deriving Functor
 
+-- | _Draw :: Traversal' (GUIBase a) (Picture a)
 _Draw :: Applicative f => (Picture a -> f (Picture a)) -> GUIBase a -> f (GUIBase a)
 _Draw f (Draw o) = fmap Draw (f o)
 _Draw _ x = pure x
 
+-- | _Input :: Traversal' (GUIBase a) (Ap GUIInput a)
 _Input :: Applicative f => (Ap GUIInput a -> f (Ap GUIInput a)) -> GUIBase a -> f (GUIBase a)
 _Input f (Input o) = fmap Input (f o)
 _Input _ x = pure x
@@ -81,6 +83,13 @@ data Picture a
     | Scale (V2 Float) (Picture a)
     | Translate (V2 Float) (Picture a)
     | Colored Color (Picture a)
+
+    | Line [V2 Float] a
+    | Polygon [V2 Float] a
+    | PolygonOutline [V2 Float] a
+    | Circle Float a
+    | CircleOutline Float a
+    | Thickness (Picture a)
     deriving Functor
 
 instance Picture2D Picture where

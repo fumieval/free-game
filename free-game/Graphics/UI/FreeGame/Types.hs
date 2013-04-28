@@ -12,6 +12,7 @@
 ----------------------------------------------------------------------------
 module Graphics.UI.FreeGame.Types (
     BoundingBox(..),
+    inBoundingBox,
     _TopLeft,
     _TopRight,
     _BottomLeft,
@@ -22,6 +23,9 @@ import Linear.V2
 
 -- | 2D bounding box.
 data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Read)
+
+inBoundingBox :: Ord a => V2 a -> BoundingBox a -> Bool
+inBoundingBox (V2 x y) (BoundingBox x0 y0 x1 y1) = x0 <= x && x <= x1 && y0 <= y && y <= y1
 
 -- | @'_TopLeft' :: Lens' ('BoundingBox' a) ('V2' a)@
 _TopLeft :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))

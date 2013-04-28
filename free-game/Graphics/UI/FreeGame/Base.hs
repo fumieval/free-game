@@ -127,6 +127,14 @@ class Picture2D p where
     translate :: V2 Float -> p a -> p a
     colored :: Color -> p a -> p a
 
+class Picture2D p => Figure2D p where
+    line :: [V2 Float] -> p ()
+    polygon :: [V2 Float] -> p ()
+    polygonOutline :: [V2 Float] -> p ()
+    circle :: Float -> p ()
+    circleOutline :: Float -> p ()
+    thickness :: Float -> p a -> p a
+
 -- | The class of types that can handle inputs of the keyboard.
 class Keyboard t where
     keyChar :: Char -> t Bool
@@ -202,6 +210,14 @@ data SpecialKey = KeySpace
     scale = (t) . scale; \
     colored = (t) . colored }
 
+#define MK_FIGURE_2D(cxt, ty, l, t) instance (Figure2D m cxt) => Figure2D (ty) where { \
+    line = (l) . line; \
+    polygon = (l) . polygon; \
+    polygonOutline = (l) . polygon; \
+    circle = (l) . circle; \
+    circleOutline = (l) . circleOutline; \
+    thickness = (t) . thickness }
+
 #define MK_KEYBOARD(cxt, ty, l) instance (Keyboard m cxt) => Keyboard (ty) where { \
     keyChar = (l) . keyChar; \
     keySpecial = (l) . keySpecial }
@@ -231,6 +247,22 @@ MK_PICTURE_2D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
 MK_PICTURE_2D(_COMMA_ Monad m, ListT m, lift, mapListT)
 MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
 MK_PICTURE_2D(_COMMA_ Monad m, ContT r m, lift, mapContT)
+
+MK_FIGURE_2D(_COMMA_ Functor m, F m, liftF, hoistFR)
+MK_FIGURE_2D( , UI m, LiftUI, over _LiftUI)
+MK_FIGURE_2D(_COMMA_ Functor m, Free.Free m, Free.liftF, hoistFreeR)
+MK_FIGURE_2D(_COMMA_ Monad m, ReaderT r m, lift, mapReaderT)
+MK_FIGURE_2D(_COMMA_ Monad m, Lazy.StateT s m, lift, Lazy.mapStateT)
+MK_FIGURE_2D(_COMMA_ Monad m, Strict.StateT s m, lift, Strict.mapStateT)
+MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift, Lazy.mapWriterT)
+MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift, Strict.mapWriterT)
+MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift, Lazy.mapRWST)
+MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift, Strict.mapRWST)
+MK_FIGURE_2D(_COMMA_ Monad m, IdentityT m, lift, mapIdentityT)
+MK_FIGURE_2D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
+MK_FIGURE_2D(_COMMA_ Monad m, ListT m, lift, mapListT)
+MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
+MK_FIGURE_2D(_COMMA_ Monad m, ContT r m, lift, mapContT)
 
 MK_KEYBOARD(, Ap m, liftAp)
 MK_KEYBOARD(, UI m, LiftUI)
