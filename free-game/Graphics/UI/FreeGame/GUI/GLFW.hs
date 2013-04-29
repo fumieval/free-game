@@ -183,7 +183,7 @@ runPicture sc (CircleOutline r a) = do
     return a
 runPicture sc (Thickness t cont) = do
     oldWidth <- liftIO $ get GL.lineWidth
-    GL.lineWidth $= t
+    liftIO $ GL.lineWidth $= gf t
     res <- runPicture sc cont
     liftIO $ GL.lineWidth $= oldWidth
     return res

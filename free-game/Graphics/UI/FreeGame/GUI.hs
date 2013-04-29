@@ -89,7 +89,7 @@ data Picture a
     | PolygonOutline [V2 Float] a
     | Circle Float a
     | CircleOutline Float a
-    | Thickness (Picture a)
+    | Thickness Float (Picture a)
     deriving Functor
 
 instance Picture2D Picture where
@@ -98,6 +98,14 @@ instance Picture2D Picture where
     scale = Scale
     translate = Translate
     colored = Colored
+
+instance Figure2D Picture where
+    line = flip Line ()
+    polygon = flip Polygon ()
+    polygonOutline = flip PolygonOutline ()
+    circle = flip Circle ()
+    circleOutline = flip CircleOutline ()
+    thickness = Thickness
 
 instance FromFinalizer Picture where
     fromFinalizer = PictureWithFinalizer

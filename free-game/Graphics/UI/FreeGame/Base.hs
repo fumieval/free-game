@@ -28,6 +28,7 @@ module Graphics.UI.FreeGame.Base (
     ,_LiftUI
     -- * Classes
     ,Picture2D(..)
+    ,Figure2D(..)
     ,Keyboard(..)
     ,Mouse(..)
     ,FromFinalizer(..)
