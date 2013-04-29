@@ -98,7 +98,6 @@ launch param m = do
     GL.blend      $= GL.Enabled
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
     GL.shadeModel $= GL.Smooth
-    GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFunction $= GL.Combine
 
     let Color r g b a = _clearColor param in GL.clearColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
@@ -175,7 +174,7 @@ runPicture _ (PolygonOutline path a) = do
     return a
 runPicture sc (Circle r a) = do
     let s = 2 * pi / 64 * sc
-    liftIO $ GL.renderPrimitive GL.TriangleStrip $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
+    liftIO $ GL.renderPrimitive GL.Polygon $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
     return a
 runPicture sc (CircleOutline r a) = do
     let s = 2 * pi / 64 * sc
@@ -209,6 +208,7 @@ gsizei x = unsafeCoerce x
 drawTexture :: Texture -> IO ()
 drawTexture (Texture tex width height) = do
     let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
+    GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureBinding GL.Texture2D $= Just tex
     GL.renderPrimitive GL.Polygon $ zipWithM_
@@ -217,6 +217,7 @@ drawTexture (Texture tex width height) = do
             GL.vertex $ GL.Vertex2 (gf pX) (gf pY))
         [(-w, -h), (w, -h), (w, h), (-w, h)]
         [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
+    GL.texture GL.Texture2D $= GL.Disabled
 
 mapSpecialKey :: SpecialKey -> GLFW.Key
 mapSpecialKey KeySpace = GLFW.KeySpace

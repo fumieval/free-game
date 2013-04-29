@@ -21,7 +21,6 @@ module Graphics.UI.FreeGame.Data.Font
   ) where
 
 import Control.Applicative
-import Control.Monad
 import Control.Monad.IO.Class
 import Data.IORef
 import Data.Array.Repa as R
@@ -51,8 +50,8 @@ import Unsafe.Coerce
 data Font = Font FT_Face (Float, Float) (BoundingBox Float) (IORef (M.Map (Float, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
-loadFont :: FilePath -> Float -> IO Font
-loadFont path size = alloca $ \p -> do
+loadFont :: FilePath -> IO Font
+loadFont path = alloca $ \p -> do
     runFreeType $ withCString path $ \str -> ft_New_Face freeType str 0 p
     f <- peek p
     b <- peek (bbox f)
@@ -65,10 +64,10 @@ loadFont path size = alloca $ \p -> do
 
 -- | Get the font's metrics.
 metricsAscent :: Font -> Float
-metricsAscent (Font _ (a, d) _ _) = a
+metricsAscent (Font _ (a, _) _ _) = a
 
 metricsDescent :: Font -> Float
-metricsDescent (Font _ (a, d) _ _) = d
+metricsDescent (Font _ (_, d) _ _) = d
 
 fontBoundingBox :: Font -> BoundingBox Float
 fontBoundingBox (Font _ _ b _) = b

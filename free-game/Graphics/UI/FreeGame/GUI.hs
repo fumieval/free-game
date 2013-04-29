@@ -52,6 +52,14 @@ instance Picture2D GUIBase where
     translate = over _Draw . translate
     colored = over _Draw . colored
 
+instance Figure2D GUIBase where
+    line = Draw . line
+    polygon = Draw . polygon
+    polygonOutline = Draw . polygonOutline
+    circle = Draw . circle
+    circleOutline = Draw . circleOutline
+    thickness = over _Draw . thickness
+
 instance Keyboard GUIBase where
     keyChar = Input . keyChar
     keySpecial = Input . keySpecial

@@ -1,52 +1,27 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 import Graphics.UI.FreeGame
 import Control.Applicative
 import Control.Monad
-import Linear
-import Control.Monad.Free
-import Control.Monad.State
-import Data.Void
-import Control.Lens -- using lens (http://hackage.haskell.org/package/lens)
 
-$(loadBitmaps "images")
+figureTest :: Game ()
+figureTest = do
+    colored cyan $ line [V2 80 80, V2 160 160]
+    colored green $ polygon [V2 20 0, V2 100 20, V2 50 60]
+    colored blue $ translate (V2 0 200) $ rotate 45 $ scale 2 $ polygonOutline [V2 20 0, V2 100 20, V2 50 60]
+    colored red $ translate (V2 200 300) $ circle 40
+    colored magenta $ thickness 3 $ translate (V2 100 300) $ circleOutline 50
 
-data Object = Object
-    { _position :: V2 Float
-    , _velocity :: V2 Float
-    , _pressed :: Bool
-    }
+fontTest :: Font -> Game ()
+fontTest font = do
+    () <- translate (V2 100 300) $ colored black
+        $ runTextM font (BoundingBox 0 0 640 480) 17 "Hello, World"
+    return ()
 
-$(makeLenses ''Object)
-
-obj :: StateT Object (Free GUI) Void
-obj = forever $ do
-    pos@(V2 x y) <- use position
-
-    vel@(V2 dx dy) <- use velocity
-
-    let dx' | x <= 0 = abs dx
-            | x >= 640 = -(abs dx)
-            | otherwise = dx
-        dy' | y <= 0 = abs dy
-            | y >= 480 = -(abs dy)
-            | otherwise = dy
-
-    position .= pos + vel
-    velocity .= V2 dx' dy'
-
-    mpos <- lift mousePosition
-
-    velocity %= (^+^ normalize (mpos - pos) * 0.1)
-    
-    lift $ translate pos $ fromBitmap _logo_png
-
-    tick
-
-initial :: Free GUI Void
-initial = do
-    x <- randomness (0,640)
-    y <- randomness (0,480)
-    a <- randomness (0, 2 * pi)
-    evalStateT obj $ Object (V2 x y) (sinCos a ^* 4) False
-
-main = runSimple def (replicate 100 initial) $ mapM untickInfinite
+main = runGame def $ do
+    font <- embedIO (loadFont "VL-PGothic-Regular.ttf")
+    bmp <- embedIO (loadBitmapFromFile "logo.png")
+    forever $ do
+        translate (V2 300 350) $ fromBitmap bmp
+        figureTest
+        fontTest font
+        tick
