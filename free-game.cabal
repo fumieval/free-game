@@ -1,5 +1,5 @@
 name:                free-game
-version:             0.9
+version:             0.9.1
 synopsis:            Create graphical applications for free
 description:         Cross-platform GUI library based on free monads
 homepage:            https://github.com/fumieval/free-game
