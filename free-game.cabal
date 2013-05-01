@@ -24,6 +24,7 @@ library
     Graphics.UI.FreeGame
     Graphics.UI.FreeGame.Base
     Graphics.UI.FreeGame.Data.Bitmap
+    Graphics.UI.FreeGame.Data.Wave
     Graphics.UI.FreeGame.Data.Color
     Graphics.UI.FreeGame.Data.Font
     Graphics.UI.FreeGame.Data.Text

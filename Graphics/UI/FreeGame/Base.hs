@@ -41,6 +41,7 @@ import Control.Monad.IO.Class
 import Data.Monoid
 import Data.Void
 import Graphics.UI.FreeGame.Data.Bitmap
+import Graphics.UI.FreeGame.Data.Wave
 import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Internal.Finalizer
 import Graphics.UI.FreeGame.Internal.Raindrop
@@ -136,6 +137,11 @@ class Picture2D p => Figure2D p where
     circleOutline :: Float -> p ()
     thickness :: Float -> p a -> p a
 
+class Sound p where
+    fromWave :: Wave -> p ()
+    volume :: Float -> p a -> p a
+    pan :: Float -> p a -> p a
+
 -- | The class of types that can handle inputs of the keyboard.
 class Keyboard t where
     keyChar :: Char -> t Bool
@@ -219,6 +225,11 @@ data SpecialKey = KeySpace
     circleOutline = (l) . circleOutline; \
     thickness = (t) . thickness }
 
+#define MK_SOUND(cxt, ty, l, t) instance (Sound m cxt) => Sound (ty) where { \
+    fromWave = (l) . fromWave; \
+    volume = (t) . volume; \
+    pan = (t) . pan }
+
 #define MK_KEYBOARD(cxt, ty, l) instance (Keyboard m cxt) => Keyboard (ty) where { \
     keyChar = (l) . keyChar; \
     keySpecial = (l) . keySpecial }
@@ -264,6 +275,22 @@ MK_FIGURE_2D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
 MK_FIGURE_2D(_COMMA_ Monad m, ListT m, lift, mapListT)
 MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
 MK_FIGURE_2D(_COMMA_ Monad m, ContT r m, lift, mapContT)
+
+MK_SOUND(_COMMA_ Functor m, F m, liftF, hoistFR)
+MK_SOUND( , UI m, LiftUI, over _LiftUI)
+MK_SOUND(_COMMA_ Functor m, Free.Free m, Free.liftF, hoistFreeR)
+MK_SOUND(_COMMA_ Monad m, ReaderT r m, lift, mapReaderT)
+MK_SOUND(_COMMA_ Monad m, Lazy.StateT s m, lift, Lazy.mapStateT)
+MK_SOUND(_COMMA_ Monad m, Strict.StateT s m, lift, Strict.mapStateT)
+MK_SOUND(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift, Lazy.mapWriterT)
+MK_SOUND(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift, Strict.mapWriterT)
+MK_SOUND(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift, Lazy.mapRWST)
+MK_SOUND(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift, Strict.mapRWST)
+MK_SOUND(_COMMA_ Monad m, IdentityT m, lift, mapIdentityT)
+MK_SOUND(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
+MK_SOUND(_COMMA_ Monad m, ListT m, lift, mapListT)
+MK_SOUND(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
+MK_SOUND(_COMMA_ Monad m, ContT r m, lift, mapContT)
 
 MK_KEYBOARD(, Ap m, liftAp)
 MK_KEYBOARD(, UI m, LiftUI)
