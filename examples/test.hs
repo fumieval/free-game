@@ -15,6 +15,7 @@ fontTest :: Font -> Game ()
 fontTest font = do
     () <- translate (V2 100 300) $ colored black
         $ runTextT Nothing font 17 "Hello, World"
+    return ()
 
 
 main = runGame def $ do
