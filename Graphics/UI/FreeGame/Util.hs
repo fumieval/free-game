@@ -24,6 +24,8 @@ module Graphics.UI.FreeGame.Util (
     -- * Helper
     degrees,
     radians,
+    unitV2,
+    angleV2,
     sinCos,
     -- * Loading
     loadPictureFromFile,
@@ -56,9 +58,18 @@ notF = fmap not
 (<||>) :: Applicative f => f Bool -> f Bool -> f Bool
 (<||>) = liftA2 (||)
 
--- | Create a unit vector from a direction.
+-- | A unit vector with given angle.
+unitV2 :: Floating a => a -> V2 a
+unitV2 t = V2 (cos t) (sin t)
+
+-- | An angle of given vector.
+angleV2 :: RealFloat a => V2 a -> a
+angleV2 (V2 a b) = atan2 b a
+
+-- | Deprecated synonym for 'unitV2'.
 sinCos :: Floating a => a -> V2 a
-sinCos t = V2 (cos t) (sin t)
+sinCos = unitV2
+{-# DEPRECATED sinCos "Use unitV2 instead" #-} 
 
 -- | Extract the next frame of the action.
 untick :: (Functor n, MonadFree (UI n) m) => Free (UI n) a -> m (Either (Free (UI n) a) a)

@@ -66,9 +66,11 @@ loadFont path = alloca $ \p -> do
 metricsAscent :: Font -> Float
 metricsAscent (Font _ (a, _) _ _) = a
 
+-- | Get the font's metrics.
 metricsDescent :: Font -> Float
 metricsDescent (Font _ (_, d) _ _) = d
 
+-- | Get the font's boundingbox.
 fontBoundingBox :: Font -> BoundingBox Float
 fontBoundingBox (Font _ _ b _) = b
 

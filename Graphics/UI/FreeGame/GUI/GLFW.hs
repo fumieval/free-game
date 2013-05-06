@@ -148,7 +148,7 @@ runPicture _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
 runPicture _ (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
     liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
     return r
-runPicture sc (Rotate theta cont) = preservingMatrix' $ do
+runPicture sc (RotateD theta cont) = preservingMatrix' $ do
     liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
     runPicture sc cont
 runPicture sc (Scale (V2 sx sy) cont) = preservingMatrix' $ do

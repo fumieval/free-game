@@ -33,6 +33,7 @@ import Linear hiding (rotate)
 -- | A 'Functor' which represents graphical user interfaces.
 type GUI = UI GUIBase
 
+-- | The base of 'GUI'.
 data GUIBase a = Input (Ap GUIInput a) | Draw (Picture a) deriving Functor
 
 -- | _Draw :: Traversal' (GUIBase a) (Picture a)
@@ -47,7 +48,7 @@ _Input _ x = pure x
 
 instance Picture2D GUIBase where
     fromBitmap = Draw . fromBitmap
-    rotate = over _Draw . rotate
+    rotateD = over _Draw . rotateD
     scale = over _Draw . scale
     translate = over _Draw . translate
     colored = over _Draw . colored
@@ -74,6 +75,7 @@ instance Mouse GUIBase where
 instance FromFinalizer GUIBase where
     fromFinalizer = Draw . fromFinalizer
 
+-- | A free structure that represents inputs.
 data GUIInput a = 
       ICharKey Char (Bool -> a)
     | ISpecialKey SpecialKey (Bool -> a)
@@ -84,10 +86,11 @@ data GUIInput a =
     | IMouseButtonR (Bool -> a)
     deriving Functor
 
+-- | A free structure that represents pictures.
 data Picture a
     = LiftBitmap Bitmap a
     | PictureWithFinalizer (FinalizerT IO a)
-    | Rotate Float (Picture a)
+    | RotateD Float (Picture a)
     | Scale (V2 Float) (Picture a)
     | Translate (V2 Float) (Picture a)
     | Colored Color (Picture a)
@@ -102,7 +105,7 @@ data Picture a
 
 instance Picture2D Picture where
     fromBitmap = flip LiftBitmap ()
-    rotate = Rotate
+    rotateD = RotateD
     scale = Scale
     translate = Translate
     colored = Colored
@@ -129,6 +132,7 @@ instance Mouse GUIInput where
     mouseButtonR = IMouseButtonR id
     mouseButtonM = IMouseButtonM id
 
+-- | Parameters of the application.
 data GUIParam = GUIParam
     { _framePerSecond :: Int
     , _windowSize :: V2 Int

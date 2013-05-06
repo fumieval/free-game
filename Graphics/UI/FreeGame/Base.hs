@@ -30,6 +30,7 @@ module Graphics.UI.FreeGame.Base (
     ,_LiftUI
     -- * Classes
     ,Picture2D(..)
+    ,rotate
     ,Figure2D(..)
     ,Keyboard(..)
     ,Mouse(..)
@@ -134,11 +135,22 @@ hoistFR t (F m) = m return (wrap . t)
 class Picture2D p where
     -- | Construct a 'Picture2D' from a 'Bitmap'.
     fromBitmap :: Bitmap -> p ()
-    -- | Counterclockwise, degrees
-    rotate :: Float -> p a -> p a
+    -- | (radians)
+    rotateR :: Float -> p a -> p a
+    -- | (degrees)
+    rotateD :: Float -> p a -> p a
     scale :: V2 Float -> p a -> p a
     translate :: V2 Float -> p a -> p a
     colored :: Color -> p a -> p a
+
+    rotateR = rotateD . (* 180) . (/ pi)
+    rotateD = rotateR . (/ 180) . (* pi)
+
+-- | Deprecated synonym for 'rotateD'.
+rotate :: Picture2D p => Float -> p a -> p a
+rotate = rotateD
+
+{-# DEPRECATED rotate "Use rotateD instead" #-} 
 
 class Picture2D p => Figure2D p where
     line :: [V2 Float] -> p ()
@@ -223,7 +235,8 @@ data SpecialKey = KeySpace
 
 #define MK_PICTURE_2D(cxt, ty, l, t) instance (Picture2D m cxt) => Picture2D (ty) where { \
     fromBitmap = (l) . fromBitmap; \
-    rotate = (t) . rotate; \
+    rotateD = (t) . rotateD; \
+    rotateR = (t) . rotateR; \
     translate = (t) . translate; \
     scale = (t) . scale; \
     colored = (t) . colored }

@@ -26,7 +26,7 @@ module Graphics.UI.FreeGame
 ) where
 
 import Graphics.UI.FreeGame.Base
-import Graphics.UI.FreeGame.GUI (GUI, GUIParam(..), Picture)
+import Graphics.UI.FreeGame.GUI (GUI, GUIParam(..))
 import Graphics.UI.FreeGame.Util
 import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Text
