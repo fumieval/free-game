@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, DeriveFunctor #-}
-module Graphics.UI.FreeGame.Data.Text (TextF(..), TextT, runTextT) where
+module Graphics.UI.FreeGame.Text (TextF(..), TextT, runTextT, text) where
 
 import Data.String
 import Graphics.UI.FreeGame.Base
@@ -38,3 +38,6 @@ runTextT bbox font size = flip evalStateT (V2 x0 y0) . go where
             go cont
     advV = size * (metricsAscent font - metricsDescent font) * 1.1
     (V2 x0 y0, cond) = maybe (zero, const True) (\b -> (view _TopLeft b, flip inBoundingBox b)) bbox
+
+text :: (FromFinalizer m, Monad m, Picture2D m) => Font -> Float -> String -> m ()
+text font size str = runTextT Nothing font size (fromString str)

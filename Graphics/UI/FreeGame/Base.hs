@@ -22,8 +22,10 @@ module Graphics.UI.FreeGame.Base (
     -- * Basic operations
     ,tick
     ,bracket
+    ,_Bracket
     ,quit
     ,embedIO
+    ,_EmbedIO
     ,liftUI
     ,_LiftUI
     -- * Classes
@@ -105,9 +107,19 @@ liftUI = wrap . LiftUI . fmap return
 embedIO :: (MonadFree (UI n) m) => IO a -> m a
 embedIO = wrap . EmbedIO . fmap return
 
+-- | @'_EmbedIO' :: Traversal' ('UI' m a) (IO a)@
+_EmbedIO :: Applicative f => (IO a -> f (IO a)) -> UI m a -> f (UI m a)
+_EmbedIO f (EmbedIO m) = fmap EmbedIO (f m)
+_EmbedIO _ x = pure x
+
+-- | @'_Bracket' :: Traversal' ('UI' m a) (F (UI m) a)@
+_Bracket :: Applicative f => (F (UI m) a -> f (F (UI m) a)) -> UI m a -> f (UI m a)
+_Bracket f (Bracket m) = fmap Bracket (f m)
+_Bracket _ x = pure x
+
 -- | @'_LiftUI' :: Traversal' ('UI' m a) (m a)@
 _LiftUI :: Applicative f => (m a -> f (m a)) -> UI m a -> f (UI m a)
-_LiftUI f (LiftUI o) = fmap LiftUI (f o)
+_LiftUI f (LiftUI m) = fmap LiftUI (f m)
 _LiftUI _ x = pure x
 
 hoistFreeR :: (Functor f, MonadFree g m) => (f (m a) -> g (m a)) -> Free.Free f a -> m a

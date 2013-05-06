@@ -27,7 +27,7 @@ library
     Graphics.UI.FreeGame.Data.Wave
     Graphics.UI.FreeGame.Data.Color
     Graphics.UI.FreeGame.Data.Font
-    Graphics.UI.FreeGame.Data.Text
+    Graphics.UI.FreeGame.Text
     Graphics.UI.FreeGame.GUI
     Graphics.UI.FreeGame.GUI.GLFW
     Graphics.UI.FreeGame.Internal.Finalizer

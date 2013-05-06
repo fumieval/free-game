@@ -43,7 +43,8 @@ runAction :: GUIParam
 runAction param refTextures refFrame _f = case _f of
     LiftUI (Draw pic) -> let ?refTextures = refTextures in join $ runPicture 1 pic
     EmbedIO m -> join (liftIO m)
-    Bracket m -> liftIO (runFinalizerT $ runF m (return.Just) (runAction param refTextures refFrame)) >>= maybe (return Nothing) id
+    Bracket m -> liftIO (runFinalizerT $ runF m (return.Just) (runAction param refTextures refFrame))
+        >>= maybe (return Nothing) id
     LiftUI (Input i) -> join $ liftIO $ runInput i
     Quit -> return Nothing
     Tick cont -> do
