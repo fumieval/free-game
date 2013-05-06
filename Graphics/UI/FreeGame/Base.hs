@@ -41,7 +41,6 @@ import Control.Applicative
 import Control.Applicative.Free as Ap
 import Control.Monad.IO.Class
 import Data.Monoid
-import Data.Void
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Data.Wave
 import Graphics.UI.FreeGame.Data.Color
@@ -96,7 +95,7 @@ bracket :: MonadFree (UI n) m => F (UI n) a -> m a
 bracket = wrap . Bracket . fmap return
 
 -- | Break the entire computation.
-quit :: MonadFree (UI n) m => m Void
+quit :: MonadFree (UI n) m => m a
 quit = wrap Quit
 
 -- | Lift 'UI''s base functor.
