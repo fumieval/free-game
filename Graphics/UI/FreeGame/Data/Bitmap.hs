@@ -39,6 +39,7 @@ import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Data.Word
 import System.Random
 import Data.Hashable
+import Control.Monad.IO.Class
 
 -- | Concrete bitmap data. Internal representation is stored as y * x * RGBA.
 data Bitmap = BitmapData (R.Array RF.F DIM3 Word8) (Maybe Int) -- ^ This value is used to ensure that two bitmaps are equivalent.
@@ -70,7 +71,7 @@ bitmapSize (BitmapData a _) = let (Z :. h :. w :. _) = R.extent a in (w, h)
 
 -- | Create a 'Bitmap' from the given file.
 loadBitmapFromFile :: FilePath -> IO Bitmap
-loadBitmapFromFile path = readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData
+loadBitmapFromFile path = liftIO $ readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData
 
 -- | Convert the 'Bitmap' uniformalized by the 'Hashable' value by the given function.
 onBitmapWithHashable :: Hashable h => h -> (R.Array RF.F DIM3 Word8 -> R.Array RF.F DIM3 Word8) -> Bitmap -> Bitmap
