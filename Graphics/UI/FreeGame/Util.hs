@@ -17,6 +17,7 @@ module Graphics.UI.FreeGame.Util (
     (<&&>),
     (<||>),
     -- * Controlling
+    foreverTick,
     untick,
     untickInfinite,
     -- * Random
@@ -45,6 +46,10 @@ import System.FilePath
 import System.IO.Unsafe
 import Data.Void
 import Linear
+
+-- | An infinite loop that run 'tick' every frame after the given action.
+foreverTick :: MonadFree (UI n) m => m a -> m any
+foreverTick m = m >> (tick >> foreverTick m)
 
 -- | A lifted 'not'.
 notF :: Functor f => f Bool -> f Bool
