@@ -2,7 +2,7 @@
 Module      :  Graphics.UI.FreeGame
 Copyright   :  (C) 2013 Fumiaki Kinoshita
 License     :  BSD-style (see the file LICENSE)
-Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
+Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
 
 free-game is a library that abstracts and purifies GUI applications with simple interfaces.
 -}
@@ -36,6 +36,7 @@ import Graphics.UI.FreeGame.Data.Color
 import qualified Graphics.UI.FreeGame.GUI.GLFW as GLFW
 import Control.Monad.Free.Church
 import Data.Default
+import Control.Monad
 import Linear hiding (rotate)
 
 -- | 'Game' is a "free" monad which describes GUIs.

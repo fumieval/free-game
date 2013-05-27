@@ -5,7 +5,7 @@
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
--- Maintainer  :  Fumiaki Kinsohita <fumiexcel@gmail.com>
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
 -- Stability   :  provisional
 -- Portability :  non-portable
 --
