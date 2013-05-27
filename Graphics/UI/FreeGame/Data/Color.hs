@@ -18,6 +18,7 @@ module Graphics.UI.FreeGame.Data.Color (
     , blend
     -- * Lenses
     , _Red, _Green, _Blue, _Alpha, _8Bit
+    , _Hue, _Saturation, _Brightness
     -- * Basic colors
     , white, black, red, green, blue, yellow, cyan, magenta
     ) where
@@ -49,6 +50,47 @@ _Blue f (Color r g b a) = fmap (\b' -> Color r g b' a) (f b)
 -- | @'_Alpha' :: Lens' 'Color' 'Float'@
 _Alpha :: Functor f => (Float -> f Float) -> Color -> f Color
 _Alpha f (Color r g b a) = fmap (\a' -> Color r g b a') (f a)
+
+argb :: Float -> Float -> Float -> Float -> Color
+argb a r g b = Color r g b a
+
+-- | @'_Hue' :: Lens' 'Color' 'Float'@
+_Hue :: Functor f => (Float -> f Float) -> Color -> f Color
+_Hue f (Color r g b a) = rgb_hsv r g b $ \h s v -> fmap (\h' -> hsv_rgb h' s v (argb a)) (f h)
+
+-- | @'_Saturation' :: Lens' 'Color' 'Float'@
+_Saturation :: Functor f => (Float -> f Float) -> Color -> f Color
+_Saturation f (Color r g b a) = rgb_hsv r g b $ \h s v -> fmap (\s' -> hsv_rgb h s' v (argb a)) (f s)
+
+-- | @'_Brightness' :: Lens' 'Color' 'Float'@
+_Brightness :: Functor f => (Float -> f Float) -> Color -> f Color
+_Brightness f (Color r g b a) = rgb_hsv r g b $ \h s v -> fmap (\v' -> hsv_rgb h s v' (argb a)) (f v)
+
+rgb_hsv :: Float -> Float -> Float -> (Float -> Float -> Float -> a) -> a
+rgb_hsv r g b f = f h (s / maxC) maxC where
+    maxC = r `max` g `max` b
+    minC = r `min` g `min` b
+    s = maxC - minC
+    h | maxC == r = (g - b) / s * 60
+      | maxC == g = (b - r) / s * 60 + 120
+      | maxC == b = (r - g) / s * 60 + 240
+      | otherwise = undefined
+
+hsv_rgb :: Float -> Float -> Float -> (Float -> Float -> Float -> a) -> a
+hsv_rgb h s v r
+    | h' == 0 = r v t p
+    | h' == 1 = r q v p
+    | h' == 2 = r p v t
+    | h' == 3 = r p q v
+    | h' == 4 = r t p v
+    | h' == 5 = r v p q
+    | otherwise = undefined
+    where
+        h' = floor (h / 60) `mod` 6 :: Int
+        f = h / 60 - fromIntegral h'
+        p = v * (1 - s)
+        q = v * (1 - f * s)
+        t = v * (1 - (1 - f) * s)    
 
 hf :: Char -> Float
 hf x = fromIntegral (digitToInt x) / 15

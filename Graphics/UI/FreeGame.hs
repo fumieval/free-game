@@ -22,7 +22,9 @@ module Graphics.UI.FreeGame
     module Graphics.UI.FreeGame.Util,
     module Graphics.UI.FreeGame.Text,
     module Graphics.UI.FreeGame.Types,
-    module Linear
+    module Linear,
+    module Control.Monad,
+    module Control.Applicative
 ) where
 
 import Graphics.UI.FreeGame.Base
@@ -37,6 +39,7 @@ import qualified Graphics.UI.FreeGame.GUI.GLFW as GLFW
 import Control.Monad.Free.Church
 import Data.Default
 import Control.Monad
+import Control.Applicative
 import Linear hiding (rotate)
 
 -- | 'Game' is a "free" monad which describes GUIs.
