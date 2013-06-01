@@ -181,6 +181,9 @@ class Mouse t where
 class FromFinalizer m where
     fromFinalizer :: FinalizerT IO a -> m a
 
+instance FromFinalizer (FinalizerT IO) where
+    fromFinalizer = id
+
 data SpecialKey = KeySpace
     | KeyEsc
     | KeyLeftShift

@@ -28,6 +28,7 @@ import Data.Array.Repa.Eval
 import qualified Data.Map as M
 import Data.Word
 import Linear
+import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Internal.Finalizer
@@ -50,8 +51,8 @@ import Unsafe.Coerce
 data Font = Font FT_Face (Float, Float) (BoundingBox Float) (IORef (M.Map (Float, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
-loadFont :: FilePath -> IO Font
-loadFont path = alloca $ \p -> do
+loadFont :: MonadIO m => FilePath -> m Font
+loadFont path = liftIO $ alloca $ \p -> do
     runFreeType $ withCString path $ \str -> ft_New_Face freeType str 0 p
     f <- peek p
     b <- peek (bbox f)
@@ -96,8 +97,8 @@ data RenderedChar = RenderedChar
 resolutionDPI :: Int
 resolutionDPI = 300
 
-charToBitmap :: Font -> Float -> Char -> FinalizerT IO RenderedChar
-charToBitmap (Font face _ _ refCache) pixel ch = do
+charToBitmap :: FromFinalizer m => Font -> Float -> Char -> m RenderedChar
+charToBitmap (Font face _ _ refCache) pixel ch = fromFinalizer $ do
     cache <- liftIO $ readIORef refCache
     case M.lookup (siz, ch) cache of
         Nothing -> do
