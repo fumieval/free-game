@@ -42,9 +42,9 @@ import Control.Applicative
 import Control.Applicative.Free as Ap
 import Control.Monad.IO.Class
 import Data.Monoid
+import Data.Color
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Data.Wave
-import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Internal.Finalizer
 import Graphics.UI.FreeGame.Internal.Raindrop
 import Linear hiding (rotate)

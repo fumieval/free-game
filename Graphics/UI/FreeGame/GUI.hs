@@ -21,13 +21,13 @@ module Graphics.UI.FreeGame.GUI (
 ) where
 
 import Graphics.UI.FreeGame.Base
-import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Internal.Finalizer
 import Graphics.UI.FreeGame.Internal.Raindrop
 import Control.Applicative
 import Control.Applicative.Free (Ap)
 import Data.Default
+import Data.Color
 import Linear hiding (rotate)
 
 -- | A 'Functor' which represents graphical user interfaces.
@@ -150,6 +150,6 @@ instance Default GUIParam where
         , _windowTitle = "free-game"
         , _windowed = True
         , _cursorVisible = True
-        , _clearColor = white
+        , _clearColor = Color 1 1 1 1
         , _windowOrigin = V2 0 0
         }

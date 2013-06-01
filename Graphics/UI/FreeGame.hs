@@ -17,14 +17,15 @@ module Graphics.UI.FreeGame
     module Graphics.UI.FreeGame.Base,
     module Graphics.UI.FreeGame.Data.Bitmap,
     module Graphics.UI.FreeGame.Data.Font,
-    module Graphics.UI.FreeGame.Data.Color,
     module Graphics.UI.FreeGame.GUI,
     module Graphics.UI.FreeGame.Util,
     module Graphics.UI.FreeGame.Text,
     module Graphics.UI.FreeGame.Types,
-    module Linear,
     module Control.Monad,
-    module Control.Applicative
+    module Control.Applicative,
+    module Data.Color,
+    module Data.Color.Names,
+    module Linear
 ) where
 
 import Graphics.UI.FreeGame.Base
@@ -34,7 +35,8 @@ import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Text
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Data.Font
-import Graphics.UI.FreeGame.Data.Color
+import Data.Color
+import Data.Color.Names
 import qualified Graphics.UI.FreeGame.GUI.GLFW as GLFW
 import Control.Monad.Free.Church
 import Data.Default

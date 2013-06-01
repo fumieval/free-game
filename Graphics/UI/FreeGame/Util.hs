@@ -33,19 +33,19 @@ module Graphics.UI.FreeGame.Util (
     loadBitmaps,
     loadBitmapsWith
     ) where
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Free
-import Control.Applicative
 import Data.Char
+import Data.Void
 import Graphics.UI.FreeGame.Base
 import Graphics.UI.FreeGame.Data.Bitmap
-import System.Random
 import Language.Haskell.TH
+import Linear
 import System.Directory
 import System.FilePath
 import System.IO.Unsafe
-import Data.Void
-import Linear
+import System.Random
 
 -- | An infinite loop that run 'tick' every frame after the given action.
 foreverTick :: MonadFree (UI n) m => m a -> m any

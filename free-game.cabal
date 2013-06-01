@@ -25,7 +25,6 @@ library
     Graphics.UI.FreeGame.Base
     Graphics.UI.FreeGame.Data.Bitmap
     Graphics.UI.FreeGame.Data.Wave
-    Graphics.UI.FreeGame.Data.Color
     Graphics.UI.FreeGame.Data.Font
     Graphics.UI.FreeGame.Text
     Graphics.UI.FreeGame.GUI
@@ -59,4 +58,5 @@ library
     linear >= 1.1 && < 1.3,
     vector == 0.10.*,
     JuicyPixels-repa >= 0.5.1,
-    data-default
+    data-default,
+    colors == 0.1.*

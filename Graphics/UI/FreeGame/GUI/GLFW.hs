@@ -17,10 +17,10 @@ import Control.Monad
 import Control.Monad.Free.Church
 import Control.Monad.IO.Class
 import Data.IORef
+import Data.Color
 import Foreign.ForeignPtr
 import Graphics.UI.FreeGame.Base
 import Graphics.UI.FreeGame.Data.Bitmap
-import Graphics.UI.FreeGame.Data.Color
 import Graphics.UI.FreeGame.Internal.Finalizer
 import Graphics.UI.FreeGame.GUI
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
