@@ -125,11 +125,16 @@ _LiftUI _ x = pure x
 hoistFreeR :: (Functor f, MonadFree g m) => (f (m a) -> g (m a)) -> Free.Free f a -> m a
 hoistFreeR _ (Free.Pure a) = return a
 hoistFreeR t (Free.Free f) = wrap . t $ fmap (hoistFreeR t) f
-{-# INLINE hoistFreeR #-}
+{-# INLINE[~4] hoistFreeR #-}
 
 hoistFR :: MonadFree g m => (f (m a) -> g (m a)) -> F f a -> m a
 hoistFR t (F m) = m return (wrap . t)
-{-# INLINE hoistFR #-}
+{-# INLINE[~4] hoistFR #-}
+
+{-# RULES
+"hoistFreeR/hoistFreeR"[5]   forall f g m. hoistFreeR f (hoistFreeR g m) = hoistFreeR (f . g) m
+"hoistFR/hoistFR"[5]     forall f g m. hoistFR f (hoistFR g m) = hoistFR (f . g) m
+ #-}
 
 -- | The class of types that can be regarded as a kind of picture.
 class Picture2D p where
