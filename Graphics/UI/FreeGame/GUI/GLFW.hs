@@ -12,7 +12,6 @@
 ----------------------------------------------------------------------------
 module Graphics.UI.FreeGame.GUI.GLFW (runGame) where
 import Control.Applicative
-import Control.Applicative.Free as Ap
 import Control.Monad
 import Control.Monad.Free.Church
 import Control.Monad.IO.Class
@@ -75,7 +74,7 @@ runAction param refTextures refFrame _f = case _f of
                 GL.matrixMode $= GL.Modelview 0
             cont
 
-data Texture = Texture GL.TextureObject !Int !Int
+type Texture = (GL.TextureObject, Int, Int)
 
 bool :: a -> a -> Bool -> a
 bool r _ False = r
@@ -119,20 +118,18 @@ installTexture bmp@(BitmapData ar _) = do
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 siz 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
     finalizer $ GL.deleteObjectNames [tex]
-    return $ Texture tex width height
+    return (tex, width, height)
 
-runInput :: Ap GUIInput a -> IO a
-runInput (Ap.Pure a) = pure a
-runInput (Ap.Ap v af) = (runInput af <*>) $ case v of
-    ICharKey ch cont -> cont <$> GLFW.keyIsPressed (GLFW.CharKey ch)
-    ISpecialKey x cont -> cont <$> GLFW.keyIsPressed (mapSpecialKey x)
-    IMouseButtonL cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton0
-    IMouseButtonR cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton1
-    IMouseButtonM cont -> cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton2
-    IMousePosition cont -> do
-        (x, y) <- GLFW.getMousePosition
-        return $ cont $ V2 (fromIntegral x) (fromIntegral y)
-    IMouseWheel cont -> cont <$> GLFW.getMouseWheel
+runInput :: GUIInput a -> IO a
+runInput (ICharKey ch cont) = cont <$> GLFW.keyIsPressed (GLFW.CharKey ch)
+runInput (ISpecialKey x cont) = cont <$> GLFW.keyIsPressed (mapSpecialKey x)
+runInput (IMouseButtonL cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton0
+runInput (IMouseButtonR cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton1
+runInput (IMouseButtonM cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton2
+runInput (IMousePosition cont) = do
+    (x, y) <- GLFW.getMousePosition
+    return $ cont $ V2 (fromIntegral x) (fromIntegral y)
+runInput (IMouseWheel cont) = cont <$> GLFW.getMouseWheel
 
 runPicture :: (?refTextures :: IORef (IM.IntMap Texture)) => Float -> Picture a -> FinalizerT IO a
 runPicture _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
@@ -148,19 +145,19 @@ runPicture _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
 runPicture _ (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
     liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
     return r
+runPicture sc (Translate (V2 tx ty) cont) = preservingMatrix' $ do
+    liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
+    runPicture sc cont
 runPicture sc (RotateD theta cont) = preservingMatrix' $ do
     liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
     runPicture sc cont
 runPicture sc (Scale (V2 sx sy) cont) = preservingMatrix' $ do
     liftIO $ GL.scale (gf sx) (gf sy) 1
     runPicture (sc * max sx sy) cont
-runPicture sc (Translate (V2 tx ty) cont) = preservingMatrix' $ do
-    liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
-    runPicture sc cont
 runPicture _ (PictureWithFinalizer m) = m
-runPicture sc (Colored (Color r g b a) cont) = do
+runPicture sc (Colored col cont) = do
     oldColor <- liftIO $ get GL.currentColor
-    liftIO $ GL.currentColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
+    liftIO $ GL.currentColor $= unsafeCoerce col
     res <- runPicture sc cont
     liftIO $ GL.currentColor $= oldColor
     return res
@@ -189,7 +186,7 @@ runPicture sc (Thickness t cont) = do
     return res
 
 runVertices :: MonadIO m => [V2 Float] -> m ()
-runVertices = mapM_ (\(V2 x y) -> liftIO $ GL.vertex $ GL.Vertex2 (gf x) (gf y))
+runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)
 
 preservingMatrix' :: MonadIO m => m a -> m a
 preservingMatrix' m = do
@@ -198,26 +195,21 @@ preservingMatrix' m = do
     liftIO $ glPopMatrix
     return r
 
-gf :: Float -> GL.GLfloat
-{-# INLINE gf #-}
-gf x = unsafeCoerce x
-
-gsizei :: Int -> GL.GLsizei
-{-# INLINE gsizei #-}
-gsizei x = unsafeCoerce x
-
 drawTexture :: Texture -> IO ()
-drawTexture (Texture tex width height) = do
-    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2)
+drawTexture (tex, width, height) = do
+    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2) :: (GL.GLfloat, GL.GLfloat)
     GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureBinding GL.Texture2D $= Just tex
-    GL.renderPrimitive GL.Polygon $ zipWithM_
-        (\(pX, pY) (tX, tY) -> do
-            GL.texCoord $ GL.TexCoord2 (gf tX) (gf tY)
-            GL.vertex $ GL.Vertex2 (gf pX) (gf pY))
-        [(-w, -h), (w, -h), (w, h), (-w, h)]
-        [(0,0), (1.0,0), (1.0,1.0), (0,1.0)]
+    GL.renderPrimitive GL.Polygon $ do
+        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLfloat) 0
+        GL.vertex $ GL.Vertex2 (-w) (-h)
+        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLfloat) 0
+        GL.vertex $ GL.Vertex2 w (-h)
+        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLfloat) 1
+        GL.vertex $ GL.Vertex2 w h
+        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLfloat) 1
+        GL.vertex $ GL.Vertex2 (-w) h
     GL.texture GL.Texture2D $= GL.Disabled
 
 mapSpecialKey :: SpecialKey -> GLFW.Key
@@ -269,3 +261,14 @@ mapSpecialKey KeyPadAdd = GLFW.KeyPadAdd
 mapSpecialKey KeyPadDecimal = GLFW.KeyPadDecimal
 mapSpecialKey KeyPadEqual = GLFW.KeyPadEqual
 mapSpecialKey KeyPadEnter = GLFW.KeyPadEnter
+
+mkVertex2 :: V2 Float -> GL.Vertex2 GL.GLfloat
+mkVertex2 = unsafeCoerce
+
+gf :: Float -> GL.GLfloat
+{-# INLINE gf #-}
+gf x = unsafeCoerce x
+
+gsizei :: Int -> GL.GLsizei
+{-# INLINE gsizei #-}
+gsizei x = unsafeCoerce x

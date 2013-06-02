@@ -25,7 +25,6 @@ import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Internal.Finalizer
 import Graphics.UI.FreeGame.Internal.Raindrop
 import Control.Applicative
-import Control.Applicative.Free (Ap)
 import Data.Default
 import Data.Color
 import Linear hiding (rotate)
@@ -34,7 +33,7 @@ import Linear hiding (rotate)
 type GUI = UI GUIBase
 
 -- | The base of 'GUI'.
-data GUIBase a = Input (Ap GUIInput a) | Draw (Picture a) deriving Functor
+data GUIBase a = Input (GUIInput a) | Draw (Picture a) deriving Functor
 
 -- | _Draw :: Traversal' (GUIBase a) (Picture a)
 _Draw :: Applicative f => (Picture a -> f (Picture a)) -> GUIBase a -> f (GUIBase a)
@@ -42,7 +41,7 @@ _Draw f (Draw o) = fmap Draw (f o)
 _Draw _ x = pure x
 
 -- | _Input :: Traversal' (GUIBase a) (Ap GUIInput a)
-_Input :: Applicative f => (Ap GUIInput a -> f (Ap GUIInput a)) -> GUIBase a -> f (GUIBase a)
+_Input :: Applicative f => (GUIInput a -> f (GUIInput a)) -> GUIBase a -> f (GUIBase a)
 _Input f (Input o) = fmap Input (f o)
 _Input _ x = pure x
 
