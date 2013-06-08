@@ -1,5 +1,5 @@
 name:                free-game
-version:             0.9.3.2
+version:             0.9.3.3
 synopsis:            Create graphical applications for free
 description:         Cross-platform GUI library based on free monads
 homepage:            https://github.com/fumieval/free-game
@@ -58,4 +58,5 @@ library
     vector == 0.10.*,
     JuicyPixels-repa >= 0.5.1,
     data-default,
-    colors == 0.1.*
+    colors == 0.1.*,
+    control-bool

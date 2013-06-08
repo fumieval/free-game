@@ -23,6 +23,7 @@ module Graphics.UI.FreeGame
     module Graphics.UI.FreeGame.Types,
     module Control.Monad,
     module Control.Applicative,
+    module Control.Bool,
     module Data.Color,
     module Data.Color.Names,
     module Linear
@@ -35,13 +36,14 @@ import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Text
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Data.Font
-import Data.Color
-import Data.Color.Names
 import qualified Graphics.UI.FreeGame.GUI.GLFW as GLFW
 import Control.Monad.Free.Church
 import Data.Default
 import Control.Monad
 import Control.Applicative
+import Control.Bool
+import Data.Color
+import Data.Color.Names
 import Linear hiding (rotate)
 
 -- | 'Game' is a "free" monad which describes GUIs.
@@ -51,7 +53,7 @@ import Linear hiding (rotate)
 --
 -- You have to call 'tick' at the end of the current frame.
 --
--- The only way to embody 'Game' as real thing is to apply 'runGame'.
+-- The only way to embody a 'Game' as a real thing is to apply 'runGame'.
 type Game = F GUI
 
 -- | Run a 'Game'.

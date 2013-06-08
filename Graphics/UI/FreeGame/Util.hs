@@ -12,10 +12,6 @@
 ----------------------------------------------------------------------------
 
 module Graphics.UI.FreeGame.Util (
-    -- * Combinators
-    notF,
-    (<&&>),
-    (<||>),
     -- * Controlling
     foreverTick,
     untick,
@@ -33,6 +29,7 @@ module Graphics.UI.FreeGame.Util (
     loadBitmaps,
     loadBitmapsWith
     ) where
+
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Free
@@ -51,19 +48,7 @@ import System.Random
 foreverTick :: MonadFree (UI n) m => m a -> m any
 foreverTick m = m >> (tick >> foreverTick m)
 
--- | A lifted 'not'.
-notF :: Functor f => f Bool -> f Bool
-notF = fmap not
-
--- | A lifted '(&&)'.
-(<&&>) :: Applicative f => f Bool -> f Bool -> f Bool
-(<&&>) = liftA2 (&&)
-
--- | A lifted '(||)'
-(<||>) :: Applicative f => f Bool -> f Bool -> f Bool
-(<||>) = liftA2 (||)
-
--- | A unit vector with given angle.
+-- | An unit vector with given angle.
 unitV2 :: Floating a => a -> V2 a
 unitV2 t = V2 (cos t) (sin t)
 
@@ -104,7 +89,7 @@ radians x = x / 180 * pi
 loadPictureFromFile :: (Picture2D p, MonadFree (UI n) m) => FilePath -> m (p ())
 loadPictureFromFile = embedIO . fmap fromBitmap . loadBitmapFromFile
 
--- | Load and define all pictures in the specified directory.
+-- | The type of the given 'Name' must be @String -> IO String@
 loadBitmapsWith :: Name -> FilePath -> Q [Dec]
 loadBitmapsWith getFullPath path = do
     loc <- (</>path) <$> takeDirectory <$> loc_filename <$> location
@@ -123,13 +108,14 @@ loadBitmapsWith getFullPath path = do
                 (varE '(>>=))
                 (varE 'loadBitmapFromFile)
 
--- | use with getDataFileName
+-- | Load and define all pictures in the specified directory.
 loadBitmaps :: FilePath -> Q [Dec]
 loadBitmaps = loadBitmapsWith 'canonicalizePath
 
 getFileList :: FilePath -> IO [FilePath]
 getFileList path = do
     allContents <- filter notHidden `fmap` getDirectoryContents path
+
     files <- filterM (doesFileExist . (path</>)) allContents
     dirs <- filterM (doesDirectoryExist . (path</>)) allContents
     fmap ((files++).concat) $ forM dirs $ \i -> map (i</>) `fmap` getFileList (path</>i)
