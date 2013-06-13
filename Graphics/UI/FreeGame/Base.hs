@@ -12,7 +12,6 @@
 -- Stability   :  experimental
 -- Portability :  non-portable
 --
--- Abstract structures for descripting user interfaces
 ----------------------------------------------------------------------------
 
 module Graphics.UI.FreeGame.Base (
@@ -91,7 +90,7 @@ data UI m a
 tick :: MonadFree (UI n) m => m ()
 tick = wrap $ Tick (return ())
 
--- | Run a Game monad in a Game monad. resources (e.g. pictures) will be released when inner computation is done.
+-- | Run a Game monad in a Game monad. Resources (e.g. pictures) will be released when inner computation is done.
 bracket :: MonadFree (UI n) m => F (UI n) a -> m a
 bracket = wrap . Bracket . fmap return
 

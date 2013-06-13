@@ -21,7 +21,7 @@ module Graphics.UI.FreeGame.Types (
 
 import Linear.V2
 
--- | 2D bounding box.
+-- | 2D bounding box
 data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Read)
 
 -- | Determine whether the given point is in the 'BoundingBox'.
