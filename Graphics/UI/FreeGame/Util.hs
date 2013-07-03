@@ -48,11 +48,11 @@ import System.Random
 foreverTick :: MonadFree (UI n) m => m a -> m any
 foreverTick m = m >> (tick >> foreverTick m)
 
--- | An unit vector with given angle.
+-- | An unit vector with the specified angle.
 unitV2 :: Floating a => a -> V2 a
 unitV2 t = V2 (cos t) (sin t)
 
--- | An angle of given vector.
+-- | An angle of the given vector.
 angleV2 :: RealFloat a => V2 a -> a
 angleV2 (V2 a b) = atan2 b a
 
