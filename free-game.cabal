@@ -45,7 +45,7 @@ library
     free == 3.*,
     repa,
     freetype2 >= 0.1,
-    GLFW-b >= 0.1.0.5,
+    GLFW-b == 0.1.*,
     hashable >= 1.2,
     mtl >= 2.1,
     OpenGL == 2.8.*,
