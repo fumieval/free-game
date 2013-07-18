@@ -21,7 +21,7 @@ instance Applicative (FinalizerT m) where
 
 instance Monad (FinalizerT m) where
     return a = FinalizerT $ \p _ -> p a
-    FinalizerT rf >>= k = FinalizerT $ \p f -> rf (\x -> unFinalizerT (k x) p f) f
+    FinalizerT rf >>= k = FinalizerT $ \p -> rf (\x -> unFinalizerT (k x) p f)
 
 instance MonadIO m => MonadIO (FinalizerT m) where
     liftIO m = FinalizerT $ \r _ -> liftIO m >>= r

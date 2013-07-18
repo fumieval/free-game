@@ -17,6 +17,7 @@ import Control.Monad.Free.Church
 import Control.Monad.IO.Class
 import Data.IORef
 import Data.Color
+import Data.Char
 import Foreign.ForeignPtr
 import Graphics.UI.FreeGame.Base
 import Graphics.UI.FreeGame.Data.Bitmap
@@ -35,44 +36,29 @@ import Linear
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
 runGame param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
 
-runAction :: GUIParam
-    -> IORef (IM.IntMap Texture)
-    -> IORef Int
-    -> GUI (FinalizerT IO (Maybe a)) -> FinalizerT IO (Maybe a)
-runAction param refTextures refFrame _f = case _f of
-    LiftUI (Draw pic) -> let ?refTextures = refTextures in join $ runPicture 1 pic
-    EmbedIO m -> join (liftIO m)
-    Bracket m -> liftIO (runFinalizerT $ runF m (return.Just) (runAction param refTextures refFrame))
-        >>= maybe (return Nothing) id
-    LiftUI (Input i) -> join $ liftIO $ runInput i
-    Quit -> return Nothing
-    Tick cont -> do
-        liftIO $ do
-            GL.matrixMode $= GL.Projection
-            GLFW.swapBuffers
-            performGC
-            t <- GLFW.getTime
-            n <- readIORef refFrame
-            GLFW.sleep $ fromIntegral n / fromIntegral (_framePerSecond param) - t
-            if t > 1
-                then GLFW.resetTime >> writeIORef refFrame 0
-                else writeIORef refFrame (succ n)
+instance Given (IORef Int) => MonadTick IO where
+    tick = do
+        GL.matrixMode $= GL.Projection
+        GLFW.swapBuffers
+        performGC
+        t <- GLFW.getTime
+        n <- readIORef given
+        GLFW.sleep $ fromIntegral n / fromIntegral (_framePerSecond param) - t
+        if t > 1
+            then GLFW.setTime 0 >> writeIORef given 0
+            else writeIORef given (succ n)
 
-        r <- liftIO $ GLFW.windowIsOpen
-        if not r then return Nothing else do
-            liftIO $ do
-                GL.clear [GL.ColorBuffer] 
-                GL.loadIdentity
-                GL.scale (gf 1) (-1) 1
-                let V2 ox oy = _windowOrigin param
-                    V2 ww wh = _windowSize param
-                    windowL = realToFrac ox
-                    windowR = realToFrac ox + fromIntegral ww
-                    windowT = realToFrac oy
-                    windowB = realToFrac oy + fromIntegral wh
-                GL.ortho windowL windowR windowT windowB 0 (-100)
-                GL.matrixMode $= GL.Modelview 0
-            cont
+        GL.clear [GL.ColorBuffer] 
+        GL.loadIdentity
+        GL.scale (gf 1) (-1) 1
+        let V2 ox oy = _windowOrigin param
+            V2 ww wh = _windowSize param
+            windowL = realToFrac ox
+            windowR = realToFrac ox + fromIntegral ww
+            windowT = realToFrac oy
+            windowB = realToFrac oy + fromIntegral wh
+        GL.ortho windowL windowR windowT windowB 0 (-100)
+        GL.matrixMode $= GL.Modelview 0
 
 type Texture = (GL.TextureObject, Int, Int)
 
@@ -80,7 +66,7 @@ bool :: a -> a -> Bool -> a
 bool r _ False = r
 bool _ r True = r
 
-launch :: GUIParam -> (IORef (IM.IntMap Texture) -> IORef Int -> FinalizerT IO (Maybe a)) -> IO (Maybe a)
+launch :: GUIParam -> FinalizerT IO (Maybe a) -> IO (Maybe a)
 launch param m = do
     GLFW.initialize >>= bool (fail "Failed to initialize") (return ())
     pf <- GLFW.openGLProfile
@@ -120,70 +106,57 @@ installTexture bmp@(BitmapData ar _) = do
     finalizer $ GL.deleteObjectNames [tex]
     return (tex, width, height)
 
-runInput :: GUIInput a -> IO a
-runInput (ICharKey ch cont) = cont <$> GLFW.keyIsPressed (GLFW.CharKey ch)
-runInput (ISpecialKey x cont) = cont <$> GLFW.keyIsPressed (mapSpecialKey x)
-runInput (IMouseButtonL cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton0
-runInput (IMouseButtonR cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton1
-runInput (IMouseButtonM cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton2
-runInput (IMousePosition cont) = do
-    (x, y) <- GLFW.getMousePosition
-    return $ cont $ V2 (fromIntegral x) (fromIntegral y)
-runInput (IMouseWheel cont) = cont <$> GLFW.getMouseWheel
+fromKeyState :: KeyState -> Bool
+fromKeyState = undefined
 
-runPicture :: (?refTextures :: IORef (IM.IntMap Texture)) => Float -> Picture a -> FinalizerT IO a
-runPicture _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
-    m <- liftIO $ readIORef ?refTextures
-    case IM.lookup h m of
-        Just t -> liftIO $ drawTexture t
-        Nothing -> do
-            t <- installTexture bmp
-            liftIO $ writeIORef ?refTextures $ IM.insert h t m
-            liftIO $ drawTexture t
-            finalizer $ modifyIORef ?refTextures $ IM.delete h
-    return r
-runPicture _ (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
-    liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
-    return r
-runPicture sc (Translate (V2 tx ty) cont) = preservingMatrix' $ do
-    liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
-    runPicture sc cont
-runPicture sc (RotateD theta cont) = preservingMatrix' $ do
-    liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
-    runPicture sc cont
-runPicture sc (Scale (V2 sx sy) cont) = preservingMatrix' $ do
-    liftIO $ GL.scale (gf sx) (gf sy) 1
-    runPicture (sc * max sx sy) cont
-runPicture _ (PictureWithFinalizer m) = m
-runPicture sc (Colored col cont) = do
-    oldColor <- liftIO $ get GL.currentColor
-    liftIO $ GL.currentColor $= unsafeCoerce col
-    res <- runPicture sc cont
-    liftIO $ GL.currentColor $= oldColor
-    return res
-runPicture _ (Line path a) = do
-    liftIO $ GL.renderPrimitive GL.LineStrip $ runVertices path
-    return a
-runPicture _ (Polygon path a) = do
-    liftIO $ GL.renderPrimitive GL.Polygon $ runVertices path
-    return a
-runPicture _ (PolygonOutline path a) = do
-    liftIO $ GL.renderPrimitive GL.LineLoop $ runVertices path
-    return a
-runPicture sc (Circle r a) = do
-    let s = 2 * pi / 64 * sc
-    liftIO $ GL.renderPrimitive GL.Polygon $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
-    return a
-runPicture sc (CircleOutline r a) = do
-    let s = 2 * pi / 64 * sc
-    liftIO $ GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
-    return a
-runPicture sc (Thickness t cont) = do
-    oldWidth <- liftIO $ get GL.lineWidth
-    liftIO $ GL.lineWidth $= gf t
-    res <- runPicture sc cont
-    liftIO $ GL.lineWidth $= oldWidth
-    return res
+instance Keyboard IO where
+    charKey = GLFW.getKey (mapCharKey ch)
+    specialKey k = GLFW.getKey (mapSpecialKey x)
+
+instance Given (IORef (IM.IntMap Texture)) => Picture2D (FinalizerT IO) where
+    fromBitmap bmp@(BitmapData _ (Just h)) = do
+        m <- liftIO $ readIORef given
+        case IM.lookup h m of
+            Just t -> liftIO $ drawTexture t
+            Nothing -> do
+                t <- installTexture bmp
+                liftIO $ writeIORef ?refTextures $ IM.insert h t m
+                liftIO $ drawTexture t
+                finalizer $ modifyIORef ?refTextures $ IM.delete h
+    fromBitmap bmp@(BitmapData _ Nothing) = liftIO $ runFinalizerT
+        $ installTexture bmp >>= liftIO . drawTexture
+    rotateD theta m = preservingMatrix' $ do
+        liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
+        m
+    scale (V2 sx sy) m = preservingMatrix' $ do
+        liftIO $ GL.scale (gf sx) (gf sy) 1
+        m
+    colored col m = do
+        oldColor <- liftIO $ get GL.currentColor
+        liftIO $ GL.currentColor $= unsafeCoerce col
+        r <- m
+        liftIO $ GL.currentColor $= oldColor
+        return r
+    translate (V2 tx ty) m = preservingMatrix' $ do
+        liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
+        m
+
+instance Figure2D IO where
+    circle r = do
+        let s = 2 * pi / 64
+        GL.renderPrimitive GL.Polygon $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
+    circleOutline r = do
+        let s = 2 * pi / 64 * sc
+        GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
+    polygon path = GL.renderPrimitive GL.Polygon $ runVertices path
+    polygonOutline path = GL.renderPrimitive GL.LineLoop $ runVertices path
+    line path = GL.renderPrimitive GL.LineStrip $ runVertices path
+    thickness t m = do
+        oldWidth <- get GL.lineWidth
+        GL.lineWidth $= gf t
+        r <- m
+        GL.lineWidth $= oldWidth
+        return r
 
 runVertices :: MonadIO m => [V2 Float] -> m ()
 runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)
@@ -212,56 +185,6 @@ drawTexture (tex, width, height) = do
         GL.vertex $ GL.Vertex2 (-w) h
     GL.texture GL.Texture2D $= GL.Disabled
 
-mapSpecialKey :: SpecialKey -> GLFW.Key
-mapSpecialKey KeySpace = GLFW.KeySpace
-mapSpecialKey KeyEsc = GLFW.KeyEsc
-mapSpecialKey KeyLeftShift = GLFW.KeyLeftShift
-mapSpecialKey KeyRightShift = GLFW.KeyRightShift
-mapSpecialKey KeyLeftControl = GLFW.KeyLeftCtrl
-mapSpecialKey KeyRightControl = GLFW.KeyRightCtrl
-mapSpecialKey KeyUp = GLFW.KeyUp
-mapSpecialKey KeyDown = GLFW.KeyDown
-mapSpecialKey KeyLeft = GLFW.KeyLeft
-mapSpecialKey KeyRight = GLFW.KeyRight
-mapSpecialKey KeyTab = GLFW.KeyTab
-mapSpecialKey KeyEnter = GLFW.KeyEnter
-mapSpecialKey KeyBackspace = GLFW.KeyBackspace
-mapSpecialKey KeyInsert = GLFW.KeyInsert
-mapSpecialKey KeyDelete = GLFW.KeyDel
-mapSpecialKey KeyPageUp = GLFW.KeyPageup
-mapSpecialKey KeyPageDown = GLFW.KeyPagedown
-mapSpecialKey KeyHome = GLFW.KeyHome
-mapSpecialKey KeyEnd = GLFW.KeyEnd
-mapSpecialKey KeyF1 = GLFW.KeyF1
-mapSpecialKey KeyF2 = GLFW.KeyF2
-mapSpecialKey KeyF3 = GLFW.KeyF3
-mapSpecialKey KeyF4 = GLFW.KeyF4
-mapSpecialKey KeyF5 = GLFW.KeyF5
-mapSpecialKey KeyF6 = GLFW.KeyF6
-mapSpecialKey KeyF7 = GLFW.KeyF7
-mapSpecialKey KeyF8 = GLFW.KeyF8
-mapSpecialKey KeyF9 = GLFW.KeyF9
-mapSpecialKey KeyF10 = GLFW.KeyF10
-mapSpecialKey KeyF11 = GLFW.KeyF11
-mapSpecialKey KeyF12 = GLFW.KeyF12
-mapSpecialKey KeyPad0 = GLFW.KeyPad0
-mapSpecialKey KeyPad1 = GLFW.KeyPad1
-mapSpecialKey KeyPad2 = GLFW.KeyPad2
-mapSpecialKey KeyPad3 = GLFW.KeyPad3
-mapSpecialKey KeyPad4 = GLFW.KeyPad4
-mapSpecialKey KeyPad5 = GLFW.KeyPad5
-mapSpecialKey KeyPad6 = GLFW.KeyPad6
-mapSpecialKey KeyPad7 = GLFW.KeyPad7
-mapSpecialKey KeyPad8 = GLFW.KeyPad8
-mapSpecialKey KeyPad9 = GLFW.KeyPad9
-mapSpecialKey KeyPadDivide = GLFW.KeyPadDivide
-mapSpecialKey KeyPadMultiply = GLFW.KeyPadMultiply
-mapSpecialKey KeyPadSubtract = GLFW.KeyPadSubtract
-mapSpecialKey KeyPadAdd = GLFW.KeyPadAdd
-mapSpecialKey KeyPadDecimal = GLFW.KeyPadDecimal
-mapSpecialKey KeyPadEqual = GLFW.KeyPadEqual
-mapSpecialKey KeyPadEnter = GLFW.KeyPadEnter
-
 mkVertex2 :: V2 Float -> GL.Vertex2 GL.GLfloat
 mkVertex2 = unsafeCoerce
 
@@ -272,3 +195,56 @@ gf x = unsafeCoerce x
 gsizei :: Int -> GL.GLsizei
 {-# INLINE gsizei #-}
 gsizei x = unsafeCoerce x
+
+mapCharKey :: Char -> GLFW.Key
+mapCharKey = undefined
+
+mapSpecialKey :: SpecialKey -> GLFW.Key
+mapSpecialKey KeySpace = GLFW.Key'Space
+mapSpecialKey KeyEsc = GLFW.Key'Esc
+mapSpecialKey KeyLeftShift = GLFW.Key'LeftShift
+mapSpecialKey KeyRightShift = GLFW.Key'RightShift
+mapSpecialKey KeyLeftControl = GLFW.Key'LeftControl
+mapSpecialKey KeyRightControl = GLFW.Key'RightControl
+mapSpecialKey KeyUp = GLFW.Key'Up
+mapSpecialKey KeyDown = GLFW.Key'Down
+mapSpecialKey KeyLeft = GLFW.Key'Left
+mapSpecialKey KeyRight = GLFW.Key'Right
+mapSpecialKey KeyTab = GLFW.Key'Tab
+mapSpecialKey KeyEnter = GLFW.Key'Enter
+mapSpecialKey KeyBackspace = GLFW.Key'Backspace
+mapSpecialKey KeyInsert = GLFW.Key'Insert
+mapSpecialKey KeyDelete = GLFW.Key'Del
+mapSpecialKey KeyPageUp = GLFW.Key'Pageup
+mapSpecialKey KeyPageDown = GLFW.Key'Pagedown
+mapSpecialKey KeyHome = GLFW.Key'Home
+mapSpecialKey KeyEnd = GLFW.Key'End
+mapSpecialKey KeyF1 = GLFW.Key'F1
+mapSpecialKey KeyF2 = GLFW.Key'F2
+mapSpecialKey KeyF3 = GLFW.Key'F3
+mapSpecialKey KeyF4 = GLFW.Key'F4
+mapSpecialKey KeyF5 = GLFW.Key'F5
+mapSpecialKey KeyF6 = GLFW.Key'F6
+mapSpecialKey KeyF7 = GLFW.Key'F7
+mapSpecialKey KeyF8 = GLFW.Key'F8
+mapSpecialKey KeyF9 = GLFW.Key'F9
+mapSpecialKey KeyF10 = GLFW.Key'F10
+mapSpecialKey KeyF11 = GLFW.Key'F11
+mapSpecialKey KeyF12 = GLFW.Key'F12
+mapSpecialKey KeyPad0 = GLFW.Key'Pad0
+mapSpecialKey KeyPad1 = GLFW.Key'Pad1
+mapSpecialKey KeyPad2 = GLFW.Key'Pad2
+mapSpecialKey KeyPad3 = GLFW.Key'Pad3
+mapSpecialKey KeyPad4 = GLFW.Key'Pad4
+mapSpecialKey KeyPad5 = GLFW.Key'Pad5
+mapSpecialKey KeyPad6 = GLFW.Key'Pad6
+mapSpecialKey KeyPad7 = GLFW.Key'Pad7
+mapSpecialKey KeyPad8 = GLFW.Key'Pad8
+mapSpecialKey KeyPad9 = GLFW.Key'Pad9
+mapSpecialKey KeyPadDivide = GLFW.Key'PadDivide
+mapSpecialKey KeyPadMultiply = GLFW.Key'PadMultiply
+mapSpecialKey KeyPadSubtract = GLFW.Key'PadSubtract
+mapSpecialKey KeyPadAdd = GLFW.Key'PadAdd
+mapSpecialKey KeyPadDecimal = GLFW.Key'PadDecimal
+mapSpecialKey KeyPadEqual = GLFW.Key'PadEqual
+mapSpecialKey KeyPadEnter = GLFW.Key'PadEnter

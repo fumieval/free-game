@@ -10,7 +10,7 @@
 -- Portability :  non-portable
 -- Provides the "free" embodiment.
 ----------------------------------------------------------------------------
-module Graphics.UI.FreeGame.GUI (
+module Graphics.UI.FreeGame.Free (
     GUI
     , GUIBase(..)
     , _Draw
@@ -29,27 +29,47 @@ import Data.Default
 import Data.Color
 import Linear hiding (rotate)
 
-data GUI x where
-    | LiftBitmap Bitmap a
-    | PictureWithFinalizer (FinalizerT IO a)
-    | RotateD Float (F GUI a)
-    | Scale (V2 Float) (F GUI a)
-    | Translate (V2 Float) (F GUI a)
-    | Colored Color (F GUI a)
+data GUI a = FromBitmap Bitmap a
+    | FromFinalizer (FinalizerT IO a)
+    | RotateD Float (GUI a)
+    | Scale (V2 Float) (GUI a)
+    | Translate (V2 Float) (GUI a)
+    | Colored Color (GUI a)
     | Line [V2 Float] a
     | Polygon [V2 Float] a
     | PolygonOutline [V2 Float] a
     | Circle Float a
     | CircleOutline Float a
-    | Thickness Float (Picture a)
-    | ICharKey Char (Bool -> a)
-    | ISpecialKey SpecialKey (Bool -> a)
-    | IMousePosition (V2 Float -> a)
-    | IMouseWheel (Int -> a)
-    | IMouseButtonL (Bool -> a)
-    | IMouseButtonM (Bool -> a)
-    | IMouseButtonR (Bool -> a)
+    | Thickness Float (GUI a)
+    | KeyChar Char (Bool -> a)
+    | KeySpecial SpecialKey (Bool -> a)
+    | MousePosition (V2 Float -> a)
+    | MouseWheel (Int -> a)
+    | MouseButtonL (Bool -> a)
+    | MouseButtonM (Bool -> a)
+    | MouseButtonR (Bool -> a)
  
+cloneGUI :: (Picture2D f, Figure2D f, Keyboard f, Mouse f, FromFinalizer f, Functor f) => GUI a -> f a
+cloneGUI (FromBitmap bmp a) = a <$ fromBitmap bmp
+cloneGUI (FromFinalizer m) = fromFinalizer m
+cloneGUI (RotateD f m) = rotateD (cloneGUI m)
+cloneGUI (Scale m) = scale (cloneGUI m)
+cloneGUI (Translate m) = translate (cloneGUI m)
+cloneGUI (Colored m) = colored (cloneGUI m)
+cloneGUI (Line vs a) = a <$ line vs
+cloneGUI (Polygon vs a) = a <$ polygon vs
+cloneGUI (PolygonOutline vs a) = a <$ line vs
+cloneGUI (Circle r a) = a <$ circle vs
+cloneGUI (CircleOutline r a) = a <$ circleOutline r
+cloneGUI (Thickness f m) = thickness f (cloneGUI m)
+cloneGUI (KeyChar ch cont) = cont <$> keyChar ch
+cloneGUI (KeySpecial ch cont) = cont <$> keySpecial ch
+cloneGUI (MousePosition cont) = cont <$> mousePosition
+cloneGUI (MouseWheel cont) = cont <$> mouseWheel
+cloneGUI (MouseButtonL cont) = cont <$> mouseButtonL
+cloneGUI (MouseButtonM cont) = cont <$> mouseButtonM
+cloneGUI (MouseButtonR cont) = cont <$> mouseButtonR
+
 instance Picture2D Picture where
     fromBitmap = flip LiftBitmap ()
     rotateD = RotateD
@@ -73,11 +93,11 @@ instance Keyboard GUIInput where
     keySpecial x = ISpecialKey x id
 
 instance Mouse GUIInput where
-    mousePosition = IMousePosition id
-    mouseWheel = IMouseWheel id
-    mouseButtonL = IMouseButtonL id
-    mouseButtonR = IMouseButtonR id
-    mouseButtonM = IMouseButtonM id
+    mousePosition = MousePosition id
+    mouseWheel = MouseWheel id
+    mouseButtonL = MouseButtonL id
+    mouseButtonR = MouseButtonR id
+    mouseButtonM = MouseButtonM id
 
 -- | Parameters of the application.
 data GUIParam = GUIParam
