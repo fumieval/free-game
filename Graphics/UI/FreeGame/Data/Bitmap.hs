@@ -40,9 +40,19 @@ import Data.Word
 import System.Random
 import Data.Hashable
 import Control.Monad.IO.Class
+import System.IO.Unsafe
 
 -- | Concrete bitmap data. Internal representation is stored as y * x * RGBA.
 data Bitmap = BitmapData (R.Array RF.F DIM3 Word8) (Maybe Int) -- ^ This value is used to ensure that two bitmaps are equivalent.
+
+instance Show Bitmap where
+    show (BitmapData _ h) = "<BitmapData #" Prelude.++ show h Prelude.++ ">"
+
+instance Eq Bitmap where
+    BitmapData _ h == BitmapData _ h' = h == h'
+
+instance Ord Bitmap where
+    BitmapData _ h <= BitmapData _ h' = h <= h'
 
 -- | @'_BitmapArray' :: Lens' 'Bitmap' ('R.Array' 'RF.F' 'DIM3' 'Word8')@
 _BitmapArray :: Functor f => (R.Array RF.F DIM3 Word8 -> f (R.Array RF.F DIM3 Word8)) -> Bitmap -> f Bitmap
@@ -58,7 +68,7 @@ toBitmap ar = BitmapData ar Nothing
 
 -- | Create stable 'Bitmap' from the given array and compute the hash.
 toStableBitmap :: R.Array RF.F DIM3 Word8 -> Bitmap
-toStableBitmap ar = BitmapData ar $ Just $ head $ foldAllP combine 0 $ R.map fromIntegral ar where
+toStableBitmap ar = BitmapData ar $ Just $ foldAllS combine 0 $ R.map fromIntegral ar where
     combine p q = hash (p, q)
 
 -- | Create stable 'Bitmap' with unique hash from the given array.
@@ -70,7 +80,7 @@ bitmapSize :: Bitmap -> (Int, Int)
 bitmapSize (BitmapData a _) = let (Z :. h :. w :. _) = R.extent a in (w, h)
 
 -- | Create a 'Bitmap' from the given file.
-loadBitmapFromFile :: FilePath -> IO Bitmap
+loadBitmapFromFile :: MonadIO m => FilePath -> m Bitmap
 loadBitmapFromFile path = liftIO $ readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData
 
 -- | Convert the 'Bitmap' uniformalized by the 'Hashable' value by the given function.
@@ -82,4 +92,4 @@ cropBitmap :: Bitmap -- ^original bitmap
     -> (Int, Int) -- ^width and height
     -> (Int, Int) -- ^x and y
     -> Bitmap -- ^result
-cropBitmap bmp (w, h) (x, y) = onBitmapWithHashable (w,h,x,y) (head . computeP . extract (Z :. y :. x :. 0) (Z :. h :. w :. 4)) bmp
+cropBitmap bmp (w, h) (x, y) = onBitmapWithHashable (w,h,x,y) (computeS . extract (Z :. y :. x :. 0) (Z :. h :. w :. 4)) bmp
