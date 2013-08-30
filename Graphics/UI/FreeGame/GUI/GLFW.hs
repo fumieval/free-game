@@ -30,6 +30,7 @@ import qualified Data.IntMap as IM
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import System.Mem
 import Unsafe.Coerce
+import Control.Bool
 import Linear
 
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
@@ -75,10 +76,6 @@ runAction param refTextures refFrame _f = case _f of
             cont
 
 type Texture = (GL.TextureObject, Int, Int)
-
-bool :: a -> a -> Bool -> a
-bool r _ False = r
-bool _ r True = r
 
 launch :: GUIParam -> (IORef (IM.IntMap Texture) -> IORef Int -> FinalizerT IO (Maybe a)) -> IO (Maybe a)
 launch param m = do
