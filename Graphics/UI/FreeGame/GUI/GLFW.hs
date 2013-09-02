@@ -128,7 +128,7 @@ runInput (IMousePosition cont) = do
     return $ cont $ V2 (fromIntegral x) (fromIntegral y)
 runInput (IMouseWheel cont) = cont <$> GLFW.getMouseWheel
 
-runPicture :: (?refTextures :: IORef (IM.IntMap Texture)) => Float -> Picture a -> FinalizerT IO a
+runPicture :: (?refTextures :: IORef (IM.IntMap Texture)) => Double -> Picture a -> FinalizerT IO a
 runPicture _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
     m <- liftIO $ readIORef ?refTextures
     case IM.lookup h m of
@@ -143,13 +143,13 @@ runPicture _ (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
     liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
     return r
 runPicture sc (Translate (V2 tx ty) cont) = preservingMatrix' $ do
-    liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
+    liftIO $ GL.translate (GL.Vector3 (gd tx) (gd ty) 0)
     runPicture sc cont
 runPicture sc (RotateD theta cont) = preservingMatrix' $ do
-    liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
+    liftIO $ GL.rotate (gd (-theta)) (GL.Vector3 0 0 1)
     runPicture sc cont
 runPicture sc (Scale (V2 sx sy) cont) = preservingMatrix' $ do
-    liftIO $ GL.scale (gf sx) (gf sy) 1
+    liftIO $ GL.scale (gd sx) (gd sy) 1
     runPicture (sc * max sx sy) cont
 runPicture _ (PictureWithFinalizer m) = m
 runPicture sc (Colored col cont) = do
@@ -182,7 +182,7 @@ runPicture sc (Thickness t cont) = do
     liftIO $ GL.lineWidth $= oldWidth
     return res
 
-runVertices :: MonadIO m => [V2 Float] -> m ()
+runVertices :: MonadIO m => [V2 Double] -> m ()
 runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)
 
 preservingMatrix' :: MonadIO m => m a -> m a
@@ -194,7 +194,7 @@ preservingMatrix' m = do
 
 drawTexture :: Texture -> IO ()
 drawTexture (tex, width, height) = do
-    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2) :: (GL.GLfloat, GL.GLfloat)
+    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2) :: (GL.GLdouble, GL.GLdouble)
     GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureBinding GL.Texture2D $= Just tex
@@ -259,12 +259,16 @@ mapSpecialKey KeyPadDecimal = GLFW.KeyPadDecimal
 mapSpecialKey KeyPadEqual = GLFW.KeyPadEqual
 mapSpecialKey KeyPadEnter = GLFW.KeyPadEnter
 
-mkVertex2 :: V2 Float -> GL.Vertex2 GL.GLfloat
+mkVertex2 :: V2 Double -> GL.Vertex2 GL.GLdouble
 mkVertex2 = unsafeCoerce
 
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
 gf x = unsafeCoerce x
+
+gd :: Double -> GL.GLdouble
+{-# INLINE gd #-}
+gd x = unsafeCoerce x
 
 gsizei :: Int -> GL.GLsizei
 {-# INLINE gsizei #-}

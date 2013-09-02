@@ -140,28 +140,28 @@ class Picture2D p where
     -- | Construct a 'Picture2D' from a 'Bitmap'.
     fromBitmap :: Bitmap -> p ()
     -- | (radians)
-    rotateR :: Float -> p a -> p a
+    rotateR :: Double -> p a -> p a
     -- | (degrees)
-    rotateD :: Float -> p a -> p a
-    scale :: V2 Float -> p a -> p a
-    translate :: V2 Float -> p a -> p a
+    rotateD :: Double -> p a -> p a
+    scale :: V2 Double -> p a -> p a
+    translate :: V2 Double -> p a -> p a
     colored :: Color -> p a -> p a
 
     rotateR = rotateD . (* 180) . (/ pi)
     rotateD = rotateR . (/ 180) . (* pi)
 
 -- | Deprecated synonym for 'rotateD'.
-rotate :: Picture2D p => Float -> p a -> p a
+rotate :: Picture2D p => Double -> p a -> p a
 rotate = rotateD
 
 {-# DEPRECATED rotate "Use rotateD instead" #-} 
 
 class Picture2D p => Figure2D p where
-    line :: [V2 Float] -> p ()
-    polygon :: [V2 Float] -> p ()
-    polygonOutline :: [V2 Float] -> p ()
-    circle :: Float -> p ()
-    circleOutline :: Float -> p ()
+    line :: [V2 Double] -> p ()
+    polygon :: [V2 Double] -> p ()
+    polygonOutline :: [V2 Double] -> p ()
+    circle :: Double -> p ()
+    circleOutline :: Double -> p ()
     thickness :: Float -> p a -> p a
 
 class Sound p where
@@ -176,7 +176,7 @@ class Keyboard t where
 
 -- | The class of types that can handle inputs of the mouse.
 class Mouse t where
-    mousePosition :: t (V2 Float)
+    mousePosition :: t (V2 Double)
     mouseWheel :: t Int
     mouseButtonL :: t Bool
     mouseButtonM :: t Bool

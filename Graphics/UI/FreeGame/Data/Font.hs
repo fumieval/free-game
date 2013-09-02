@@ -48,7 +48,7 @@ import System.IO.Unsafe
 import Unsafe.Coerce
 
 -- | Font object
-data Font = Font FT_Face (Float, Float) (BoundingBox Float) (IORef (M.Map (Float, Char) RenderedChar))
+data Font = Font FT_Face (Double, Double) (BoundingBox Double) (IORef (M.Map (Double, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
 loadFont :: MonadIO m => FilePath -> m Font
@@ -64,15 +64,15 @@ loadFont path = liftIO $ alloca $ \p -> do
     Font f (fromIntegral asc/u, fromIntegral desc/u) box <$> newIORef M.empty
 
 -- | Get the font's metrics.
-metricsAscent :: Font -> Float
+metricsAscent :: Font -> Double
 metricsAscent (Font _ (a, _) _ _) = a
 
 -- | Get the font's metrics.
-metricsDescent :: Font -> Float
+metricsDescent :: Font -> Double
 metricsDescent (Font _ (_, d) _ _) = d
 
 -- | Get the font's boundingbox.
-fontBoundingBox :: Font -> BoundingBox Float
+fontBoundingBox :: Font -> BoundingBox Double
 fontBoundingBox (Font _ _ b _) = b
 
 runFreeType :: IO CInt -> IO ()
@@ -89,15 +89,15 @@ freeType = unsafePerformIO $ alloca $ \p -> do
 
 data RenderedChar = RenderedChar
     { charBitmap :: Bitmap
-    , charOffset :: V2 Float
-    ,　charAdvance :: Float
+    , charOffset :: V2 Double
+    ,　charAdvance :: Double
     }
 
 -- | The resolution used to render fonts.
 resolutionDPI :: Int
 resolutionDPI = 300
 
-charToBitmap :: FromFinalizer m => Font -> Float -> Char -> m RenderedChar
+charToBitmap :: FromFinalizer m => Font -> Double -> Char -> m RenderedChar
 charToBitmap (Font face _ _ refCache) pixel ch = fromFinalizer $ do
     cache <- liftIO $ readIORef refCache
     case M.lookup (siz, ch) cache of

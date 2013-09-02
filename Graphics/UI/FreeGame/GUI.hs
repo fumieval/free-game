@@ -78,7 +78,7 @@ instance FromFinalizer GUIBase where
 data GUIInput a = 
       ICharKey Char (Bool -> a)
     | ISpecialKey SpecialKey (Bool -> a)
-    | IMousePosition (V2 Float -> a)
+    | IMousePosition (V2 Double -> a)
     | IMouseWheel (Int -> a)
     | IMouseButtonL (Bool -> a)
     | IMouseButtonM (Bool -> a)
@@ -89,16 +89,16 @@ data GUIInput a =
 data Picture a
     = LiftBitmap Bitmap a
     | PictureWithFinalizer (FinalizerT IO a)
-    | RotateD Float (Picture a)
-    | Scale (V2 Float) (Picture a)
-    | Translate (V2 Float) (Picture a)
+    | RotateD Double (Picture a)
+    | Scale (V2 Double) (Picture a)
+    | Translate (V2 Double) (Picture a)
     | Colored Color (Picture a)
 
-    | Line [V2 Float] a
-    | Polygon [V2 Float] a
-    | PolygonOutline [V2 Float] a
-    | Circle Float a
-    | CircleOutline Float a
+    | Line [V2 Double] a
+    | Polygon [V2 Double] a
+    | PolygonOutline [V2 Double] a
+    | Circle Double a
+    | CircleOutline Double a
     | Thickness Float (Picture a)
     deriving Functor
 
@@ -139,7 +139,7 @@ data GUIParam = GUIParam
     , _windowed :: Bool
     , _cursorVisible :: Bool
     , _clearColor :: Color
-    , _windowOrigin :: V2 Float
+    , _windowOrigin :: V2 Double
     } deriving Show
 
 instance Default GUIParam where
