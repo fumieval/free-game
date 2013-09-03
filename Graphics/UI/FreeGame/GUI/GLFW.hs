@@ -1,4 +1,4 @@
-{-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE ImplicitParams, BangPatterns #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.UI.FreeGame.GUI.GLFW
@@ -10,7 +10,12 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-module Graphics.UI.FreeGame.GUI.GLFW (runGame) where
+module Graphics.UI.FreeGame.GUI.GLFW (runGame
+    -- * Implementation details
+    , Texture
+    , installTexture
+    , drawTexture
+    , drawTextureAt) where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Free.Church
@@ -75,7 +80,7 @@ runAction param refTextures refFrame _f = case _f of
                 GL.matrixMode $= GL.Modelview 0
             cont
 
-type Texture = (GL.TextureObject, Int, Int)
+type Texture = (GL.TextureObject, Double, Double)
 
 launch :: GUIParam -> (IORef (IM.IntMap Texture) -> IORef Int -> FinalizerT IO (Maybe a)) -> IO (Maybe a)
 launch param m = do
@@ -115,7 +120,7 @@ installTexture bmp@(BitmapData ar _) = do
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 siz 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
     finalizer $ GL.deleteObjectNames [tex]
-    return (tex, width, height)
+    return (tex, fromIntegral width / 2, fromIntegral height / 2)
 
 runInput :: GUIInput a -> IO a
 runInput (ICharKey ch cont) = cont <$> GLFW.keyIsPressed (GLFW.CharKey ch)
@@ -184,6 +189,7 @@ runPicture sc (Thickness t cont) = do
 
 runVertices :: MonadIO m => [V2 Double] -> m ()
 runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)
+{-# INLINE runVertices #-}
 
 preservingMatrix' :: MonadIO m => m a -> m a
 preservingMatrix' m = do
@@ -193,20 +199,24 @@ preservingMatrix' m = do
     return r
 
 drawTexture :: Texture -> IO ()
-drawTexture (tex, width, height) = do
-    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2) :: (GL.GLdouble, GL.GLdouble)
+drawTexture (tex, w, h) = drawTextureAt tex (V2 (-w) (-h)) (V2 w (-h)) (V2 w h) (V2 (-w) h)
+
+{-# INLINE drawTexture #-}
+
+drawTextureAt :: GL.TextureObject -> V2 Double -> V2 Double -> V2 Double -> V2 Double -> IO ()
+drawTextureAt tex a b c d = do
     GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureBinding GL.Texture2D $= Just tex
     GL.renderPrimitive GL.Polygon $ do
         GL.texCoord $ GL.TexCoord2 (0 :: GL.GLfloat) 0
-        GL.vertex $ GL.Vertex2 (-w) (-h)
+        GL.vertex $ mkVertex2 a
         GL.texCoord $ GL.TexCoord2 (1 :: GL.GLfloat) 0
-        GL.vertex $ GL.Vertex2 w (-h)
+        GL.vertex $ mkVertex2 b
         GL.texCoord $ GL.TexCoord2 (1 :: GL.GLfloat) 1
-        GL.vertex $ GL.Vertex2 w h
+        GL.vertex $ mkVertex2 c
         GL.texCoord $ GL.TexCoord2 (0 :: GL.GLfloat) 1
-        GL.vertex $ GL.Vertex2 (-w) h
+        GL.vertex $ mkVertex2 d
     GL.texture GL.Texture2D $= GL.Disabled
 
 mapSpecialKey :: SpecialKey -> GLFW.Key
@@ -261,6 +271,7 @@ mapSpecialKey KeyPadEnter = GLFW.KeyPadEnter
 
 mkVertex2 :: V2 Double -> GL.Vertex2 GL.GLdouble
 mkVertex2 = unsafeCoerce
+{-# INLINE mkVertex2 #-}
 
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
