@@ -39,19 +39,21 @@ import Control.Bool
 import Linear
 
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
-runGame param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
+runGame param m = launch param $ \q r s -> runF m (return . Just) (runAction param q r s)
 
 runAction :: GUIParam
     -> IORef (IM.IntMap Texture)
     -> IORef Int
+    -> IORef Int
     -> GUI (FinalizerT IO (Maybe a)) -> FinalizerT IO (Maybe a)
-runAction param refTextures refFrame _f = case _f of
-    LiftUI (Draw pic) -> let ?refTextures = refTextures in join $ runPicture 1 pic
+runAction param refTextures refFrame refFPS _f = case _f of
+    LiftUI (Draw pic) -> let ?refTextures = refTextures in join $ {-# SCC "runPicture" #-} runPicture 1 pic
     EmbedIO m -> join (liftIO m)
-    Bracket m -> liftIO (runFinalizerT $ runF m (return.Just) (runAction param refTextures refFrame))
+    Bracket m -> liftIO (runFinalizerT $ runF m (return.Just) (runAction param refTextures refFrame refFPS))
         >>= maybe (return Nothing) id
     LiftUI (Input i) -> join $ liftIO $ runInput i
     Quit -> return Nothing
+    GetFPS cont -> liftIO (readIORef refFPS) >>= cont
     Tick cont -> do
         liftIO $ do
             GL.matrixMode $= GL.Projection
@@ -61,7 +63,7 @@ runAction param refTextures refFrame _f = case _f of
             n <- readIORef refFrame
             GLFW.sleep $ fromIntegral n / fromIntegral (_framePerSecond param) - t
             if t > 1
-                then GLFW.resetTime >> writeIORef refFrame 0
+                then writeIORef refFPS n >> GLFW.resetTime >> writeIORef refFrame 0
                 else writeIORef refFrame (succ n)
 
         r <- liftIO $ GLFW.windowIsOpen
@@ -69,20 +71,19 @@ runAction param refTextures refFrame _f = case _f of
             liftIO $ do
                 GL.clear [GL.ColorBuffer] 
                 GL.loadIdentity
-                GL.scale (gf 1) (-1) 1
                 let V2 ox oy = _windowOrigin param
                     V2 ww wh = _windowSize param
                     windowL = realToFrac ox
                     windowR = realToFrac ox + fromIntegral ww
                     windowT = realToFrac oy
                     windowB = realToFrac oy + fromIntegral wh
-                GL.ortho windowL windowR windowT windowB 0 (-100)
+                GL.ortho windowL windowR windowB windowT 0 (-100)
                 GL.matrixMode $= GL.Modelview 0
             cont
 
 type Texture = (GL.TextureObject, Double, Double)
 
-launch :: GUIParam -> (IORef (IM.IntMap Texture) -> IORef Int -> FinalizerT IO (Maybe a)) -> IO (Maybe a)
+launch :: GUIParam -> (IORef (IM.IntMap Texture) -> IORef Int -> IORef Int -> FinalizerT IO (Maybe a)) -> IO (Maybe a)
 launch param m = do
     GLFW.initialize >>= bool (fail "Failed to initialize") (return ())
     pf <- GLFW.openGLProfile
@@ -99,12 +100,12 @@ launch param m = do
     GL.lineSmooth $= GL.Enabled
     GL.blend      $= GL.Enabled
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
-    GL.shadeModel $= GL.Smooth
+    GL.shadeModel $= GL.Flat
     GL.textureFunction $= GL.Combine
 
     let Color r g b a = _clearColor param in GL.clearColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
 
-    res <- runFinalizerT $ join $ m <$> liftIO (newIORef IM.empty) <*> liftIO (newIORef 0)
+    res <- runFinalizerT $ join $ m <$> liftIO (newIORef IM.empty) <*> liftIO (newIORef 0) <*> liftIO (newIORef 0)
 
     GLFW.closeWindow
     GLFW.terminate
@@ -141,14 +142,14 @@ runPicture _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
         Nothing -> do
             t <- installTexture bmp
             liftIO $ writeIORef ?refTextures $ IM.insert h t m
-            liftIO $ drawTexture t
+            liftIO $ {-# SCC "drawTexture" #-} drawTexture t
             finalizer $ modifyIORef ?refTextures $ IM.delete h
     return r
 runPicture _ (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
     liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
     return r
 runPicture sc (Translate (V2 tx ty) cont) = preservingMatrix' $ do
-    liftIO $ GL.translate (GL.Vector3 (gd tx) (gd ty) 0)
+    liftIO $ GL.translate (GL.Vector2 (gd tx) (gd ty) 0)
     runPicture sc cont
 runPicture sc (RotateD theta cont) = preservingMatrix' $ do
     liftIO $ GL.rotate (gd (-theta)) (GL.Vector3 0 0 1)
@@ -208,15 +209,15 @@ drawTextureAt tex a b c d = do
     GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureBinding GL.Texture2D $= Just tex
-    GL.renderPrimitive GL.Polygon $ do
-        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLfloat) 0
+    GL.unsafeRenderPrimitive GL.TriangleStrip $ do
+        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLdouble) 0
         GL.vertex $ mkVertex2 a
-        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLfloat) 0
+        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLdouble) 0
         GL.vertex $ mkVertex2 b
-        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLfloat) 1
-        GL.vertex $ mkVertex2 c
-        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLfloat) 1
+        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLdouble) 1
         GL.vertex $ mkVertex2 d
+        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLdouble) 1
+        GL.vertex $ mkVertex2 c
     GL.texture GL.Texture2D $= GL.Disabled
 
 mapSpecialKey :: SpecialKey -> GLFW.Key

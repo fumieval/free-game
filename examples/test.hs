@@ -2,6 +2,7 @@
 import Graphics.UI.FreeGame
 import Control.Applicative
 import Control.Monad
+import Graphics.UI.FreeGame.GUI.GLFW
 
 figureTest :: Game ()
 figureTest = do
@@ -17,11 +18,11 @@ fontTest font = do
         $ runTextT Nothing font 17 "Hello, World"
     return ()
 
-main = runGame def $ do
+main = Graphics.UI.FreeGame.GUI.GLFW.runGame def $ do
     font <- embedIO (loadFont "VL-PGothic-Regular.ttf")
     bmp <- embedIO (loadBitmapFromFile "logo.png")
     forever $ do
-        translate (V2 300 350) $ fromBitmap bmp
-        figureTest
-        fontTest font
+        
+        forM_ [0,4..400] $ \x -> fromBitmap bmp
+        -- fontTest font
         tick

@@ -25,6 +25,7 @@ instance Monad (FinalizerT m) where
 
 instance MonadIO m => MonadIO (FinalizerT m) where
     liftIO m = FinalizerT $ \r _ -> liftIO m >>= r
+    {-# INLINE liftIO #-}
 
 -- | Run the action and run all associated finalizers.
 runFinalizerT :: MonadIO m => FinalizerT m a -> m a
