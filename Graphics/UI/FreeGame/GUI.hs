@@ -107,7 +107,7 @@ data GUIParam = GUIParam
     , _windowed :: Bool
     , _cursorVisible :: Bool
     , _clearColor :: Color
-    , _windowOrigin :: V2 Float
+    , _windowOrigin :: V2 Double
     } deriving Show
 
 instance Default GUIParam where

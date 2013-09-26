@@ -19,6 +19,7 @@ import qualified Control.Monad.Writer.Strict as Strict
 import qualified Control.Monad.Trans.RWS.Strict as Strict
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy
 
+
 hoistFreeR :: (Functor f, MonadFree g m) => (f (m a) -> g (m a)) -> Free.Free f a -> m a
 hoistFreeR _ (Free.Pure a) = return a
 hoistFreeR t (Free.Free f) = wrap . t $ fmap (hoistFreeR t) f
@@ -38,22 +39,28 @@ class Picture2D p where
     -- | Construct a 'Picture2D' from a 'Bitmap'.
     fromBitmap :: Bitmap -> p ()
     -- | (radians)
-    rotateR :: Float -> p a -> p a
+    rotateR :: Double -> p a -> p a
     -- | (degrees)
-    rotateD :: Float -> p a -> p a
-    scale :: V2 Float -> p a -> p a
-    translate :: V2 Float -> p a -> p a
+    rotateD :: Double -> p a -> p a
+    scale :: V2 Double -> p a -> p a
+    translate :: V2 Double -> p a -> p a
     colored :: Color -> p a -> p a
 
     rotateR = rotateD . (* 180) . (/ pi)
     rotateD = rotateR . (/ 180) . (* pi)
 
+-- | Deprecated synonym for 'rotateD'.
+rotate :: Picture2D p => Double -> p a -> p a
+rotate = rotateD
+
+{-# DEPRECATED rotate "Use rotateD instead" #-} 
+
 class Picture2D p => Figure2D p where
-    line :: [V2 Float] -> p ()
-    polygon :: [V2 Float] -> p ()
-    polygonOutline :: [V2 Float] -> p ()
-    circle :: Float -> p ()
-    circleOutline :: Float -> p ()
+    line :: [V2 Double] -> p ()
+    polygon :: [V2 Double] -> p ()
+    polygonOutline :: [V2 Double] -> p ()
+    circle :: Double -> p ()
+    circleOutline :: Double -> p ()
     thickness :: Float -> p a -> p a
 
 class Sound p where
@@ -68,7 +75,7 @@ class Keyboard t where
 
 -- | The class of types that can handle inputs of the mouse.
 class Mouse t where
-    mousePosition :: t (V2 Float)
+    mousePosition :: t (V2 Double)
     mouseWheel :: t Int
     mouseButtonL :: t Bool
     mouseButtonM :: t Bool
@@ -166,93 +173,3 @@ data SpecialKey = KeySpace
 
 #define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \
     fromFinalizer = (l) . fromFinalizer }
-
-MK_PICTURE_2D(_COMMA_ Functor m, F m, liftF, hoistFR)
-MK_PICTURE_2D(_COMMA_ Functor m, Free.Free m, Free.liftF, hoistFreeR)
-MK_PICTURE_2D(_COMMA_ Monad m, ReaderT r m, lift, mapReaderT)
-MK_PICTURE_2D(_COMMA_ Monad m, Lazy.StateT s m, lift, Lazy.mapStateT)
-MK_PICTURE_2D(_COMMA_ Monad m, Strict.StateT s m, lift, Strict.mapStateT)
-MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift, Lazy.mapWriterT)
-MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift, Strict.mapWriterT)
-MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift, Lazy.mapRWST)
-MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift, Strict.mapRWST)
-MK_PICTURE_2D(_COMMA_ Monad m, IdentityT m, lift, mapIdentityT)
-MK_PICTURE_2D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
-MK_PICTURE_2D(_COMMA_ Monad m, ListT m, lift, mapListT)
-MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
-MK_PICTURE_2D(_COMMA_ Monad m, ContT r m, lift, mapContT)
-
-MK_FIGURE_2D(_COMMA_ Functor m, F m, liftF, hoistFR)
-MK_FIGURE_2D(_COMMA_ Functor m, Free.Free m, Free.liftF, hoistFreeR)
-MK_FIGURE_2D(_COMMA_ Monad m, ReaderT r m, lift, mapReaderT)
-MK_FIGURE_2D(_COMMA_ Monad m, Lazy.StateT s m, lift, Lazy.mapStateT)
-MK_FIGURE_2D(_COMMA_ Monad m, Strict.StateT s m, lift, Strict.mapStateT)
-MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift, Lazy.mapWriterT)
-MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift, Strict.mapWriterT)
-MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift, Lazy.mapRWST)
-MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift, Strict.mapRWST)
-MK_FIGURE_2D(_COMMA_ Monad m, IdentityT m, lift, mapIdentityT)
-MK_FIGURE_2D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
-MK_FIGURE_2D(_COMMA_ Monad m, ListT m, lift, mapListT)
-MK_FIGURE_2D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
-MK_FIGURE_2D(_COMMA_ Monad m, ContT r m, lift, mapContT)
-
-MK_SOUND(_COMMA_ Functor m, F m, liftF, hoistFR)
-MK_SOUND(_COMMA_ Functor m, Free.Free m, Free.liftF, hoistFreeR)
-MK_SOUND(_COMMA_ Monad m, ReaderT r m, lift, mapReaderT)
-MK_SOUND(_COMMA_ Monad m, Lazy.StateT s m, lift, Lazy.mapStateT)
-MK_SOUND(_COMMA_ Monad m, Strict.StateT s m, lift, Strict.mapStateT)
-MK_SOUND(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift, Lazy.mapWriterT)
-MK_SOUND(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift, Strict.mapWriterT)
-MK_SOUND(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift, Lazy.mapRWST)
-MK_SOUND(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift, Strict.mapRWST)
-MK_SOUND(_COMMA_ Monad m, IdentityT m, lift, mapIdentityT)
-MK_SOUND(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
-MK_SOUND(_COMMA_ Monad m, ListT m, lift, mapListT)
-MK_SOUND(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
-MK_SOUND(_COMMA_ Monad m, ContT r m, lift, mapContT)
-
-MK_KEYBOARD(, Ap m, liftAp)
-MK_KEYBOARD(_COMMA_ Functor m, F m, liftF)
-MK_KEYBOARD(_COMMA_ Functor m, Free.Free m, Free.liftF)
-MK_KEYBOARD(_COMMA_ Monad m, ReaderT s m, lift)
-MK_KEYBOARD(_COMMA_ Monad m, Lazy.StateT s m, lift)
-MK_KEYBOARD(_COMMA_ Monad m, Strict.StateT s m, lift)
-MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift)
-MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift)
-MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift)
-MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
-MK_KEYBOARD(_COMMA_ Monad m, IdentityT m, lift)
-MK_KEYBOARD(_COMMA_ Monad m, MaybeT m, lift)
-MK_KEYBOARD(_COMMA_ Monad m, ListT m, lift)
-MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
-MK_KEYBOARD(_COMMA_ Monad m, ContT r m, lift)
-
-MK_MOUSE(_COMMA_ Functor m, F m, liftF)
-MK_MOUSE(_COMMA_ Functor m, Free.Free m, Free.liftF)
-MK_MOUSE(_COMMA_ Monad m, ReaderT r m, lift)
-MK_MOUSE(_COMMA_ Monad m, Lazy.StateT s m, lift)
-MK_MOUSE(_COMMA_ Monad m, Strict.StateT s m, lift)
-MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift)
-MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift)
-MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift)
-MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
-MK_MOUSE(_COMMA_ Monad m, IdentityT m, lift)
-MK_MOUSE(_COMMA_ Monad m, MaybeT m, lift)
-MK_MOUSE(_COMMA_ Monad m, ListT m, lift)
-MK_MOUSE(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
-MK_MOUSE(_COMMA_ Monad m, ContT r m, lift)
-
-MK_FROM_FINALIZER(_COMMA_ Functor m, F m, liftF)
-MK_FROM_FINALIZER(_COMMA_ Functor m, Free.Free m, Free.liftF)
-MK_FROM_FINALIZER(_COMMA_ Monad m, Lazy.StateT s m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, Strict.StateT s m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, IdentityT m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, MaybeT m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, ListT m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, ContT r m, lift)

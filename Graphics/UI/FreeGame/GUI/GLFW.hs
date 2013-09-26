@@ -1,4 +1,4 @@
-{-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE ImplicitParams, BangPatterns #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.UI.FreeGame.GUI.GLFW
@@ -10,7 +10,12 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-module Graphics.UI.FreeGame.GUI.GLFW (runGame) where
+module Graphics.UI.FreeGame.GUI.GLFW (runGame
+    -- * Implementation details
+    , Texture
+    , installTexture
+    , drawTexture
+    , drawTextureAt) where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Free.Church
@@ -31,10 +36,16 @@ import qualified Data.IntMap as IM
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import System.Mem
 import Unsafe.Coerce
+import Control.Bool
 import Linear
 
+data System = System
+    { refFrameCounter :: IORef Int
+    , refFPS :: IORef Int
+    }
+
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
-runGame param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
+runGame param m = launch param $ \q r s -> runF m (return . Just) (runAction param q r s)
 
 instance Given (IORef Int) => MonadTick IO where
     tick = do
@@ -60,11 +71,7 @@ instance Given (IORef Int) => MonadTick IO where
         GL.ortho windowL windowR windowT windowB 0 (-100)
         GL.matrixMode $= GL.Modelview 0
 
-type Texture = (GL.TextureObject, Int, Int)
-
-bool :: a -> a -> Bool -> a
-bool r _ False = r
-bool _ r True = r
+type Texture = (GL.TextureObject, Double, Double)
 
 launch :: GUIParam -> FinalizerT IO (Maybe a) -> IO (Maybe a)
 launch param m = do
@@ -83,12 +90,12 @@ launch param m = do
     GL.lineSmooth $= GL.Enabled
     GL.blend      $= GL.Enabled
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
-    GL.shadeModel $= GL.Smooth
+    GL.shadeModel $= GL.Flat
     GL.textureFunction $= GL.Combine
 
     let Color r g b a = _clearColor param in GL.clearColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
 
-    res <- runFinalizerT $ join $ m <$> liftIO (newIORef IM.empty) <*> liftIO (newIORef 0)
+    res <- runFinalizerT m
 
     GLFW.closeWindow
     GLFW.terminate
@@ -104,7 +111,7 @@ installTexture bmp@(BitmapData ar _) = do
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 siz 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
     finalizer $ GL.deleteObjectNames [tex]
-    return (tex, width, height)
+    return (tex, fromIntegral width / 2, fromIntegral height / 2)
 
 fromKeyState :: KeyState -> Bool
 fromKeyState = undefined
@@ -112,6 +119,15 @@ fromKeyState = undefined
 instance Keyboard IO where
     charKey = GLFW.getKey (mapCharKey ch)
     specialKey k = GLFW.getKey (mapSpecialKey x)
+
+instance Mouse IO where
+    mouseButtonL = GLFW.mouseButtonIsPressed GLFW.MouseButton0
+    mouseButtonR = GLFW.mouseButtonIsPressed GLFW.MouseButton1
+    mouseButtonM = GLFW.mouseButtonIsPressed GLFW.MouseButton2
+    mouseWheel = GLFW.getMouseWheel
+    mousePosition = do
+        (x, y) <- GLFW.getMousePosition
+        return $ cont $ V2 (fromIntegral x) (fromIntegral y)
 
 instance Given (IORef (IM.IntMap Texture)) => Picture2D (FinalizerT IO) where
     fromBitmap bmp@(BitmapData _ (Just h)) = do
@@ -158,8 +174,9 @@ instance Figure2D IO where
         GL.lineWidth $= oldWidth
         return r
 
-runVertices :: MonadIO m => [V2 Float] -> m ()
+runVertices :: MonadIO m => [V2 Double] -> m ()
 runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)
+{-# INLINE runVertices #-}
 
 preservingMatrix' :: MonadIO m => m a -> m a
 preservingMatrix' m = do
@@ -169,32 +186,40 @@ preservingMatrix' m = do
     return r
 
 drawTexture :: Texture -> IO ()
-drawTexture (tex, width, height) = do
-    let (w, h) = (fromIntegral width / 2, fromIntegral height / 2) :: (GL.GLfloat, GL.GLfloat)
+drawTexture (tex, w, h) = drawTextureAt tex (V2 (-w) (-h)) (V2 w (-h)) (V2 w h) (V2 (-w) h)
+{-# INLINE drawTexture #-}
+
+drawTextureAt :: GL.TextureObject -> V2 Double -> V2 Double -> V2 Double -> V2 Double -> IO ()
+drawTextureAt tex a b c d = do
     GL.texture GL.Texture2D $= GL.Enabled
     GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureBinding GL.Texture2D $= Just tex
-    GL.renderPrimitive GL.Polygon $ do
-        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLfloat) 0
-        GL.vertex $ GL.Vertex2 (-w) (-h)
-        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLfloat) 0
-        GL.vertex $ GL.Vertex2 w (-h)
-        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLfloat) 1
-        GL.vertex $ GL.Vertex2 w h
-        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLfloat) 1
-        GL.vertex $ GL.Vertex2 (-w) h
+    GL.unsafeRenderPrimitive GL.TriangleStrip $ do
+        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLdouble) 0
+        GL.vertex $ mkVertex2 a
+        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLdouble) 0
+        GL.vertex $ mkVertex2 b
+        GL.texCoord $ GL.TexCoord2 (0 :: GL.GLdouble) 1
+        GL.vertex $ mkVertex2 d
+        GL.texCoord $ GL.TexCoord2 (1 :: GL.GLdouble) 1
+        GL.vertex $ mkVertex2 c
     GL.texture GL.Texture2D $= GL.Disabled
 
-mkVertex2 :: V2 Float -> GL.Vertex2 GL.GLfloat
+mkVertex2 :: V2 Double -> GL.Vertex2 GL.GLdouble
 mkVertex2 = unsafeCoerce
+{-# INLINE mkVertex2 #-}
 
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
-gf x = unsafeCoerce x
+gf = unsafeCoerce
+
+gd :: Double -> GL.GLdouble
+{-# INLINE gd #-}
+gd = unsafeCoerce
 
 gsizei :: Int -> GL.GLsizei
 {-# INLINE gsizei #-}
-gsizei x = unsafeCoerce x
+gsizei = unsafeCoerce
 
 mapCharKey :: Char -> GLFW.Key
 mapCharKey = undefined

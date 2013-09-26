@@ -1,8 +1,8 @@
-name:                free-game
-version:             0.9.3.3
+name:                free-game-double
+version:             0.1
 synopsis:            Create graphical applications for free
 description:         Cross-platform GUI library based on free monads
-homepage:            https://github.com/fumieval/free-game
+homepage:            https://github.com/fumieval/free-game/tree/0.9-double
 bug-reports:         https://github.com/fumieval/free-game/issues
 license:             BSD3
 license-file:        LICENSE
@@ -45,7 +45,7 @@ library
     free == 3.*,
     repa,
     freetype2 >= 0.1,
-    GLFW-b >= 0.1.0.5,
+    GLFW-b == 1.2.*,
     hashable >= 1.2,
     mtl >= 2.1,
     OpenGL == 2.8.*,

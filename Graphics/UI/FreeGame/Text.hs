@@ -19,7 +19,7 @@ instance Monad m => IsString (TextT m ()) where
     fromString str = mapM_ (\c -> liftF (TypeChar c ())) str
 
 -- | Render a 'TextT'.
-runTextT :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (BoundingBox Float) -> Font -> Float -> TextT m a -> m a
+runTextT :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (BoundingBox Double) -> Font -> Double -> TextT m a -> m a
 runTextT bbox font size = flip evalStateT (V2 x0 y0) . go where
     go m = lift (runFreeT m) >>= \r -> case r of
         Pure a -> return a
@@ -41,5 +41,5 @@ runTextT bbox font size = flip evalStateT (V2 x0 y0) . go where
     (V2 x0 y0, cond) = maybe (zero, const True) (\b -> (view _TopLeft b, flip inBoundingBox b)) bbox
 
 -- | Render a 'String'.
-text :: (FromFinalizer m, Monad m, Picture2D m) => Font -> Float -> String -> m ()
+text :: (FromFinalizer m, Monad m, Picture2D m) => Font -> Double -> String -> m ()
 text font size str = runTextT Nothing font size (fromString str)
