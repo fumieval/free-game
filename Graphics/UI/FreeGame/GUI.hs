@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor, ExistentialQuantification #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.UI.FreeGame.GUI
@@ -29,21 +29,20 @@ import Data.Default
 import Data.Color
 import Linear hiding (rotate)
 
-data GUI a = FromBitmap Bitmap a
+data GUI a = Draw (forall m. (Monad m, Figure2D m) => m a)
     | FromFinalizer (FinalizerT IO a)
-    | RotateD Float (GUI a)
-    | Scale (V2 Float) (GUI a)
-    | Translate (V2 Float) (GUI a)
+    | RotateD Double (GUI a)
+    | Scale Vec2 (GUI a)
+    | Translate Vec2 (GUI a)
     | Colored Color (GUI a)
-    | Line [V2 Float] a
-    | Polygon [V2 Float] a
-    | PolygonOutline [V2 Float] a
-    | Circle Float a
-    | CircleOutline Float a
-    | Thickness Float (GUI a)
-    | KeyChar Char (Bool -> a)
-    | KeySpecial SpecialKey (Bool -> a)
-    | MousePosition (V2 Float -> a)
+    | Line [Vec2] a
+    | Polygon [Vec2] a
+    | PolygonOutline [Vec2] a
+    | Circle Double a
+    | CircleOutline Double a
+    | Thickness Double (GUI a)
+    | KeyState Key (Bool -> a)
+    | MousePosition (Vec2 -> a)
     | MouseWheel (Int -> a)
     | MouseButtonL (Bool -> a)
     | MouseButtonM (Bool -> a)
@@ -70,14 +69,14 @@ cloneGUI (MouseButtonL cont) = cont <$> mouseButtonL
 cloneGUI (MouseButtonM cont) = cont <$> mouseButtonM
 cloneGUI (MouseButtonR cont) = cont <$> mouseButtonR
 
-instance Picture2D Picture where
+instance Picture2D GUI where
     fromBitmap = flip LiftBitmap ()
     rotateD = RotateD
     scale = Scale
     translate = Translate
     colored = Colored
 
-instance Figure2D Picture where
+instance Figure2D GUI where
     line = flip Line ()
     polygon = flip Polygon ()
     polygonOutline = flip PolygonOutline ()
@@ -85,14 +84,14 @@ instance Figure2D Picture where
     circleOutline = flip CircleOutline ()
     thickness = Thickness
 
-instance FromFinalizer Picture where
+instance FromFinalizer GUI where
     fromFinalizer = PictureWithFinalizer
 
-instance Keyboard GUIInput where
+instance Keyboard GUI where
     keyChar x = ICharKey x id
     keySpecial x = ISpecialKey x id
 
-instance Mouse GUIInput where
+instance Mouse GUI where
     mousePosition = MousePosition id
     mouseWheel = MouseWheel id
     mouseButtonL = MouseButtonL id

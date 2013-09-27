@@ -19,6 +19,7 @@ import qualified Control.Monad.Writer.Strict as Strict
 import qualified Control.Monad.Trans.RWS.Strict as Strict
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy
 
+type Vec2 = Vec2
 
 hoistFreeR :: (Functor f, MonadFree g m) => (f (m a) -> g (m a)) -> Free.Free f a -> m a
 hoistFreeR _ (Free.Pure a) = return a
@@ -42,8 +43,8 @@ class Picture2D p where
     rotateR :: Double -> p a -> p a
     -- | (degrees)
     rotateD :: Double -> p a -> p a
-    scale :: V2 Double -> p a -> p a
-    translate :: V2 Double -> p a -> p a
+    scale :: Vec2 -> p a -> p a
+    translate :: Vec2 -> p a -> p a
     colored :: Color -> p a -> p a
 
     rotateR = rotateD . (* 180) . (/ pi)
@@ -56,9 +57,9 @@ rotate = rotateD
 {-# DEPRECATED rotate "Use rotateD instead" #-} 
 
 class Picture2D p => Figure2D p where
-    line :: [V2 Double] -> p ()
-    polygon :: [V2 Double] -> p ()
-    polygonOutline :: [V2 Double] -> p ()
+    line :: [Vec2] -> p ()
+    polygon :: [Vec2] -> p ()
+    polygonOutline :: [Vec2] -> p ()
     circle :: Double -> p ()
     circleOutline :: Double -> p ()
     thickness :: Float -> p a -> p a
@@ -70,12 +71,19 @@ class Sound p where
 
 -- | The class of types that can handle inputs of the keyboard.
 class Keyboard t where
-    keyChar :: Char -> t Bool
-    keySpecial :: SpecialKey -> t Bool
+    keyState :: Key -> t Bool
+
+{-# DEPRECATED keySpecial "Use keyState instead" #-}
+keySpecial :: Keyboard t => SpecialKey -> t Bool
+keySpecial = keyState
+
+{-# DEPRECATED keySpecial "Use keyChar instead" #-}
+keyChar :: Keyboard t => Char -> t Bool
+keyChar = undefined
 
 -- | The class of types that can handle inputs of the mouse.
 class Mouse t where
-    mousePosition :: t (V2 Double)
+    mousePosition :: t (Vec2)
     mouseWheel :: t Int
     mouseButtonL :: t Bool
     mouseButtonM :: t Bool
@@ -86,56 +94,6 @@ class FromFinalizer m where
 
 instance FromFinalizer (FinalizerT IO) where
     fromFinalizer = id
-
-data SpecialKey = KeySpace
-    | KeyEsc
-    | KeyLeftShift
-    | KeyRightShift
-    | KeyLeftControl
-    | KeyRightControl
-    | KeyUp
-    | KeyDown
-    | KeyLeft
-    | KeyRight
-    | KeyTab
-    | KeyEnter
-    | KeyBackspace
-    | KeyInsert
-    | KeyDelete
-    | KeyPageUp
-    | KeyPageDown
-    | KeyHome
-    | KeyEnd
-    | KeyF1
-    | KeyF2
-    | KeyF3
-    | KeyF4
-    | KeyF5
-    | KeyF6
-    | KeyF7
-    | KeyF8
-    | KeyF9
-    | KeyF10
-    | KeyF11
-    | KeyF12
-    | KeyPad0
-    | KeyPad1
-    | KeyPad2
-    | KeyPad3
-    | KeyPad4
-    | KeyPad5
-    | KeyPad6
-    | KeyPad7
-    | KeyPad8
-    | KeyPad9
-    | KeyPadDivide
-    | KeyPadMultiply
-    | KeyPadSubtract
-    | KeyPadAdd
-    | KeyPadDecimal
-    | KeyPadEqual
-    | KeyPadEnter
-    deriving (Show, Eq, Ord, Enum)
 
 #define _COMMA_ ,
 
@@ -161,8 +119,7 @@ data SpecialKey = KeySpace
     pan = (t) . pan }
 
 #define MK_KEYBOARD(cxt, ty, l) instance (Keyboard m cxt) => Keyboard (ty) where { \
-    keyChar = (l) . keyChar; \
-    keySpecial = (l) . keySpecial }
+    keyPressed = (l) . keyPressed }
 
 #define MK_MOUSE(cxt, ty, l) instance (Mouse m cxt) => Mouse (ty) where { \
     mousePosition = (l) mousePosition; \

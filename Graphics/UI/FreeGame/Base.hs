@@ -7,23 +7,25 @@ import Control.Monad
 class MonadTick m where
     tick :: m ()
 
-instance Functor f => MonadFree f (UI f) where
+newtype TickF f a = TickF { unUI :: forall r. (f r -> r) -> (r -> r) -> (a -> r) -> r } deriving Functor
+
+instance Functor f => MonadFree f (ReifiedUI f) where
     wrap = WrapUI
 
-data UI f a = WrapUI (f (UI f a)) | PureUI a | TickUI (UI f a) deriving Functor
+data TickFree f a = Wrap (f (TickFree f a)) | Tick (TickFree f a) | Pure a deriving Functor
 
-instance Functor f => Monad (UI f) where
+instance Functor f => Monad (TickFree f) where
     return = PureUI
     WrapUI fm >>= f = WrapUI $ fmap (>>=f) fm
     PureUI a >>= f = f a
     TickUI m >>= f = TickUI (m >>= f)
 
-stepUI :: MonadFree f m => UI f a -> m (Either (UI f a) a)
-stepUI (WrapUI fm) = wrap (fmap step fm)
-stepUI (PureUI a) = return (Right a)
-stepUI (TickUI m) = return (Left m)
+stepFree :: MonadFree f m => TickFree f a -> m (Either (TickFree f a) a)
+stepFree (WrapUI fm) = wrap (fmap step fm)
+stepFree (PureUI a) = return (Right a)
+stepFree (TickUI m) = return (Left m)
 
-cloneUI :: (MonadTick m, MonadFree f m) => UI f a -> m a
-cloneUI (WrapUI fm) = wrap (fmap cloneUI fm)
-cloneUI (PureUI a) = return a
-cloneUI (TickUI m) = tick >> cloneUI m
+cloneFree :: (MonadTick m, MonadFree f m) => TickFree f a -> m a
+cloneFree (WrapUI fm) = wrap (fmap cloneUI fm)
+cloneFree (PureUI a) = return a
+cloneFree (TickUI m) = tick >> cloneUI m
