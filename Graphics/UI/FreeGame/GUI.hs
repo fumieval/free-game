@@ -27,20 +27,9 @@ import Graphics.UI.FreeGame.Internal.Raindrop
 import Control.Applicative
 import Data.Default
 import Data.Color
-import Linear hiding (rotate)
 
 data GUI a = Draw (forall m. (Monad m, Figure2D m) => m a)
     | FromFinalizer (FinalizerT IO a)
-    | RotateD Double (GUI a)
-    | Scale Vec2 (GUI a)
-    | Translate Vec2 (GUI a)
-    | Colored Color (GUI a)
-    | Line [Vec2] a
-    | Polygon [Vec2] a
-    | PolygonOutline [Vec2] a
-    | Circle Double a
-    | CircleOutline Double a
-    | Thickness Double (GUI a)
     | KeyState Key (Bool -> a)
     | MousePosition (Vec2 -> a)
     | MouseWheel (Int -> a)
@@ -51,16 +40,6 @@ data GUI a = Draw (forall m. (Monad m, Figure2D m) => m a)
 cloneGUI :: (Picture2D f, Figure2D f, Keyboard f, Mouse f, FromFinalizer f, Functor f) => GUI a -> f a
 cloneGUI (FromBitmap bmp a) = a <$ fromBitmap bmp
 cloneGUI (FromFinalizer m) = fromFinalizer m
-cloneGUI (RotateD f m) = rotateD (cloneGUI m)
-cloneGUI (Scale m) = scale (cloneGUI m)
-cloneGUI (Translate m) = translate (cloneGUI m)
-cloneGUI (Colored m) = colored (cloneGUI m)
-cloneGUI (Line vs a) = a <$ line vs
-cloneGUI (Polygon vs a) = a <$ polygon vs
-cloneGUI (PolygonOutline vs a) = a <$ line vs
-cloneGUI (Circle r a) = a <$ circle vs
-cloneGUI (CircleOutline r a) = a <$ circleOutline r
-cloneGUI (Thickness f m) = thickness f (cloneGUI m)
 cloneGUI (KeyChar ch cont) = cont <$> keyChar ch
 cloneGUI (KeySpecial ch cont) = cont <$> keySpecial ch
 cloneGUI (MousePosition cont) = cont <$> mousePosition

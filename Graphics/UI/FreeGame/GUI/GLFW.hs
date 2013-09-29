@@ -55,35 +55,55 @@ data Window = Window
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
 runGame param m = launch param $ unUI m runGUI tickIO (return . Just)
 
-runGUI :: Given System => GUI (FinalizerT IO a) -> FinalizerT IO a
-runGUI (FromBitmap bmp@(BitmapData _ (Just h)) cont) = do
-    m <- liftIO $ readIORef (refTextures given)
-    case IM.lookup h m of
-        Just t -> liftIO $ drawTexture t
-        Nothing -> do
-            t <- installTexture bmp
-            liftIO $ writeIORef (refTextures given) $ IM.insert h t m
-            liftIO $ drawTexture t
-            finalizer $ modifyIORef (refTextures given) $ IM.delete h
-    cont
-runGUI (Translate (V2 tx ty) m) = preservingMatrix' $ do
-    liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
-    runGUI m
-runGUI (FromBitmap bmp@(BitmapData _ Nothing) cont) = do
-    liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
-    cont
-runGUI (RotateD theta f) = preservingMatrix' $ do
-    liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
-    runGUI f
-runGUI (Scale (V2 sx sy) f) = preservingMatrix' $ do
-    liftIO $ GL.scale (gf sx) (gf sy) 1
-    runGUI f
-runGUI (Colored col m) = do
-    oldColor <- liftIO $ get GL.currentColor
-    liftIO $ GL.currentColor $= unsafeCoerce col
-    r <- runGUI m
-    liftIO $ GL.currentColor $= oldColor
-    return r
+instance Picture2D IO where
+    fromBitmap bmp@(BitmapData _ (Just h)) cont) = do
+        m <- liftIO $ readIORef (refTextures given)
+        case IM.lookup h m of
+            Just t -> liftIO $ drawTexture t
+            Nothing -> do
+                t <- installTexture bmp
+                liftIO $ writeIORef (refTextures given) $ IM.insert h t m
+                liftIO $ drawTexture t
+                finalizer $ modifyIORef (refTextures given) $ IM.delete h
+
+    translate (V2 tx ty) m = preservingMatrix' $ do
+        liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
+
+    fromBitmap bmp@(BitmapData _ Nothing) cont) = do
+        liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
+
+    rotateD theta m = preservingMatrix' $ do
+        liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
+        m
+    
+    scale (V2 sx sy) m = preservingMatrix' $ do
+        liftIO $ GL.scale (gf sx) (gf sy) 1
+        m
+    
+    colored col m = do
+        oldColor <- liftIO $ get GL.currentColor
+        liftIO $ GL.currentColor $= unsafeCoerce col
+        r <- m
+        liftIO $ GL.currentColor $= oldColor
+        return r
+
+instance Figure2D IO where
+    circle r = do
+        let s = 2 * pi / 64
+        GL.renderPrimitive GL.Polygon $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
+    circleOutline r = do
+        let s = 2 * pi / 64 * sc
+        GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
+    polygon path = GL.renderPrimitive GL.Polygon $ runVertices path
+    polygonOutline path = GL.renderPrimitive GL.LineLoop $ runVertices path
+    line path = GL.renderPrimitive GL.LineStrip $ runVertices path
+    thickness t m = do
+        oldWidth <- get GL.lineWidth
+        GL.lineWidth $= gf t
+        r <- m
+        GL.lineWidth $= oldWidth
+        return r
+
 runGUI (CharKey ch cont) = GLFW.getKey (mapCharKey ch) >>= cont
 runGUI (SpecialKey k cont) = GLFW.getKey (mapSpecialKey k) >>= cont
 runGUI (MouseButtonL cont) = GLFW.mouseButtonIsPressed GLFW.MouseButton0 >>= cont
@@ -94,21 +114,6 @@ runGUI (MousePosition cont) = do
     (x, y) <- GLFW.getMousePosition
     -- It should pass the relative position
     V2 (fromIntegral x) (fromIntegral y) >>= cont
-runGUI (Circle r) = do
-        let s = 2 * pi / 64
-        GL.renderPrimitive GL.Polygon $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
-runGUI (CircleOutline r) = do
-        let s = 2 * pi / 64 * sc
-        GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
-runGUI (Polygon path) = GL.renderPrimitive GL.Polygon $ runVertices path
-runGUI (PolygonOutline path) = GL.renderPrimitive GL.LineLoop $ runVertices path
-runGUI (Line path) = GL.renderPrimitive GL.LineStrip $ runVertices path
-runGUI (Thickness t m) = do
-    oldWidth <- get GL.lineWidth
-    GL.lineWidth $= gf t
-    r <- m
-    GL.lineWidth $= oldWidth
-    return r
 
 tickIO :: Given System => IO ()
 tickIO = do
