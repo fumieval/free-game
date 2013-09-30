@@ -27,6 +27,7 @@ module Graphics.UI.FreeGame.Base (
     ,_EmbedIO
     ,liftUI
     ,_LiftUI
+    ,getFPS
     -- * Classes
     ,Picture2D(..)
     ,rotate
@@ -83,6 +84,7 @@ data UI m a
     | EmbedIO (IO a)
     | LiftUI (m a)
     | Bracket (F (UI m) a)
+    | GetFPS (Int -> a)
     | Quit
     deriving Functor
 
@@ -105,6 +107,9 @@ liftUI = wrap . LiftUI . fmap return
 -- | Lift an arbitrary 'IO' action.
 embedIO :: (MonadFree (UI n) m) => IO a -> m a
 embedIO = wrap . EmbedIO . fmap return
+
+getFPS :: MonadFree (UI n) m => m Int
+getFPS = wrap $ GetFPS return
 
 -- | @'_EmbedIO' :: Traversal' ('UI' m a) (IO a)@
 _EmbedIO :: Applicative f => (IO a -> f (IO a)) -> UI m a -> f (UI m a)

@@ -21,7 +21,7 @@ module Graphics.UI.FreeGame.Types (
 
 import Linear.V2
 
--- | 2D bounding box
+-- | 2D bounding box (x0, y0, x1, y1)
 data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Read)
 
 -- | Determine whether the given point is in the 'BoundingBox'.
@@ -43,3 +43,4 @@ _BottomLeft f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x0' y1') -> BoundingBox x0'
 -- | @'_BottomRight' :: Lens' ('BoundingBox' a) ('V2' a)@
 _BottomRight :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
 _BottomRight f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x1' y1') -> BoundingBox x0 y0 x1' y1') (f (V2 x1 y1))
+

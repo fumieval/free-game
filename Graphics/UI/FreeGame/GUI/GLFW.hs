@@ -1,4 +1,4 @@
-{-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE FlexibleContexts, Rank2Types #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.UI.FreeGame.GUI.GLFW
@@ -21,7 +21,9 @@ import Foreign.ForeignPtr
 import Graphics.UI.FreeGame.Base
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Internal.Finalizer
+import Graphics.UI.FreeGame.Internal.Raindrop
 import Graphics.UI.FreeGame.GUI
+import Graphics.UI.FreeGame.Types
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
 import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import qualified Graphics.UI.GLFW as GLFW
@@ -32,57 +34,54 @@ import System.Mem
 import Unsafe.Coerce
 import Control.Bool
 import Linear
+import Data.Reflection
 
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
-runGame param m = launch param $ \r s -> runF m (return . Just) (runAction param r s)
+runGame param m = launch param $ runF m (return . Just) runAction
 
-runAction :: GUIParam
-    -> IORef (IM.IntMap Texture)
-    -> IORef Int
-    -> GUI (FinalizerT IO (Maybe a)) -> FinalizerT IO (Maybe a)
-runAction param refTextures refFrame _f = case _f of
-    LiftUI f -> case f of
-        Draw pic -> let ?refTextures = refTextures in join $ runUI 1 pic
+data System = System
+    { refTextures :: IORef (IM.IntMap Texture)
+    , refFrame :: IORef Int
+    , refFPS :: IORef Int
+    , theParameter :: GUIParam
+    }
 
-    EmbedIO m -> join (liftIO m)
-    Bracket m -> liftIO (runFinalizerT $ runF m (return.Just) (runAction param refTextures refFrame))
+runAction :: Given System => GUI (FinalizerT IO (Maybe a)) -> FinalizerT IO (Maybe a)
+runAction (LiftUI f) = join $ runUI id f
+runAction (EmbedIO m) = join (liftIO m)
+runAction (Bracket m) = liftIO $ runFinalizerT $ runF m (return.Just) runAction
         >>= maybe (return Nothing) id
-    Quit -> return Nothing
-    Tick cont -> do
-        liftIO $ do
-            GL.matrixMode $= GL.Projection
-            GLFW.swapBuffers
-            performGC
-            t <- GLFW.getTime
-            n <- readIORef refFrame
-            GLFW.sleep $ fromIntegral n / fromIntegral (_framePerSecond param) - t
-            if t > 1
-                then GLFW.resetTime >> writeIORef refFrame 0
-                else writeIORef refFrame (succ n)
+runAction Quit = return Nothing
+runAction (Tick cont) = do
+    liftIO $ do
+        GL.matrixMode $= GL.Projection
+        GLFW.swapBuffers
+        performGC
+        t <- GLFW.getTime
+        n <- readIORef (refFrame given)
+        GLFW.sleep $ fromIntegral n / fromIntegral (_framePerSecond $ theParameter given) - t
+        if t >= 1
+            then GLFW.resetTime >> writeIORef (refFrame given) 0 >> writeIORef (refFPS given) n
+            else writeIORef (refFrame given) (succ n)
 
-        r <- liftIO $ GLFW.windowIsOpen
-        if not r then return Nothing else do
-            liftIO $ do
-                GL.clear [GL.ColorBuffer] 
-                GL.loadIdentity
-                GL.scale (gf 1) (-1) 1
-                let V2 ox oy = _windowOrigin param
-                    V2 ww wh = _windowSize param
-                    windowL = realToFrac ox
-                    windowR = realToFrac ox + fromIntegral ww
-                    windowT = realToFrac oy
-                    windowB = realToFrac oy + fromIntegral wh
-                GL.ortho windowL windowR windowT windowB 0 (-100)
-                GL.matrixMode $= GL.Modelview 0
-            cont
+    r <- liftIO $ GLFW.windowIsOpen
+    if not r then return Nothing else do
+        liftIO $ do
+            GL.clear [GL.ColorBuffer] 
+            GL.loadIdentity
+            let BoundingBox wl wt wr wb = fmap realToFrac $ _windowRegion $ theParameter given
+            GL.ortho wl wr wb wt 0 (-100)
+            GL.matrixMode $= GL.Modelview 0
+        cont
+runAction (GetFPS cont) = liftIO (readIORef (refFPS given)) >>= cont
 
 type Texture = (GL.TextureObject, Int, Int)
 
-launch :: GUIParam -> (IORef (IM.IntMap Texture) -> IORef Int -> FinalizerT IO (Maybe a)) -> IO (Maybe a)
+launch :: GUIParam -> (Given System => FinalizerT IO (Maybe a)) -> IO (Maybe a)
 launch param m = do
     GLFW.initialize >>= bool (fail "Failed to initialize") (return ())
     pf <- GLFW.openGLProfile
-    let V2 ww wh = _windowSize param
+    let V2 ww wh = fmap floor (view _BottomRight (_windowRegion param) - view _TopLeft (_windowRegion param))
     (>>=bool (fail "Failed to initialize") (return ())) $ GLFW.openWindow $ GLFW.defaultDisplayOptions {
         GLFW.displayOptions_width = ww
         ,GLFW.displayOptions_height = wh
@@ -95,12 +94,13 @@ launch param m = do
     GL.lineSmooth $= GL.Enabled
     GL.blend      $= GL.Enabled
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
-    GL.shadeModel $= GL.Smooth
+    GL.shadeModel $= GL.Flat
     GL.textureFunction $= GL.Combine
 
     let Color r g b a = _clearColor param in GL.clearColor $= GL.Color4 (gf r) (gf g) (gf b) (gf a)
 
-    res <- runFinalizerT $ join $ m <$> liftIO (newIORef IM.empty) <*> liftIO (newIORef 0)
+    sys <- System <$> newIORef IM.empty <*> newIORef 0 <*> newIORef 0 <*> pure param
+    res <- runFinalizerT $ give sys m
 
     GLFW.closeWindow
     GLFW.terminate
@@ -124,68 +124,69 @@ rot2 a (V2 x y) = V2 (p * x + q * y) (-q * x + p * y) where
     p = cos d
     q = sin d
 
-runUI :: (?refTextures :: IORef (IM.IntMap Texture)) => (V2 Float -> V2 Float) -> Picture a -> FinalizerT IO a
-runUI _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
-    m <- liftIO $ readIORef ?refTextures
+runUI :: Given System => (V2 Float -> V2 Float) -> GUIBase a -> FinalizerT IO a
+runUI _ (FromBitmap bmp@(BitmapData _ (Just h)) r) = do
+    m <- liftIO $ readIORef $ refTextures given
     case IM.lookup h m of
         Just t -> liftIO $ drawTexture t
         Nothing -> do
             t <- installTexture bmp
-            liftIO $ writeIORef ?refTextures $ IM.insert h t m
+            liftIO $ writeIORef (refTextures given) $ IM.insert h t m
             liftIO $ drawTexture t
-            finalizer $ modifyIORef ?refTextures $ IM.delete h
+            finalizer $ modifyIORef (refTextures given) $ IM.delete h
     return r
-runUI _ (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
+runUI _ (FromBitmap bmp@(BitmapData _ Nothing) r) = do
     liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
     return r
-runUI f (Translate t@(V2 tx ty) cont) = preservingMatrix' $ do
+runUI f (Translate t@(V2 tx ty) inner) = preservingMatrix' $ do
     liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
-    runUI (subtract t . f) cont
-runUI f (RotateD theta cont) = preservingMatrix' $ do
+    runUI (subtract t . f) inner
+runUI f (RotateD theta inner) = preservingMatrix' $ do
     liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
-    runUI (rot2 theta . f) cont
-runUI sc (Scale (V2 sx sy) cont) = preservingMatrix' $ do
+    runUI (rot2 (-theta) . f) inner
+runUI f (Scale s@(V2 sx sy) inner) = preservingMatrix' $ do
     liftIO $ GL.scale (gf sx) (gf sy) 1
-    runUI ((*sc) . f) cont
-runUI _ (PictureWithFinalizer m) = m
-runUI sc (Colored col cont) = do
+    runUI ((/s) . f) inner
+runUI _ (FromFinalizer m) = m
+runUI f (Colored col inner) = do
     oldColor <- liftIO $ get GL.currentColor
     liftIO $ GL.currentColor $= unsafeCoerce col
-    res <- runUI sc cont
+    res <- runUI f inner
     liftIO $ GL.currentColor $= oldColor
     return res
-runUI _ (Line path a) = do
+runUI _ (Line path r) = do
     liftIO $ GL.renderPrimitive GL.LineStrip $ runVertices path
-    return a
-runUI _ (Polygon path a) = do
+    return r
+runUI _ (Polygon path r) = do
     liftIO $ GL.renderPrimitive GL.Polygon $ runVertices path
-    return a
-runUI _ (PolygonOutline path a) = do
+    return r
+runUI _ (PolygonOutline path r) = do
     liftIO $ GL.renderPrimitive GL.LineLoop $ runVertices path
-    return a
-runUI sc (Circle r a) = do
-    let s = 2 * pi / 64 * sc
+    return r
+runUI _ (Circle r cont) = do
+    let s = 2 * pi / 64
     liftIO $ GL.renderPrimitive GL.Polygon $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
-    return a
-runUI sc (CircleOutline r a) = do
-    let s = 2 * pi / 64 * sc
+    return cont
+runUI _ (CircleOutline r cont) = do
+    let s = 2 * pi / 64
     liftIO $ GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
-    return a
-runUI sc (Thickness t cont) = do
+    return cont
+runUI f (Thickness t inner) = do
     oldWidth <- liftIO $ get GL.lineWidth
     liftIO $ GL.lineWidth $= gf t
-    res <- runUI sc cont
+    res <- runUI f inner
     liftIO $ GL.lineWidth $= oldWidth
     return res
-runUI _ (KeyChar ch cont) = liftIO (GLFW.keyIsPressed (GLFW.CharKey ch)) >>= cont
-runUI _ (KeySpecial x cont) = liftIO (GLFW.keyIsPressed (mapSpecialKey x)) >>= cont
-runUI _ (MouseButtonL cont) = liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton0) >>= cont
-runUI _ (MouseButtonR cont) = liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton1) >>= cont
-runUI _ (MouseButtonM cont) = liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton2) >>= cont
+runUI _ (KeyChar ch cont) = cont <$> liftIO (GLFW.keyIsPressed (GLFW.CharKey ch))
+runUI _ (KeySpecial x cont) = cont <$> liftIO (GLFW.keyIsPressed (mapSpecialKey x))
+runUI _ (MouseButtonL cont) = cont <$> liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton0)
+runUI _ (MouseButtonR cont) = cont <$> liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton1)
+runUI _ (MouseButtonM cont) = cont <$> liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton2)
 runUI f (MousePosition cont) = do
     (x, y) <- liftIO GLFW.getMousePosition
-    cont $ f $ V2 (fromIntegral x) (fromIntegral y)
-runUI (MouseWheel cont) = liftIO GLFW.getMouseWheel >>= cont
+    let pos = f $ V2 (fromIntegral x) (fromIntegral y)
+    return $ cont pos
+runUI _ (MouseWheel cont) = cont <$> liftIO GLFW.getMouseWheel
 
 runVertices :: MonadIO m => [V2 Float] -> m ()
 runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)
