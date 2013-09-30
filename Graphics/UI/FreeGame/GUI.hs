@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor, BangPatterns #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.UI.FreeGame.GUI
@@ -14,8 +14,6 @@ module Graphics.UI.FreeGame.GUI (
     GUI
     , GUIBase(..)
     , _Draw
-    , _Input
-    , GUIInput(..)
     , Picture(..)
     , GUIParam(..)
 ) where
@@ -33,83 +31,40 @@ import Linear hiding (rotate)
 type GUI = UI GUIBase
 
 -- | The base of 'GUI'.
-data GUIBase a = Input (GUIInput a) | Draw (Picture a) deriving Functor
-
--- | _Draw :: Traversal' (GUIBase a) (Picture a)
-_Draw :: Applicative f => (Picture a -> f (Picture a)) -> GUIBase a -> f (GUIBase a)
-_Draw f (Draw o) = fmap Draw (f o)
-_Draw _ x = pure x
-
--- | _Input :: Traversal' (GUIBase a) (Ap GUIInput a)
-_Input :: Applicative f => (GUIInput a -> f (GUIInput a)) -> GUIBase a -> f (GUIBase a)
-_Input f (Input o) = fmap Input (f o)
-_Input _ x = pure x
-
-instance Picture2D GUIBase where
-    fromBitmap = Draw . fromBitmap
-    rotateD = over _Draw . rotateD
-    scale = over _Draw . scale
-    translate = over _Draw . translate
-    colored = over _Draw . colored
-
-instance Figure2D GUIBase where
-    line = Draw . line
-    polygon = Draw . polygon
-    polygonOutline = Draw . polygonOutline
-    circle = Draw . circle
-    circleOutline = Draw . circleOutline
-    thickness = over _Draw . thickness
-
-instance Keyboard GUIBase where
-    keyChar = Input . keyChar
-    keySpecial = Input . keySpecial
-
-instance Mouse GUIBase where
-    mousePosition = Input mousePosition
-    mouseWheel = Input mouseWheel
-    mouseButtonL = Input mouseButtonL
-    mouseButtonR = Input mouseButtonR
-    mouseButtonM = Input mouseButtonR
-
-instance FromFinalizer GUIBase where
-    fromFinalizer = Draw . fromFinalizer
-
--- | A free structure that represents inputs.
-data GUIInput a = 
-      ICharKey Char (Bool -> a)
-    | ISpecialKey SpecialKey (Bool -> a)
-    | IMousePosition (V2 Float -> a)
-    | IMouseWheel (Int -> a)
-    | IMouseButtonL (Bool -> a)
-    | IMouseButtonM (Bool -> a)
-    | IMouseButtonR (Bool -> a)
-    deriving Functor
-
--- | A free structure that represents pictures.
-data Picture a
-    = LiftBitmap Bitmap a
-    | PictureWithFinalizer (FinalizerT IO a)
+data GUIBase a = FromBitmap Bitmap a
+    | FromFinalizer (FinalizerT IO a)
     | RotateD Float (Picture a)
     | Scale (V2 Float) (Picture a)
     | Translate (V2 Float) (Picture a)
     | Colored Color (Picture a)
-
     | Line [V2 Float] a
     | Polygon [V2 Float] a
     | PolygonOutline [V2 Float] a
     | Circle Float a
     | CircleOutline Float a
     | Thickness Float (Picture a)
+    | KeyChar Char (Bool -> a)
+    | KeySpecial SpecialKey (Bool -> a)
+    | MousePosition (V2 Float) a
+    | MouseWheel (Int -> a)
+    | MouseButtonL (Bool -> a)
+    | MouseButtonM (Bool -> a)
+    | MouseButtonR (Bool -> a)
     deriving Functor
 
-instance Picture2D Picture where
-    fromBitmap = flip LiftBitmap ()
+-- | _Draw :: Traversal' (GUIBase a) (Picture a)
+_Draw :: Applicative f => (Picture a -> f (Picture a)) -> GUIBase a -> f (GUIBase a)
+_Draw f (Draw o) = fmap Draw (f o)
+_Draw _ x = pure x
+
+instance Picture2D GUIBase where
+    fromBitmap b = FromBitmap b ()
     rotateD = RotateD
     scale = Scale
     translate = Translate
     colored = Colored
 
-instance Figure2D Picture where
+instance Figure2D GUIBase where
     line = flip Line ()
     polygon = flip Polygon ()
     polygonOutline = flip PolygonOutline ()
@@ -117,19 +72,19 @@ instance Figure2D Picture where
     circleOutline = flip CircleOutline ()
     thickness = Thickness
 
-instance FromFinalizer Picture where
-    fromFinalizer = PictureWithFinalizer
+instance Keyboard GUIBase where
+    keyChar x = KeyChar x id
+    keySpecial x = KeySpecial x id
 
-instance Keyboard GUIInput where
-    keyChar x = ICharKey x id
-    keySpecial x = ISpecialKey x id
+instance Mouse GUIBase where
+    mousePosition = MousePosition id
+    mouseWheel = MouseWheel id
+    mouseButtonL = MouseButtonL id
+    mouseButtonR = MouseButtonR id
+    mouseButtonM = MouseButtonM id
 
-instance Mouse GUIInput where
-    mousePosition = IMousePosition id
-    mouseWheel = IMouseWheel id
-    mouseButtonL = IMouseButtonL id
-    mouseButtonR = IMouseButtonR id
-    mouseButtonM = IMouseButtonM id
+instance FromFinalizer GUIBase where
+    fromFinalizer = FromFinalizer
 
 -- | Parameters of the application.
 data GUIParam = GUIParam

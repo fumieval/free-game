@@ -41,11 +41,12 @@ runAction :: GUIParam
     -> IORef Int
     -> GUI (FinalizerT IO (Maybe a)) -> FinalizerT IO (Maybe a)
 runAction param refTextures refFrame _f = case _f of
-    LiftUI (Draw pic) -> let ?refTextures = refTextures in join $ runPicture 1 pic
+    LiftUI f -> case f of
+        Draw pic -> let ?refTextures = refTextures in join $ runUI 1 pic
+
     EmbedIO m -> join (liftIO m)
     Bracket m -> liftIO (runFinalizerT $ runF m (return.Just) (runAction param refTextures refFrame))
         >>= maybe (return Nothing) id
-    LiftUI (Input i) -> join $ liftIO $ runInput i
     Quit -> return Nothing
     Tick cont -> do
         liftIO $ do
@@ -117,19 +118,14 @@ installTexture bmp@(BitmapData ar _) = do
     finalizer $ GL.deleteObjectNames [tex]
     return (tex, width, height)
 
-runInput :: GUIInput a -> IO a
-runInput (ICharKey ch cont) = cont <$> GLFW.keyIsPressed (GLFW.CharKey ch)
-runInput (ISpecialKey x cont) = cont <$> GLFW.keyIsPressed (mapSpecialKey x)
-runInput (IMouseButtonL cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton0
-runInput (IMouseButtonR cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton1
-runInput (IMouseButtonM cont) = cont <$> GLFW.mouseButtonIsPressed GLFW.MouseButton2
-runInput (IMousePosition cont) = do
-    (x, y) <- GLFW.getMousePosition
-    return $ cont $ V2 (fromIntegral x) (fromIntegral y)
-runInput (IMouseWheel cont) = cont <$> GLFW.getMouseWheel
+rot2 :: Floating a => a -> V2 a -> V2 a
+rot2 a (V2 x y) = V2 (p * x + q * y) (-q * x + p * y) where
+    d = a * (pi / 180) 
+    p = cos d
+    q = sin d
 
-runPicture :: (?refTextures :: IORef (IM.IntMap Texture)) => Float -> Picture a -> FinalizerT IO a
-runPicture _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
+runUI :: (?refTextures :: IORef (IM.IntMap Texture)) => (V2 Float -> V2 Float) -> Picture a -> FinalizerT IO a
+runUI _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
     m <- liftIO $ readIORef ?refTextures
     case IM.lookup h m of
         Just t -> liftIO $ drawTexture t
@@ -139,48 +135,57 @@ runPicture _ (LiftBitmap bmp@(BitmapData _ (Just h)) r) = do
             liftIO $ drawTexture t
             finalizer $ modifyIORef ?refTextures $ IM.delete h
     return r
-runPicture _ (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
+runUI _ (LiftBitmap bmp@(BitmapData _ Nothing) r) = do
     liftIO $ runFinalizerT $ installTexture bmp >>= liftIO . drawTexture
     return r
-runPicture sc (Translate (V2 tx ty) cont) = preservingMatrix' $ do
+runUI f (Translate t@(V2 tx ty) cont) = preservingMatrix' $ do
     liftIO $ GL.translate (GL.Vector3 (gf tx) (gf ty) 0)
-    runPicture sc cont
-runPicture sc (RotateD theta cont) = preservingMatrix' $ do
+    runUI (subtract t . f) cont
+runUI f (RotateD theta cont) = preservingMatrix' $ do
     liftIO $ GL.rotate (gf (-theta)) (GL.Vector3 0 0 1)
-    runPicture sc cont
-runPicture sc (Scale (V2 sx sy) cont) = preservingMatrix' $ do
+    runUI (rot2 theta . f) cont
+runUI sc (Scale (V2 sx sy) cont) = preservingMatrix' $ do
     liftIO $ GL.scale (gf sx) (gf sy) 1
-    runPicture (sc * max sx sy) cont
-runPicture _ (PictureWithFinalizer m) = m
-runPicture sc (Colored col cont) = do
+    runUI ((*sc) . f) cont
+runUI _ (PictureWithFinalizer m) = m
+runUI sc (Colored col cont) = do
     oldColor <- liftIO $ get GL.currentColor
     liftIO $ GL.currentColor $= unsafeCoerce col
-    res <- runPicture sc cont
+    res <- runUI sc cont
     liftIO $ GL.currentColor $= oldColor
     return res
-runPicture _ (Line path a) = do
+runUI _ (Line path a) = do
     liftIO $ GL.renderPrimitive GL.LineStrip $ runVertices path
     return a
-runPicture _ (Polygon path a) = do
+runUI _ (Polygon path a) = do
     liftIO $ GL.renderPrimitive GL.Polygon $ runVertices path
     return a
-runPicture _ (PolygonOutline path a) = do
+runUI _ (PolygonOutline path a) = do
     liftIO $ GL.renderPrimitive GL.LineLoop $ runVertices path
     return a
-runPicture sc (Circle r a) = do
+runUI sc (Circle r a) = do
     let s = 2 * pi / 64 * sc
     liftIO $ GL.renderPrimitive GL.Polygon $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
     return a
-runPicture sc (CircleOutline r a) = do
+runUI sc (CircleOutline r a) = do
     let s = 2 * pi / 64 * sc
     liftIO $ GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
     return a
-runPicture sc (Thickness t cont) = do
+runUI sc (Thickness t cont) = do
     oldWidth <- liftIO $ get GL.lineWidth
     liftIO $ GL.lineWidth $= gf t
-    res <- runPicture sc cont
+    res <- runUI sc cont
     liftIO $ GL.lineWidth $= oldWidth
     return res
+runUI _ (KeyChar ch cont) = liftIO (GLFW.keyIsPressed (GLFW.CharKey ch)) >>= cont
+runUI _ (KeySpecial x cont) = liftIO (GLFW.keyIsPressed (mapSpecialKey x)) >>= cont
+runUI _ (MouseButtonL cont) = liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton0) >>= cont
+runUI _ (MouseButtonR cont) = liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton1) >>= cont
+runUI _ (MouseButtonM cont) = liftIO (GLFW.mouseButtonIsPressed GLFW.MouseButton2) >>= cont
+runUI f (MousePosition cont) = do
+    (x, y) <- liftIO GLFW.getMousePosition
+    cont $ f $ V2 (fromIntegral x) (fromIntegral y)
+runUI (MouseWheel cont) = liftIO GLFW.getMouseWheel >>= cont
 
 runVertices :: MonadIO m => [V2 Float] -> m ()
 runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)

@@ -10,7 +10,7 @@
 --
 -- A portable implementation of lens(<http://hackage.haskell.org/package/lens>)
 ----------------------------------------------------------------------------
-module Graphics.UI.FreeGame.Internal.Raindrop (view, over) where
+module Graphics.UI.FreeGame.Internal.Raindrop (view, over, biover) where
 
 import Data.Functor.Identity
 import Control.Monad.Reader
@@ -30,3 +30,7 @@ view f = asks (getConst #. f Const)
 over :: ((a -> Identity b) -> (s -> Identity t)) -> (a -> b) -> s -> t
 over l f = runIdentity #. l (Identity #. f)
 {-# INLINE over #-}
+
+biover :: ((a -> Identity b) -> (c -> Identity d) -> (s -> Identity t)) -> (a -> b) -> (c -> d) -> s -> t
+biover l f g = runIdentity #. l (Identity #. f) (Identity #. g)
+{-# INLINE biover #-}
