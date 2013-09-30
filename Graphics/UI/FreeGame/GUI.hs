@@ -22,7 +22,6 @@ import Graphics.UI.FreeGame.Internal.Finalizer
 import Graphics.UI.FreeGame.Types
 import Data.Default
 import Data.Color
-import Linear hiding (rotate)
 
 -- | A 'Functor' which represents graphical user interfaces.
 type GUI = UI GUIBase
@@ -31,18 +30,18 @@ type GUI = UI GUIBase
 data GUIBase a = FromBitmap Bitmap a
     | FromFinalizer (FinalizerT IO a)
     | RotateD Float (GUIBase a)
-    | Scale (V2 Float) (GUIBase a)
-    | Translate (V2 Float) (GUIBase a)
+    | Scale Vec2 (GUIBase a)
+    | Translate Vec2 (GUIBase a)
     | Colored Color (GUIBase a)
-    | Line [V2 Float] a
-    | Polygon [V2 Float] a
-    | PolygonOutline [V2 Float] a
+    | Line [Vec2] a
+    | Polygon [Vec2] a
+    | PolygonOutline [Vec2] a
     | Circle Float a
     | CircleOutline Float a
     | Thickness Float (GUIBase a)
     | KeyChar Char (Bool -> a)
     | KeySpecial SpecialKey (Bool -> a)
-    | MousePosition (V2 Float -> a)
+    | MousePosition (Vec2 -> a)
     | MouseWheel (Int -> a)
     | MouseButtonL (Bool -> a)
     | MouseButtonM (Bool -> a)

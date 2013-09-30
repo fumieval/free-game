@@ -17,7 +17,7 @@
 module Graphics.UI.FreeGame.Base (
     -- * Types
     UI(..)
-
+    ,Vec2
     -- * Basic operations
     ,tick
     ,bracket
@@ -28,6 +28,7 @@ module Graphics.UI.FreeGame.Base (
     ,liftUI
     ,_LiftUI
     ,getFPS
+
     -- * Classes
     ,Picture2D(..)
     ,rotate
@@ -71,6 +72,8 @@ infixr 5 `translate`
 infixr 5 `rotate`
 infixr 5 `scale`
 infixr 5 `colored`
+
+type Vec2 = V2 Float
 
 instance (Functor m) => MonadIO (F (UI m)) where
     liftIO = embedIO
@@ -148,8 +151,8 @@ class Picture2D p where
     rotateR :: Float -> p a -> p a
     -- | (degrees)
     rotateD :: Float -> p a -> p a
-    scale :: V2 Float -> p a -> p a
-    translate :: V2 Float -> p a -> p a
+    scale :: Vec2 -> p a -> p a
+    translate :: Vec2 -> p a -> p a
     colored :: Color -> p a -> p a
 
     rotateR = rotateD . (* 180) . (/ pi)
@@ -162,9 +165,9 @@ rotate = rotateD
 {-# DEPRECATED rotate "Use rotateD instead" #-} 
 
 class Picture2D p => Figure2D p where
-    line :: [V2 Float] -> p ()
-    polygon :: [V2 Float] -> p ()
-    polygonOutline :: [V2 Float] -> p ()
+    line :: [Vec2] -> p ()
+    polygon :: [Vec2] -> p ()
+    polygonOutline :: [Vec2] -> p ()
     circle :: Float -> p ()
     circleOutline :: Float -> p ()
     thickness :: Float -> p a -> p a
@@ -181,7 +184,7 @@ class Keyboard t where
 
 -- | The class of types that can handle inputs of the mouse.
 class Mouse t where
-    mousePosition :: t (V2 Float)
+    mousePosition :: t Vec2
     mouseWheel :: t Int
     mouseButtonL :: t Bool
     mouseButtonM :: t Bool
