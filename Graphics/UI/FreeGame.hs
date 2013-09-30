@@ -4,7 +4,7 @@ Copyright   :  (C) 2013 Fumiaki Kinoshita
 License     :  BSD-style (see the file LICENSE)
 Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
 
-free-game is a library that abstracts and purifies GUI applications with simple interfaces.
+This module just re-exports other submodules.
 -}
 module Graphics.UI.FreeGame
   ( -- * Examples

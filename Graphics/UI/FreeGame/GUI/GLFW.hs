@@ -164,11 +164,11 @@ runUI _ (PolygonOutline path r) = do
     liftIO $ GL.renderPrimitive GL.LineLoop $ runVertices path
     return r
 runUI _ (Circle r cont) = do
-    let s = 2 * pi / 64
+    let s = 2 * pi / r
     liftIO $ GL.renderPrimitive GL.Polygon $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
     return cont
 runUI _ (CircleOutline r cont) = do
-    let s = 2 * pi / 64
+    let s = 2 * pi / r
     liftIO $ GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
     return cont
 runUI f (Thickness t inner) = do
