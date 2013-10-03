@@ -13,6 +13,7 @@
 module Graphics.UI.FreeGame.Types (
     BoundingBox(..),
     inBoundingBox,
+    _Corners, 
     _TopLeft,
     _TopRight,
     _BottomLeft,
@@ -20,6 +21,7 @@ module Graphics.UI.FreeGame.Types (
     ) where
 
 import Linear.V2
+import Control.Applicative
 
 -- | 2D bounding box
 data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Read)
@@ -27,6 +29,11 @@ data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Folda
 -- | Determine whether the given point is in the 'BoundingBox'.
 inBoundingBox :: Ord a => V2 a -> BoundingBox a -> Bool
 inBoundingBox (V2 x y) (BoundingBox x0 y0 x1 y1) = x0 <= x && x <= x1 && y0 <= y && y <= y1
+
+-- | @'_Corners' :: Traversal' ('BoundingBox' a) ('V2' a)@
+_Corners :: Applicative f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
+_Corners f (BoundingBox x0 y0 x1 y1) = go <$> f (V2 x0 y0) <*> f (V2 x1 y0) <*> f (V2 x1 y1) <*> f (V2 x0 y1) where
+    go (V2 x0' _) (V2 _ y1') (V2 x2' _) (V2 _ y3') = BoundingBox x0' y1' x2' y3'
 
 -- | @'_TopLeft' :: Lens' ('BoundingBox' a) ('V2' a)@
 _TopLeft :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
@@ -43,6 +50,7 @@ _BottomLeft f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x0' y1') -> BoundingBox x0'
 -- | @'_BottomRight' :: Lens' ('BoundingBox' a) ('V2' a)@
 _BottomRight :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
 _BottomRight f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x1' y1') -> BoundingBox x0 y0 x1' y1') (f (V2 x1 y1))
+<<<<<<< HEAD
 
 data Key =
     KeyUnknown
@@ -167,3 +175,5 @@ data Key =
   | KeyRightSuper
   | KeyMenu
   deriving (Data, Enum, Eq, Ord, Read, Show, Typeable)
+=======
+>>>>>>> 37e5156... add _Corners
