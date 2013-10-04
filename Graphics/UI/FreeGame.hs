@@ -7,9 +7,7 @@ Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
 free-game is a library that abstracts and purifies GUI applications with simple interfaces.
 -}
 module Graphics.UI.FreeGame
-  ( -- * Examples
-    -- $example
-    -- * Main
+  ( -- * Main
     Game,
     runGame,
     def,
@@ -47,27 +45,25 @@ import Data.Color.Names
 import Linear hiding (rotate)
 
 -- | 'Game' is a "free" monad which describes GUIs.
--- This monad is an instance of 'Picture2D' so you can create it using 'fromBitmap' and can be transformed with 'translate', 'scale', 'rotate', 'colored'.
+-- This monad is an instance of 'Picture2D' so you can construct it using 'fromBitmap' and can be transformed with 'translate', 'scale', 'rotate', 'colored'.
 --
--- It is also an instance of 'Keyboard' and 'Mouse'.
+-- It is also an instance of 'Keyboard' and 'Mouse'. Note that 'mousePosition' returns a relative position. For example:
 --
--- You have to call 'tick' at the end of the current frame.
+-- > foo = foreverTick $ do
+-- >   p <- mousePosition
+-- >   translate p $ colored blue $ polygonOutline [V2 (-8) (-8), V2 8 (-8), V2 8 8, V2 (-8) 8]
+-- 
+-- When we run @foo@ using 'runGame', a blue square follows the cursor.
+-- And 'translate' (V2 240 240) @foo@, 'rotate' 45 @foo@, 'scale' 1.5 @foo@ also does in the same way.
 --
--- The only way to embody a 'Game' as a real thing is to apply 'runGame'.
+-- You have to call 'tick' at the end of the frame.
+--
+-- The only way to embody a 'Game' as a real stuff is to apply 'runGame'.
+--
+-- for more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
+
 type Game = F GUI
 
 -- | Run a 'Game'.
 runGame :: GUIParam -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
-
-{- $example
-
-> import Control.Monad
-> import Graphics.UI.FreeGame
-> main = runGame def $ forever tick
-
-shows a window and does nothing.
-
-for more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
-
--}

@@ -220,6 +220,7 @@ drawTextureAt tex a b c d = do
 mkVertex2 :: V2 Double -> GL.Vertex2 GL.GLdouble
 {-# INLINE mkVertex2 #-}
 mkVertex2 = unsafeCoerce
+{-# INLINE mkVertex2 #-}
 
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
