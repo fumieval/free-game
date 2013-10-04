@@ -267,6 +267,7 @@ mapSpecialKey KeyPadEnter = GLFW.KeyPadEnter
 
 mkVertex2 :: V2 Float -> GL.Vertex2 GL.GLfloat
 mkVertex2 = unsafeCoerce
+{-# INLINE mkVertex2 #-}
 
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
