@@ -42,6 +42,7 @@ import System.Directory
 import System.FilePath
 import System.IO.Unsafe
 import System.Random
+import System.Environment
 
 -- | An infinite loop that run 'tick' every frame after the given action.
 foreverTick :: MonadFree (UI n) m => m a -> m any
@@ -84,7 +85,7 @@ loadPictureFromFile :: (Picture2D p, MonadFree (UI n) m) => FilePath -> m (p ())
 loadPictureFromFile = embedIO . fmap fromBitmap . loadBitmapFromFile
 
 -- | The type of the given 'Name' must be @String -> IO String@
-loadBitmapsWith :: Name -> FilePath -> Q [Dec]
+loadBitmapsWith :: ExpQ -> FilePath -> Q [Dec]
 loadBitmapsWith getFullPath path = do
     loc <- (</>path) <$> takeDirectory <$> loc_filename <$> location
     paths <- runIO $ getFileList loc
@@ -98,13 +99,21 @@ loadBitmapsWith getFullPath path = do
     where
         load name fp = do
             runIO $ putStrLn $ "Defined: " ++ fp ++ " as `" ++ name ++ "'"
-            appE (varE 'unsafePerformIO) $ uInfixE (appE (varE getFullPath) (litE $ StringL fp))
+
+            appE (varE 'unsafePerformIO) $ uInfixE (appE getFullPath $ litE $ StringL fp)
                 (varE '(>>=))
                 (varE 'loadBitmapFromFile)
 
 -- | Load and define all pictures in the specified directory.
 loadBitmaps :: FilePath -> Q [Dec]
-loadBitmaps = loadBitmapsWith 'canonicalizePath
+loadBitmaps path = do
+    v <- newName "v"
+    loadBitmapsWith (lamE [varP v] $
+        appsE [varE 'fmap, uInfixE
+                    (infixE Nothing (varE '(</>)) (Just (varE v)))
+                    (varE '(.))
+                    (varE 'takeDirectory)
+                , varE 'getExecutablePath]) path
 
 getFileList :: FilePath -> IO [FilePath]
 getFileList path = do
