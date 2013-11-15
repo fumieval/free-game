@@ -7,12 +7,12 @@ import Control.Monad
 class MonadTick m where
     tick :: m ()
 
-newtype TickF f a = TickF { unUI :: forall r. (f r -> r) -> (r -> r) -> (a -> r) -> r } deriving Functor
+newtype TickM f a = TickM { unUI :: forall r. (f r -> r) -> (r -> r) -> (a -> r) -> r } deriving Functor
 
 instance Functor f => MonadFree f (ReifiedUI f) where
     wrap = WrapUI
 
-data TickFree f a = Wrap (f (TickFree f a)) | Tick (TickFree f a) | Pure a deriving Functor
+data TickM f a = Wrap (f (TickFree f a)) | Tick (TickFree f a) | Pure a deriving Functor
 
 instance Functor f => Monad (TickFree f) where
     return = PureUI

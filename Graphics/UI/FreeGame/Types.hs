@@ -22,9 +22,14 @@ module Graphics.UI.FreeGame.Types (
 
 import Linear.V2
 import Control.Applicative
+import Data.Foldable
+import Data.Traversable
+import Data.Typeable
 
 -- | 2D bounding box
-data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Read)
+data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Read, Typeable)
+
+type Vec2 = V2 Float
 
 -- | Determine whether the given point is in the 'BoundingBox'.
 inBoundingBox :: Ord a => V2 a -> BoundingBox a -> Bool
@@ -50,7 +55,6 @@ _BottomLeft f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x0' y1') -> BoundingBox x0'
 -- | @'_BottomRight' :: Lens' ('BoundingBox' a) ('V2' a)@
 _BottomRight :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
 _BottomRight f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x1' y1') -> BoundingBox x0 y0 x1' y1') (f (V2 x1 y1))
-<<<<<<< HEAD
 
 data Key =
     KeyUnknown
@@ -174,6 +178,4 @@ data Key =
   | KeyRightAlt
   | KeyRightSuper
   | KeyMenu
-  deriving (Data, Enum, Eq, Ord, Read, Show, Typeable)
-=======
->>>>>>> 37e5156... add _Corners
+  deriving (Enum, Eq, Ord, Read, Show, Typeable)

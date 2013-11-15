@@ -44,7 +44,7 @@ import Data.Color
 import Data.Color.Names
 import Linear hiding (rotate)
 
--- | 'Game' is a "free" monad which describes GUIs.
+-- | 'Game' is a "free" monad which describes GAMEs.
 -- This monad is an instance of 'Picture2D' so you can construct it using 'fromBitmap' and can be transformed with 'translate', 'scale', 'rotate', 'colored'.
 --
 -- It is also an instance of 'Keyboard' and 'Mouse'. Note that 'mousePosition' returns a relative position. For example:

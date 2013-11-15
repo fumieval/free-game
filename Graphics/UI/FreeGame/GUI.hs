@@ -28,7 +28,7 @@ import Control.Applicative
 import Data.Default
 import Data.Color
 
-data GUI a = Draw (forall m. (Monad m, Figure2D m) => m a)
+data GUI a = Draw (forall m. (Monad m, Picture2D m) => m a)
     | FromFinalizer (FinalizerT IO a)
     | KeyState Key (Bool -> a)
     | MousePosition (Vec2 -> a)
@@ -36,7 +36,7 @@ data GUI a = Draw (forall m. (Monad m, Figure2D m) => m a)
     | MouseButtonL (Bool -> a)
     | MouseButtonM (Bool -> a)
     | MouseButtonR (Bool -> a)
- 
+
 cloneGUI :: (Picture2D f, Figure2D f, Keyboard f, Mouse f, FromFinalizer f, Functor f) => GUI a -> f a
 cloneGUI (FromBitmap bmp a) = a <$ fromBitmap bmp
 cloneGUI (FromFinalizer m) = fromFinalizer m
