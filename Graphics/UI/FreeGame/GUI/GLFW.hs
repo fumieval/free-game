@@ -56,7 +56,7 @@ runAction (Tick cont) = do
     liftIO $ do
         GL.matrixMode $= GL.Projection
         GLFW.swapBuffers
-        performGC
+        -- performGC
         t <- GLFW.getTime
         n <- readIORef (refFrame given)
         GLFW.sleep $ fromIntegral n / fromIntegral (_framePerSecond $ theParameter given) - t
