@@ -22,7 +22,6 @@ import Control.Concurrent
 data System = System
     { refFrameCounter :: IORef Int
     , refFPS :: IORef Int
-    , refTextures :: IORef (GL.TextureObject, Double, Double)
     , theFPS :: Int
     , theRegion :: BoundingBox Float
     , theWindow :: GLFW.Window

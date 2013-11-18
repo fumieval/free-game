@@ -47,13 +47,15 @@ data Window = Window
 runGame :: GUIParam -> F GUI a -> IO (Maybe a)
 runGame param m = launch param $ unUI m runGUI tickIO (return . Just)
 
+newtype TextureStorage = TextureStorage { getTextureStorage :: IORef (IM.IntMap (GL.TextureObject, Double, Double)) }
+
 instance Affine IO where
     translate = G.translate
     rotateD = G.rotateD
     scale = G.scale
     colored = G.colored
 
-instance Picture2D IO where
+instance Given TextureStorage => Picture2D IO where
     fromBitmap bmp@(BitmapData _ (Just h)) cont) = do
         m <- liftIO $ readIORef (refTextures given)
         case IM.lookup h m of
