@@ -58,4 +58,3 @@ class FromFinalizer m where
 
 instance FromFinalizer (FinalizerT IO) where
     fromFinalizer = id
-ｶ
