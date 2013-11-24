@@ -1,3 +1,4 @@
+module Graphics.UI.FreeGame.Class where
 
 import Linear
 import Control.Monad.Free.Class
@@ -11,7 +12,6 @@ class Affine p where
     rotateD :: Double -> p a -> p a
     scale :: Vec2 -> p a -> p a
     translate :: Vec2 -> p a -> p a
-    colored :: Color -> p a -> p a
 
     rotateR = rotateD . (* 180) . (/ pi)
     rotateD = rotateR . (/ 180) . (* pi)
@@ -26,28 +26,30 @@ class Affine p => Picture2D p where
     circle :: Double -> p ()
     circleOutline :: Double -> p ()
     thickness :: Float -> p a -> p a
+    colored :: Color -> p a -> p a
 
 class Affine p => Local p where
-    localize :: Vec2 -> p Vec2
-    globalize :: Vec2 -> p Vec2
--- | The class of types that can handle inputs of the keyboard.
+    getViewPort :: p (ViewPort a)
+
 class Keyboard t where
     keyState :: Key -> t Bool
+
+class Sound t where
+    play :: Wave -> t ()
 
 {-# DEPRECATED keySpecial "Use keyState instead" #-}
 keySpecial :: Keyboard t => SpecialKey -> t Bool
 keySpecial = keyState
 
-{-# DEPRECATED keySpecial "Use keyState instead" #-}
+{-# DEPRECATED keyChar "Use keyState instead" #-}
 keyChar :: Keyboard t => Char -> t Bool
 keyChar = undefined
 
 {-# DEPRECATED fromBitmap "Use bitmap instead" #-}
 fromBitmap = bitmap
 
--- | The class of types that can handle inputs of the mouse.
 class Mouse t where
-    mousePosition :: t Vec2
+    globalMousePosition :: t Vec2
     mouseWheel :: t Int
     mouseButtonL :: t Bool
     mouseButtonM :: t Bool

@@ -9,7 +9,7 @@ module Graphics.UI.FreeGame.Data.Wave (
 import Data.Hashable
 import System.Random
 
-data Wave = WaveData [(Float, Float)] Int
+data Wave = WaveData [V2 Float] Int
 
 -- | @'_WaveData' :: Lens' 'Wave' [(Float, Float)]@
 _WaveData :: Functor f => ([(Float, Float)] -> f [(Float, Float)]) -> Wave -> f Wave
@@ -24,3 +24,5 @@ toWave w = WaveData w (hash w)
 
 makeWave :: [(Float, Float)] -> IO Wave
 makeWave w = fmap (WaveData w) randomIO
+
+newtype Voice = Voice Int

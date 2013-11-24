@@ -157,8 +157,8 @@ endFrame sys = do
         then GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
         else writeIORef (refFrameCounter sys) (succ n)
 
-withGLFW :: String -> Bool -> Int -> Int -> Color -> IO a -> IO a
-withGLFW title windowed ww wh color m = do
+withGLFW :: String -> Bool -> Bool -> Int -> Int -> Color -> IO a -> IO a
+withGLFW title windowed cur ww wh color m = do
     () <- unlessM GLFW.init (fail "Failed to initialize")
 
     mon <- if windowed then GLFW.getPrimaryMonitor else return Nothing

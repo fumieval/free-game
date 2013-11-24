@@ -91,4 +91,4 @@ cropBitmap :: Bitmap -- ^original bitmap
     -> (Int, Int) -- ^width and height
     -> (Int, Int) -- ^x and y
     -> Bitmap -- ^result
-cropBitmap bmp (w, h) (x, y) = onBitmapWithHashable (w*4421,h*4441,x*3581,y*3571) (computeS . extract (Z :. y :. x :. 0) (Z :. h :. w :. 4)) bmp
+cropBitmap bmp (w, h) (x, y) = onBitmapWithHashable (w,h,x,y) (computeS . extract (Z :. y :. x :. 0) (Z :. h :. w :. 4)) bmp

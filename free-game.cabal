@@ -21,18 +21,18 @@ source-repository head
 library
   default-language:   Haskell2010
   exposed-modules:
-    Graphics.UI.FreeGame
-    Graphics.UI.FreeGame.Base
-    Graphics.UI.FreeGame.Data.Bitmap
-    Graphics.UI.FreeGame.Data.Wave
-    Graphics.UI.FreeGame.Data.Font
-    Graphics.UI.FreeGame.Text
-    Graphics.UI.FreeGame.GUI
-    Graphics.UI.FreeGame.GUI.GLFW
-    Graphics.UI.FreeGame.Internal.Finalizer
-    Graphics.UI.FreeGame.Internal.Raindrop
-    Graphics.UI.FreeGame.Types
-    Graphics.UI.FreeGame.Util
+    FreeGame
+    FreeGame.Base
+    FreeGame.Data.Bitmap
+    FreeGame.Data.Wave
+    FreeGame.Data.Font
+    FreeGame.Text
+    FreeGame.UI
+    FreeGame.Backend.GLFW
+    FreeGame.Internal.Finalizer
+    FreeGame.Internal.Raindrop
+    FreeGame.Types
+    FreeGame.Util
 
   ghc-options: -Wall -fexcess-precision -O2
 
@@ -59,4 +59,7 @@ library
     JuicyPixels-repa >= 0.5.1,
     data-default,
     colors == 0.1.*,
-    control-bool
+    control-bool,
+    artery,
+    dsp-artery,
+    dsp-artery-io

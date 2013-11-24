@@ -1,6 +1,7 @@
 {-# LANGUAGE Rank2Types, DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
+module Graphics.UI.FreeGame.Base where
 import Control.Monad.Free.Class
 import Control.Monad
 

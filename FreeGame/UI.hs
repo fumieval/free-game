@@ -10,13 +10,8 @@
 -- Portability :  non-portable
 -- Provides the "free" embodiment.
 ----------------------------------------------------------------------------
-module Graphics.UI.FreeGame.Free (
-    GUI
-    , GUIBase(..)
-    , _Draw
-    , _Input
-    , GUIInput(..)
-    , Picture(..)
+module Graphics.UI.FreeGame.UI (
+    UI(..)
     , GUIParam(..)
 ) where
 
@@ -28,7 +23,7 @@ import Control.Applicative
 import Data.Default
 import Data.Color
 
-data GUI a = Draw (forall m. (Monad m, Picture2D m) => m a)
+data UI a = Draw (forall m. (Monad m, Picture2D m) => m a)
     | FromFinalizer (FinalizerT IO a)
     | KeyState Key (Bool -> a)
     | MousePosition (Vec2 -> a)
@@ -36,41 +31,38 @@ data GUI a = Draw (forall m. (Monad m, Picture2D m) => m a)
     | MouseButtonL (Bool -> a)
     | MouseButtonM (Bool -> a)
     | MouseButtonR (Bool -> a)
+    | Play Wave a
 
-cloneGUI :: (Picture2D f, Figure2D f, Keyboard f, Mouse f, FromFinalizer f, Functor f) => GUI a -> f a
-cloneGUI (FromBitmap bmp a) = a <$ fromBitmap bmp
-cloneGUI (FromFinalizer m) = fromFinalizer m
-cloneGUI (KeyChar ch cont) = cont <$> keyChar ch
-cloneGUI (KeySpecial ch cont) = cont <$> keySpecial ch
-cloneGUI (MousePosition cont) = cont <$> mousePosition
-cloneGUI (MouseWheel cont) = cont <$> mouseWheel
-cloneGUI (MouseButtonL cont) = cont <$> mouseButtonL
-cloneGUI (MouseButtonM cont) = cont <$> mouseButtonM
-cloneGUI (MouseButtonR cont) = cont <$> mouseButtonR
+_Draw :: Applicative f => (forall m. (Monad m, Picture2D m) => m a -> f (m a)) -> UI a -> f (UI a)
+_Draw f (Draw m) = fmap Draw (f m)
+_Draw f x = pure x
 
-instance Picture2D GUI where
-    fromBitmap = flip LiftBitmap ()
-    rotateD = RotateD
-    scale = Scale
-    translate = Translate
-    colored = Colored
+instance Affine UI where
+    translate v = over _Draw (translate v)
+    rotateR t = over _Draw (rotateR t)
+    rotateD t = over _Draw (rotateD t)
+    scale v = over _Draw (scale v)
 
-instance Figure2D GUI where
-    line = flip Line ()
-    polygon = flip Polygon ()
-    polygonOutline = flip PolygonOutline ()
-    circle = flip Circle ()
-    circleOutline = flip CircleOutline ()
-    thickness = Thickness
+instance Picture2D UI where
+    bitmap x = Draw (bitmap x)
+    line vs = Draw (line vs)
+    polygon vs = Draw (polygon vs)
+    polygonOutline vs = Draw (polygonOutline vs)
+    circle r = Draw (circle r)
+    circleOutline r = Draw (circleOutline r)
+    thickness t = over _Draw (thickness t)
+    color c = over _Draw (color c)
 
-instance FromFinalizer GUI where
+instance Local UI where
+    getViewPort = Draw getViewPort
+
+instance FromFinalizer UI where
     fromFinalizer = PictureWithFinalizer
 
-instance Keyboard GUI where
-    keyChar x = ICharKey x id
-    keySpecial x = ISpecialKey x id
+instance Keyboard UI where
+    keyState x = KeyState x id
 
-instance Mouse GUI where
+instance Mouse UI where
     mousePosition = MousePosition id
     mouseWheel = MouseWheel id
     mouseButtonL = MouseButtonL id
@@ -80,21 +72,19 @@ instance Mouse GUI where
 -- | Parameters of the application.
 data GUIParam = GUIParam
     { _framePerSecond :: Int
-    , _windowSize :: V2 Int
     , _windowTitle :: String
     , _windowed :: Bool
     , _cursorVisible :: Bool
     , _clearColor :: Color
-    , _windowOrigin :: V2 Double
+    , _windowRegion :: BoundingBox Double
     } deriving Show
 
 instance Default GUIParam where
     def = GUIParam
         { _framePerSecond = 60
-        , _windowSize = V2 640 480
         , _windowTitle = "free-game"
         , _windowed = True
         , _cursorVisible = True
         , _clearColor = Color 1 1 1 1
-        , _windowOrigin = V2 0 0
+        , _windowRegion = V2 0 0 640 480
         }
