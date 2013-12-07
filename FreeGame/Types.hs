@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.UI.FreeGame.Types
+-- Module      :  FreeGame.Types
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -10,7 +10,8 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-module Graphics.UI.FreeGame.Types (
+module FreeGame.Types (
+    Vec2,
     BoundingBox(..),
     inBoundingBox,
     _Corners, 
@@ -18,6 +19,8 @@ module Graphics.UI.FreeGame.Types (
     _TopRight,
     _BottomLeft,
     _BottomRight
+    , Configuration(..)
+    , Key(..)
     ) where
 
 import Linear.V2
@@ -25,11 +28,12 @@ import Control.Applicative
 import Data.Foldable
 import Data.Traversable
 import Data.Typeable
+import Data.Color
 
 -- | 2D bounding box
 data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Read, Typeable)
 
-type Vec2 = V2 Float
+type Vec2 = V2 Double
 
 -- | Determine whether the given point is in the 'BoundingBox'.
 inBoundingBox :: Ord a => V2 a -> BoundingBox a -> Bool
@@ -55,6 +59,13 @@ _BottomLeft f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x0' y1') -> BoundingBox x0'
 -- | @'_BottomRight' :: Lens' ('BoundingBox' a) ('V2' a)@
 _BottomRight :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
 _BottomRight f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x1' y1') -> BoundingBox x0 y0 x1' y1') (f (V2 x1 y1))
+
+data Configuration = FPS Int
+    | Title String
+    | FullScreen String
+    | CursorVisibility Bool
+    | ClearColor Color
+    | Region (BoundingBox Int)
 
 data Key =
     KeyUnknown

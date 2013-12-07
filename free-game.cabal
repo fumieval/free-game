@@ -22,7 +22,6 @@ library
   default-language:   Haskell2010
   exposed-modules:
     FreeGame
-    FreeGame.Base
     FreeGame.Data.Bitmap
     FreeGame.Data.Wave
     FreeGame.Data.Font
@@ -31,6 +30,7 @@ library
     FreeGame.Backend.GLFW
     FreeGame.Internal.Finalizer
     FreeGame.Internal.Raindrop
+    FreeGame.Internal.GLFW
     FreeGame.Types
     FreeGame.Util
 

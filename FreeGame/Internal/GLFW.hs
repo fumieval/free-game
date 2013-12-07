@@ -1,23 +1,22 @@
-module Graphics.UI.FreeGame.Internal.GLFW where
+module FreeGame.Internal.GLFW where
 
-import qualified Graphics.UI.GLFW as GLFW
-import Unsafe.Coerce
-
-import qualified Data.Array.Repa.Repr.ForeignPtr as RF
+import Control.Bool
+import Control.Concurrent
+import Control.Monad.IO.Class
+import Data.Color
+import Data.IORef
 import Foreign.ForeignPtr
-import qualified Graphics.Rendering.OpenGL.GL as GL
+import FreeGame.Data.Bitmap
+import FreeGame.Internal.Finalizer
+import FreeGame.Types
 import Graphics.Rendering.OpenGL.GL.StateVar
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
-import Data.Color
-import Graphics.UI.FreeGame.Internal.Finalizer
-import Graphics.UI.FreeGame.Data.Bitmap
-import Graphics.UI.FreeGame.Types
 import Linear
-import Data.IORef
+import qualified Data.Array.Repa.Repr.ForeignPtr as RF
+import qualified Graphics.Rendering.OpenGL.GL as GL
+import qualified Graphics.UI.GLFW as GLFW
 import System.Mem
-import Control.Bool
-import Control.Monad.IO.Class
-import Control.Concurrent
+import Unsafe.Coerce
 
 data System = System
     { refFrameCounter :: IORef Int
@@ -27,10 +26,16 @@ data System = System
     , theWindow :: GLFW.Window
     }
 
+type Texture = (GL.TextureObject, Double, Double)
+
 fromKeyState :: GLFW.KeyState -> Bool
 fromKeyState GLFW.KeyState'Pressed = True
 fromKeyState GLFW.KeyState'Released = False
 fromKeyState GLFW.KeyState'Repeating = True
+
+fromMouseButtonState :: GLFW.MouseButtonState -> Bool
+fromMouseButtonState GLFW.MouseButtonState'Pressed = True
+fromMouseButtonState GLFW.MouseButtonState'Released = False
 
 runVertices :: MonadIO m => [V2 Double] -> m ()
 runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)
@@ -43,7 +48,7 @@ preservingMatrix' m = do
     liftIO glPopMatrix
     return r
 
-drawTexture :: (GL.TextureObject, Double, Double) -> IO ()
+drawTexture :: Texture -> IO ()
 drawTexture (tex, w, h) = drawTextureAt tex (V2 (-w) (-h)) (V2 w (-h)) (V2 w h) (V2 (-w) h)
 {-# INLINE drawTexture #-}
 
@@ -123,17 +128,19 @@ thickness t m = do
     liftIO $ GL.lineWidth $= oldWidth
     return res
 
-installTexture :: Bitmap -> FinalizerT IO (GL.TextureObject, Double, Double)
+installTexture :: Bitmap -> IO Texture
 installTexture bmp@(BitmapData ar _) = do
-    [tex] <- liftIO $ GL.genObjectNames 1
-    liftIO $ GL.textureBinding GL.Texture2D GL.$= Just tex
+    [tex] <- GL.genObjectNames 1
+    GL.textureBinding GL.Texture2D GL.$= Just tex
     let (width, height) = bitmapSize bmp
     let siz = GL.TextureSize2D (gsizei width) (gsizei height)
-    liftIO $ withForeignPtr (RF.toForeignPtr ar)
+    withForeignPtr (RF.toForeignPtr ar)
         $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 siz 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
-    finalizer $ GL.deleteObjectNames [tex]
     return (tex, fromIntegral width / 2, fromIntegral height / 2)
+
+releaseTexture :: Texture -> IO ()
+releaseTexture (tex, _, _) = GL.deleteObjectNames [tex]
 
 beginFrame :: System -> IO ()
 beginFrame sys = do
@@ -157,8 +164,13 @@ endFrame sys = do
         then GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
         else writeIORef (refFrameCounter sys) (succ n)
 
-withGLFW :: String -> Bool -> Bool -> Int -> Int -> Color -> IO a -> IO a
-withGLFW title windowed cur ww wh color m = do
+withGLFW :: (GLFW.Window -> IO a) -> IO a
+withGLFW m = do
+    let title = "free-game"
+        windowed = True
+        cur = True
+        ww = 640
+        wh = 480
     () <- unlessM GLFW.init (fail "Failed to initialize")
 
     mon <- if windowed then GLFW.getPrimaryMonitor else return Nothing
@@ -171,9 +183,9 @@ withGLFW title windowed cur ww wh color m = do
     GL.shadeModel $= GL.Flat
     GL.textureFunction $= GL.Combine
 
-    GL.clearColor $= unsafeCoerce color
+    GL.clearColor $= GL.Color4 1 1 1 1
 
-    res <- m
+    res <- m win
 
     GLFW.destroyWindow win
     GLFW.terminate

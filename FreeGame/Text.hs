@@ -1,12 +1,11 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, DeriveFunctor #-}
-module Graphics.UI.FreeGame.Text (TextF(..), TextT, runTextT, runTextT_, text) where
+module FreeGame.Text (TextF(..), TextT, runTextT, runTextT_, text) where
 
 import Data.String
-import Graphics.UI.FreeGame.Base
-import Graphics.UI.FreeGame.Types
-import Graphics.UI.FreeGame.Internal.Raindrop
-import Graphics.UI.FreeGame.Data.Font
-import Graphics.UI.FreeGame.Data.Bitmap
+import FreeGame.Types
+import FreeGame.Internal.Raindrop
+import FreeGame.Data.Font
+import FreeGame.Data.Bitmap
 import Control.Monad.Trans.Free
 import Control.Monad.State
 import Linear

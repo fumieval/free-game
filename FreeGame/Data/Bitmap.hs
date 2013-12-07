@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.UI.FreeGame.Data.Bitmap
+-- Module      :  FreeGame.Data.Bitmap
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -11,7 +11,7 @@
 -- Manipulating bitmaps
 ----------------------------------------------------------------------------
 
-module Graphics.UI.FreeGame.Data.Bitmap (
+module FreeGame.Data.Bitmap (
     -- * Basic types and functions
     Bitmap(..)
     , _BitmapArray

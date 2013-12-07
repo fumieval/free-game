@@ -28,7 +28,6 @@ import Data.Array.Repa.Eval
 import qualified Data.Map as M
 import Data.Word
 import Linear
-import Graphics.UI.FreeGame.Base
 import Graphics.UI.FreeGame.Types
 import Graphics.UI.FreeGame.Data.Bitmap
 import Graphics.UI.FreeGame.Internal.Finalizer

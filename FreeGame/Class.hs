@@ -1,9 +1,22 @@
-module Graphics.UI.FreeGame.Class where
+{-# LANGUAGE BangPatterns, FlexibleInstances #-}
+module FreeGame.Class where
 
 import Linear
+
+import Control.Applicative
 import Control.Monad.Free.Class
 import Control.Monad.Free.Church
 import qualified Control.Monad.Free as Free
+import Unsafe.Coerce
+import FreeGame.Types
+import FreeGame.Data.Bitmap
+import FreeGame.Data.Wave
+import FreeGame.Internal.Finalizer
+import Data.Color
+import Control.Monad.IO.Class
+
+class FromFile a where
+    fromFile :: MonadIO m => FilePath -> m a
 
 class Affine p where
     -- | (radians)
@@ -37,6 +50,8 @@ class Keyboard t where
 class Sound t where
     play :: Wave -> t ()
 
+{-
+
 {-# DEPRECATED keySpecial "Use keyState instead" #-}
 keySpecial :: Keyboard t => SpecialKey -> t Bool
 keySpecial = keyState
@@ -45,7 +60,10 @@ keySpecial = keyState
 keyChar :: Keyboard t => Char -> t Bool
 keyChar = undefined
 
+-}
+
 {-# DEPRECATED fromBitmap "Use bitmap instead" #-}
+fromBitmap :: Picture2D p => Bitmap -> p ()
 fromBitmap = bitmap
 
 class Mouse t where
@@ -55,8 +73,30 @@ class Mouse t where
     mouseButtonM :: t Bool
     mouseButtonR :: t Bool
 
+mousePosition :: (Applicative f, Mouse f, Local f) => f Vec2
+mousePosition = (\v (ViewPort f _) -> f v) <$> globalMousePosition <*> getViewPort
+
 class FromFinalizer m where
     fromFinalizer :: FinalizerT IO a -> m a
 
 instance FromFinalizer (FinalizerT IO) where
     fromFinalizer = id
+
+data ViewPort a = ViewPort (Vec2 -> Vec2) (Vec2 -> Vec2)
+
+coerceViewPort :: ViewPort a -> ViewPort b
+coerceViewPort = unsafeCoerce
+
+flipViewPort :: ViewPort a -> ViewPort b
+flipViewPort (ViewPort f g) = ViewPort g f
+
+instance Affine ViewPort where
+    translate v (ViewPort f g) = ViewPort ((^+^v) . f) (g . (^-^v))
+    rotateR t (ViewPort f g) = ViewPort (rot2 t . f) (g . rot2 (-t))
+    scale v (ViewPort f g) = ViewPort ((*v) . f) (g . (/v))
+
+rot2 :: Floating a => a -> V2 a -> V2 a
+rot2 a (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
+    !d = a * (pi / 180) 
+    !p = cos d
+    !q = sin d

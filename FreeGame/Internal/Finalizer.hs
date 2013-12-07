@@ -1,5 +1,5 @@
 {-# LANGUAGE Rank2Types #-}
-module Graphics.UI.FreeGame.Internal.Finalizer (FinalizerT(..), finalizer, runFinalizerT) where
+module FreeGame.Internal.Finalizer (FinalizerT(..), finalizer, runFinalizerT) where
 
 import Control.Monad.IO.Class
 import Control.Applicative

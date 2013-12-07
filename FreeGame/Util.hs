@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, TemplateHaskell #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.UI.FreeGame.Util
+-- Module      :  FreeGame.Util
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -11,7 +11,7 @@
 --
 ----------------------------------------------------------------------------
 
-module Graphics.UI.FreeGame.Util (
+module FreeGame.Util (
     -- * Controlling
     foreverTick,
     untick,
@@ -34,8 +34,7 @@ import Control.Monad
 import Control.Monad.Free
 import Data.Char
 import Data.Void
-import Graphics.UI.FreeGame.Base
-import Graphics.UI.FreeGame.Data.Bitmap
+import FreeGame.Data.Bitmap
 import Language.Haskell.TH
 import Linear
 import System.Directory
@@ -57,18 +56,23 @@ angleV2 :: RealFloat a => V2 a -> a
 angleV2 (V2 a b) = atan2 b a
 
 -- | Extract the next frame of the action.
-untick :: (Functor n, MonadFree (UI n) m) => Free (UI n) a -> m (Either (Free (UI n) a) a)
-untick (Pure a) = return (Right a)
-untick (Free (Tick cont)) = return (Left cont)
-untick (Free f) = wrap $ fmap untick f
+untick :: MonadFree f m => IterT (F f) a -> m (Either (IterT (F f) a) a)
+untick = liftM go . runIterT where
+    go (Pure a) = Right a
+    go (Iter b) = Left b
+    {-# INLINE go #-}
 
 -- | An infinite version of 'untick'.
 untickInfinite :: (Functor n, MonadFree (UI n) m) => Free (UI n) Void -> m (Free (UI n) Void)
-untickInfinite = liftM (either id absurd) . untick
+untickInfinite = liftM go . runIterT where
+    go (Pure a) = absurd a
+    go (Iter b) = b
+    {-# INLINE go #-}
 
 -- | Get a given range of value.
 randomness :: (Random r, MonadFree (UI n) m) => (r, r) -> m r
-randomness = embedIO . randomRIO
+randomness r = embedIO (randomRIO r)
+{-# INLINE randomness #-}
 
 -- | Convert radians to degrees.
 degrees :: Float -> Float

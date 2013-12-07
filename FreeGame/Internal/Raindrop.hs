@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.UI.FreeGame.Internal.Raindrop
+-- Module      :  FreeGame.Internal.Raindrop
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -10,7 +10,7 @@
 --
 -- A portable implementation of lens(<http://hackage.haskell.org/package/lens>)
 ----------------------------------------------------------------------------
-module Graphics.UI.FreeGame.Internal.Raindrop (view, over) where
+module FreeGame.Internal.Raindrop (view, over) where
 
 import Data.Functor.Identity
 import Control.Monad.Reader
