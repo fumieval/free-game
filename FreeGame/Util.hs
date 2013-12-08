@@ -31,10 +31,15 @@ module FreeGame.Util (
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Free
+import Control.Monad.Trans
+import Control.Monad.Free.Class
+import Control.Monad.Trans.Iter
+import Control.Monad.Free.Church
 import Data.Char
 import Data.Void
 import FreeGame.Data.Bitmap
+import FreeGame.UI
+import FreeGame.Class
 import Language.Haskell.TH
 import Linear
 import System.Directory
@@ -44,8 +49,8 @@ import System.Random
 import System.Environment
 
 -- | An infinite loop that run 'tick' every frame after the given action.
-foreverTick :: MonadFree (UI n) m => m a -> m any
-foreverTick m = m >> (tick >> foreverTick m)
+foreverTick :: (Monad f, MonadFree f m) => m a -> m any
+foreverTick m = m >> delay (foreverTick m)
 
 -- | An unit vector with the specified angle.
 unitV2 :: Floating a => a -> V2 a
@@ -56,37 +61,37 @@ angleV2 :: RealFloat a => V2 a -> a
 angleV2 (V2 a b) = atan2 b a
 
 -- | Extract the next frame of the action.
-untick :: MonadFree f m => IterT (F f) a -> m (Either (IterT (F f) a) a)
-untick = liftM go . runIterT where
+untick :: (Functor f, MonadFree f m) => IterT (F f) a -> m (Either (IterT (F f) a) a)
+untick = liftM go . iterM wrap . runIterT where
     go (Pure a) = Right a
     go (Iter b) = Left b
     {-# INLINE go #-}
 
 -- | An infinite version of 'untick'.
-untickInfinite :: (Functor n, MonadFree (UI n) m) => Free (UI n) Void -> m (Free (UI n) Void)
-untickInfinite = liftM go . runIterT where
+untickInfinite :: (Functor f, MonadFree f m) => IterT (F f) Void -> m (IterT (F f) Void)
+untickInfinite = liftM go . iterM wrap . runIterT where
     go (Pure a) = absurd a
     go (Iter b) = b
     {-# INLINE go #-}
 
 -- | Get a given range of value.
-randomness :: (Random r, MonadFree (UI n) m) => (r, r) -> m r
-randomness r = embedIO (randomRIO r)
+randomness :: (Random r, FromFinalizer m) => (r, r) -> m r
+randomness r = fromFinalizer $ lift $ randomRIO r
 {-# INLINE randomness #-}
 
 -- | Convert radians to degrees.
-degrees :: Float -> Float
+degrees :: Floating a => a -> a
 {-# INLINE degrees #-}
 degrees x = x / pi * 180
 
 -- | Convert degrees to radians.
-radians :: Float -> Float
+radians :: Floating a => a -> a
 {-# INLINE radians #-}
 radians x = x / 180 * pi
 
 -- | Create a 'Picture' from the given file.
-loadPictureFromFile :: (Picture2D p, MonadFree (UI n) m) => FilePath -> m (p ())
-loadPictureFromFile = embedIO . fmap fromBitmap . loadBitmapFromFile
+loadPictureFromFile :: (Picture2D p, FromFinalizer m) => FilePath -> m (p ())
+loadPictureFromFile = embedIO . fmap bitmap . loadBitmapFromFile
 
 -- | The type of the given 'Name' must be @String -> IO String@
 loadBitmapsWith :: ExpQ -> FilePath -> Q [Dec]

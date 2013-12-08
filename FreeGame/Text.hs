@@ -6,6 +6,8 @@ import FreeGame.Types
 import FreeGame.Internal.Raindrop
 import FreeGame.Data.Font
 import FreeGame.Data.Bitmap
+import FreeGame.Class
+import FreeGame.Instances
 import Control.Monad.Trans.Free
 import Control.Monad.State
 import Linear
@@ -30,7 +32,7 @@ runTextT bbox font size = flip evalStateT (V2 x0 y0) . go where
             pen <- get
             let (w,h) = bitmapSize bmp
                 offset = pen ^+^ V2 (x + fromIntegral w / 2) (y + fromIntegral h / 2)
-            translate offset $ fromBitmap bmp
+            translate offset $ bitmap bmp
             let pen' = over _x (+adv) pen
             put $ if cond pen'
                 then pen'
@@ -39,7 +41,7 @@ runTextT bbox font size = flip evalStateT (V2 x0 y0) . go where
     advV = size * (metricsAscent font - metricsDescent font) * 1.1
     (V2 x0 y0, cond) = maybe (zero, const True) (\b -> (view _TopLeft b, flip inBoundingBox b)) bbox
 
-runTextT_ :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (BoundingBox Float) -> Font -> Float -> TextT m () -> m ()
+runTextT_ :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (BoundingBox Double) -> Font -> Double -> TextT m () -> m ()
 runTextT_ = runTextT
 {-# INLINE runTextT_ #-}
 

@@ -10,12 +10,14 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-module FreeGame.GUI.GLFW () where
+module FreeGame.Backend.GLFW (runGame) where
 import Control.Applicative
 import Control.Artery
+import Control.Bool
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.Free.Church
+import Control.Monad.Trans.Iter
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Data.IORef
@@ -25,48 +27,58 @@ import FreeGame.Data.Bitmap
 import FreeGame.Data.Wave
 import FreeGame.Internal.Finalizer
 import FreeGame.UI
+import FreeGame.Types
 import Linear
 import qualified Data.IntMap as IM
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
 import System.IO.Unsafe
 
-{-
 runGame :: IterT (F UI) a -> IO (Maybe a)
-runGame m = G.withGLFW $ runFinalizerT $ go m where
-    go m = do
-        r <- runIterT
--}
+runGame m = G.withGLFW 60 (BoundingBox 0 0 640 480)
+    $ \sys -> do
+        st <- newIORef IM.empty
+        ms <- newMVar []
+        runFinalizerT $ give (Stream ms) $ give (TextureStorage st) $ give sys $ go m
+    where
+        go :: (Given Stream, Given TextureStorage, Given G.System) => IterT (F UI) a -> FinalizerT IO (Maybe a)
+        go m = do
+            liftIO $ G.beginFrame given
+            r <- iterM runUI $ runIterT m
+            ifThenElseM (liftIO $ G.endFrame given) (return Nothing) $ case r of
+                Iter cont -> go cont
+                Pure a -> return (Just a)
 
 newtype TextureStorage = TextureStorage { getTextureStorage :: IORef (IM.IntMap G.Texture) }
 
 type DrawM = ReaderT (ViewPort ()) IO
 
-data Stream = Stream [V2 Float]
+newtype Stream = Stream { getStream :: MVar [V2 Float] }
 
-streamTap :: MVar Stream -> Artery IO () (V2 Float)
-streamTap mstr = effectful $ const $ do
-    Stream st <- takeMVar mstr
+streamTap :: Stream -> Artery IO () (V2 Float)
+streamTap (Stream mstr) = effectful $ const $ do
+    st <- takeMVar mstr
     case st of
-        [] -> putMVar mstr (Stream st) >> return zero
-        (x:xs) -> putMVar mstr (Stream xs) >> return x
+        [] -> putMVar mstr st >> return zero
+        (x:xs) -> putMVar mstr xs >> return x
 
-runUI :: forall a. Given TextureStorage => GLFW.Window -> MVar Stream -> UI (FinalizerT IO a) -> FinalizerT IO a
-runUI _ _ (Draw m) = do
+runUI :: forall a. (Given Stream, Given G.System, Given TextureStorage) => UI (FinalizerT IO a) -> FinalizerT IO a
+runUI (Draw m) = do
     v <- liftIO $ newIORef (return () :: IO ())
     cont <- liftIO $ give v $ runReaderT (m :: DrawM (FinalizerT IO a)) (ViewPort id id)
+    liftIO (readIORef v) >>= finalizer
     cont
 
-runUI w _ (KeyState k cont) = liftIO (GLFW.getKey w $ toEnum $ fromEnum k) >>= cont . G.fromKeyState
-runUI w _ (MouseButtonL cont) = liftIO (GLFW.getMouseButton w GLFW.MouseButton'1) >>= cont . G.fromMouseButtonState
-runUI w _ (MouseButtonR cont) = liftIO (GLFW.getMouseButton w GLFW.MouseButton'2) >>= cont . G.fromMouseButtonState
-runUI w _ (MouseButtonM cont) = liftIO (GLFW.getMouseButton w GLFW.MouseButton'3) >>= cont . G.fromMouseButtonState
+runUI (KeyState k cont) = liftIO (GLFW.getKey (G.theWindow given) $ toEnum $ fromEnum k) >>= cont . G.fromKeyState
+runUI (MouseButtonL cont) = liftIO (GLFW.getMouseButton (G.theWindow given) GLFW.MouseButton'1) >>= cont . G.fromMouseButtonState
+runUI (MouseButtonR cont) = liftIO (GLFW.getMouseButton (G.theWindow given) GLFW.MouseButton'2) >>= cont . G.fromMouseButtonState
+runUI (MouseButtonM cont) = liftIO (GLFW.getMouseButton (G.theWindow given) GLFW.MouseButton'3) >>= cont . G.fromMouseButtonState
 -- runUI _ _ (MouseWheel cont) = GLFW.getMouseWheel >>= cont
-runUI w _ (MousePosition cont) = do
-    (x, y) <- liftIO $ GLFW.getCursorPos w
+runUI (MousePosition cont) = do
+    (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)
     cont $ V2 x y
-runUI _ mstr (Play (WaveData w _) cont) = do
-    liftIO $ takeMVar mstr >>= \(Stream st) -> putMVar mstr $ Stream (go st w)
+runUI (Play (WaveData w _) cont) = do
+    liftIO $ takeMVar (getStream given) >>= \st -> putMVar (getStream given) $ go st w
     cont
     where
         go (x:xs) (y:ys) = x + y : go xs ys
@@ -99,7 +111,7 @@ instance (Given (IORef (IO ())), Given TextureStorage) => Picture2D DrawM where
     polygonOutline vs = liftIO (G.polygonOutline vs)
     line vs = liftIO (G.line vs)
     thickness t = mapReaderWith id (G.thickness t)
-    colored c= mapReaderWith id (G.colored c)
+    colored c = mapReaderWith id (G.colored c)
 
 instance Local DrawM where
     getViewPort = asks coerceViewPort

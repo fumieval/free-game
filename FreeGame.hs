@@ -10,14 +10,15 @@ module FreeGame
   ( -- * Main
     Game,
     runGame,
-    def,
     -- * Reexports
     module FreeGame.Data.Bitmap,
     module FreeGame.Data.Font,
-    module FreeGame.GUI,
+    module FreeGame.UI,
     module FreeGame.Util,
     module FreeGame.Text,
     module FreeGame.Types,
+    module FreeGame.Class,
+    module FreeGame.Instances,
     module Control.Monad,
     module Control.Applicative,
     module Control.Bool,
@@ -26,14 +27,17 @@ module FreeGame
     module Linear
 ) where
 
-import FreeGame.GUI (GUI, GUIParam(..))
+import FreeGame.UI (UI)
 import FreeGame.Util
 import FreeGame.Types
 import FreeGame.Text
+import FreeGame.Class
+import FreeGame.Instances
 import FreeGame.Data.Bitmap
 import FreeGame.Data.Font
-import qualified FreeGame.GUI.GLFW as GLFW
+import qualified FreeGame.Backend.GLFW as GLFW
 import Control.Monad.Free.Church
+import Control.Monad.Trans.Iter
 import Data.Default
 import Control.Monad
 import Control.Applicative
@@ -62,8 +66,12 @@ import Linear hiding (rotate)
 
 type Game = IterT (F UI)
 
+tick :: (Monad f, MonadFree f m) => m ()
 tick = delay (return ())
 
--- | Run a 'Game'.
-runGame :: GUIParam -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
+
+foo :: Game ()
+foo = foreverTick $ do
+    p <- mousePosition
+    translate p $ colored blue $ polygonOutline [V2 (-8) (-8), V2 8 (-8), V2 8 8, V2 (-8) 8]

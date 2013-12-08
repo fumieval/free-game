@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.UI.FreeGame.Data.Font
+-- Module      :  FreeGame.Data.Font
 -- Copyright   :  (C) 2013 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
@@ -10,7 +10,7 @@
 --
 -- Rendering characters
 ----------------------------------------------------------------------------
-module Graphics.UI.FreeGame.Data.Font 
+module FreeGame.Data.Font 
   ( Font
   , loadFont
   , fontBoundingBox
@@ -28,9 +28,10 @@ import Data.Array.Repa.Eval
 import qualified Data.Map as M
 import Data.Word
 import Linear
-import Graphics.UI.FreeGame.Types
-import Graphics.UI.FreeGame.Data.Bitmap
-import Graphics.UI.FreeGame.Internal.Finalizer
+import FreeGame.Types
+import FreeGame.Class
+import FreeGame.Data.Bitmap
+import FreeGame.Internal.Finalizer
 import Graphics.Rendering.FreeType.Internal
 import qualified Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
 import qualified Graphics.Rendering.FreeType.Internal.Vector as V

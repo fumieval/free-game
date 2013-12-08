@@ -44,6 +44,25 @@ class Affine p => Picture2D p where
 class Affine p => Local p where
     getViewPort :: p (ViewPort a)
 
+data ViewPort a = ViewPort (Vec2 -> Vec2) (Vec2 -> Vec2)
+
+coerceViewPort :: ViewPort a -> ViewPort b
+coerceViewPort = unsafeCoerce
+
+flipViewPort :: ViewPort a -> ViewPort b
+flipViewPort (ViewPort f g) = ViewPort g f
+
+instance Affine ViewPort where
+    translate v (ViewPort f g) = ViewPort ((^+^v) . f) (g . (^-^v))
+    rotateR t (ViewPort f g) = ViewPort (rot2 t . f) (g . rot2 (-t))
+    scale v (ViewPort f g) = ViewPort ((*v) . f) (g . (/v))
+
+rot2 :: Floating a => a -> V2 a -> V2 a
+rot2 a (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
+    !d = a * (pi / 180) 
+    !p = cos d
+    !q = sin d
+
 class Keyboard t where
     keyState :: Key -> t Bool
 
@@ -82,21 +101,6 @@ class FromFinalizer m where
 instance FromFinalizer (FinalizerT IO) where
     fromFinalizer = id
 
-data ViewPort a = ViewPort (Vec2 -> Vec2) (Vec2 -> Vec2)
-
-coerceViewPort :: ViewPort a -> ViewPort b
-coerceViewPort = unsafeCoerce
-
-flipViewPort :: ViewPort a -> ViewPort b
-flipViewPort (ViewPort f g) = ViewPort g f
-
-instance Affine ViewPort where
-    translate v (ViewPort f g) = ViewPort ((^+^v) . f) (g . (^-^v))
-    rotateR t (ViewPort f g) = ViewPort (rot2 t . f) (g . rot2 (-t))
-    scale v (ViewPort f g) = ViewPort ((*v) . f) (g . (/v))
-
-rot2 :: Floating a => a -> V2 a -> V2 a
-rot2 a (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
-    !d = a * (pi / 180) 
-    !p = cos d
-    !q = sin d
+embedIO :: FromFinalizer m => IO a -> m a
+embedIO m = fromFinalizer (liftIO m)
+{-# INLINE embedIO #-}

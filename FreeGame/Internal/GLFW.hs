@@ -2,6 +2,7 @@ module FreeGame.Internal.GLFW where
 
 import Control.Bool
 import Control.Concurrent
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.Color
 import Data.IORef
@@ -144,15 +145,15 @@ releaseTexture (tex, _, _) = GL.deleteObjectNames [tex]
 
 beginFrame :: System -> IO ()
 beginFrame sys = do
-    GL.clear [GL.ColorBuffer] 
+    GL.matrixMode $= GL.Projection
     GL.loadIdentity
     let BoundingBox wl wt wr wb = fmap realToFrac $ theRegion sys
     GL.ortho wl wr wb wt 0 (-100)
     GL.matrixMode $= GL.Modelview 0
+    GL.clear [GL.ColorBuffer]
 
-endFrame :: System -> IO ()
+endFrame :: System -> IO Bool
 endFrame sys = do
-    GL.matrixMode $= GL.Projection
     GLFW.swapBuffers $ theWindow sys
     GL.flush
     GLFW.pollEvents
@@ -163,29 +164,35 @@ endFrame sys = do
     if t > 1
         then GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
         else writeIORef (refFrameCounter sys) (succ n)
+    liftIO $ GLFW.windowShouldClose (theWindow sys)
 
-withGLFW :: (GLFW.Window -> IO a) -> IO a
-withGLFW m = do
+
+withGLFW :: Int -> BoundingBox Float -> (System -> IO a) -> IO a
+withGLFW fps bbox@(BoundingBox x0 y0 x1 y1) m = do
     let title = "free-game"
         windowed = True
         cur = True
-        ww = 640
-        wh = 480
+        ww = floor $ x1 - x0
+        wh = floor $ y1 - y0
     () <- unlessM GLFW.init (fail "Failed to initialize")
 
-    mon <- if windowed then GLFW.getPrimaryMonitor else return Nothing
+    mon <- bool GLFW.getPrimaryMonitor (return Nothing) windowed
 
     Just win <- GLFW.createWindow ww wh title mon Nothing
-
+    GLFW.makeContextCurrent (Just win)
     GL.lineSmooth $= GL.Enabled
     GL.blend      $= GL.Enabled
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
     GL.shadeModel $= GL.Flat
     GL.textureFunction $= GL.Combine
-
+    GLFW.swapInterval 1
     GL.clearColor $= GL.Color4 1 1 1 1
 
-    res <- m win
+    r0 <- newIORef 0
+    r1 <- newIORef 0
+    let sys = System r0 r1 fps bbox win
+
+    res <- m sys
 
     GLFW.destroyWindow win
     GLFW.terminate

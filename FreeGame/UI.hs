@@ -14,6 +14,7 @@ module FreeGame.UI (
     UI(..)
 ) where
 
+import Control.Monad
 import FreeGame.Class
 import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer
@@ -29,7 +30,7 @@ import Linear
 import Unsafe.Coerce
 
 data UI a =
-    Draw (forall m. (Monad m, Picture2D m, Local m) => m a)
+    Draw (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a)
     | FromFinalizer (FinalizerT IO a)
     | KeyState Key (Bool -> a)
     | MousePosition (Vec2 -> a)
@@ -38,9 +39,10 @@ data UI a =
     | MouseButtonM (Bool -> a)
     | MouseButtonR (Bool -> a)
     | Play Wave a
-    | Configure Configuration
+    | Configure Configuration a
+    deriving Functor
 
-overDraw :: (forall m. (Monad m, Picture2D m) => m a -> m a) -> UI a -> UI a
+overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)
 overDraw f x = x
 
@@ -75,4 +77,3 @@ instance Mouse UI where
     mouseButtonL = MouseButtonL id
     mouseButtonR = MouseButtonR id
     mouseButtonM = MouseButtonM id
-

@@ -2,6 +2,7 @@
 module FreeGame.Internal.Finalizer (FinalizerT(..), finalizer, runFinalizerT) where
 
 import Control.Monad.IO.Class
+import Control.Monad.Trans
 import Control.Applicative
 
 -- | An action with explicit releasing action.
@@ -26,6 +27,10 @@ instance Monad (FinalizerT m) where
 instance MonadIO m => MonadIO (FinalizerT m) where
     liftIO m = FinalizerT $ \r _ -> liftIO m >>= r
     {-# INLINE liftIO #-}
+
+instance MonadTrans FinalizerT where
+    lift m = FinalizerT $ \r _ -> m >>= r
+    {-# INLINE lift #-}
 
 -- | Run the action and run all associated finalizers.
 runFinalizerT :: MonadIO m => FinalizerT m a -> m a
