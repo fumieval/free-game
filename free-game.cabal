@@ -1,7 +1,7 @@
 name:                free-game
 version:             1.0
-synopsis:            games for free
-description:         free-game is a library that abstracts graphical applications with simple interfaces. Twitter: #hs_free_game
+synopsis:            Create games for free
+description:         free-game is a sophisticated library to develop 2D games. Twitter: #hs_free_game
 homepage:            https://github.com/fumieval/free-game/tree/maintainance0.9
 bug-reports:         https://github.com/fumieval/free-game/issues
 license:             BSD3
@@ -42,7 +42,7 @@ library
     containers >= 0.4,
     directory >= 1.0,
     filepath >= 1.3,
-    free >= 3.2 && < 5,
+    free >= 4.2 && < 5,
     repa,
     freetype2 >= 0.1,
     GLFW-b == 1.2.*,
