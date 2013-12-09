@@ -14,6 +14,7 @@ import FreeGame.Data.Wave
 import FreeGame.Internal.Finalizer
 import Data.Color
 import Control.Monad.IO.Class
+import qualified Data.Map as Map
 
 class FromFile a where
     fromFile :: MonadIO m => FilePath -> m a
@@ -64,7 +65,19 @@ rot2 a (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
     !q = sin d
 
 class Keyboard t where
-    keyState :: Key -> t Bool
+    keyStates :: t (Map.Map Key Bool)
+    previousKeyStates :: t (Map.Map Key Bool)
+
+keyPress :: (Functor f, Keyboard f) => Key -> f Bool
+keyPress k = (Map.! k) <$> keyStates
+
+keyDown :: (Applicative f, Keyboard f) => Key -> f Bool
+keyDown k = go <$> keyStates <*> previousKeyStates where
+    go m n = m Map.! k && not (n Map.! k)
+
+keyUp :: (Applicative f, Keyboard f) => Key -> f Bool
+keyUp k = go <$> keyStates <*> previousKeyStates where
+    go m n = not (m Map.! k) && n Map.! k
 
 class Sound t where
     play :: Wave -> t ()
@@ -87,13 +100,50 @@ fromBitmap = bitmap
 
 class Mouse t where
     globalMousePosition :: t Vec2
-    mouseWheel :: t Int
-    mouseButtonL :: t Bool
-    mouseButtonM :: t Bool
-    mouseButtonR :: t Bool
+    mouseButtons :: t (Map.Map Int Bool)
+    previousMouseButtons :: t (Map.Map Int Bool)
 
+-- | Returns the relative coordinate of the cursor.
 mousePosition :: (Applicative f, Mouse f, Local f) => f Vec2
 mousePosition = (\v (ViewPort f _) -> f v) <$> globalMousePosition <*> getViewPort
+
+mouseButton :: (Functor f, Mouse f) => Int -> f Bool
+mouseButton k = (Map.! k) <$> mouseButtons
+
+mouseDown :: (Applicative f, Mouse f) => Int -> f Bool
+mouseDown k = go <$> mouseButtons <*> previousMouseButtons where
+    go m n = m Map.! k && not (n Map.! k)
+
+mouseUp :: (Applicative f, Mouse f) => Int -> f Bool
+mouseUp k = go <$> mouseButtons <*> previousMouseButtons where
+    go m n = not (m Map.! k) && n Map.! k
+
+mouseButtonL :: (Functor f, Mouse f) => f Bool
+mouseButtonL = mouseButton 0
+
+mouseButtonR :: (Functor f, Mouse f) => f Bool
+mouseButtonR = mouseButton 1
+
+mouseButtonM :: (Functor f, Mouse f) => f Bool
+mouseButtonM = mouseButton 2
+
+mouseDownL :: (Applicative f, Mouse f) => f Bool
+mouseDownL = mouseDown 0
+
+mouseDownR :: (Applicative f, Mouse f) => f Bool
+mouseDownR = mouseDown 1
+
+mouseDownM :: (Applicative f, Mouse f) => f Bool
+mouseDownM = mouseDown 2
+
+mouseUpL :: (Applicative f, Mouse f) => f Bool
+mouseUpL = mouseUp 0
+
+mouseUpR :: (Applicative f, Mouse f) => f Bool
+mouseUpR = mouseUp 1
+
+mouseUpM :: (Applicative f, Mouse f) => f Bool
+mouseUpM = mouseUp 2
 
 class FromFinalizer m where
     fromFinalizer :: FinalizerT IO a -> m a

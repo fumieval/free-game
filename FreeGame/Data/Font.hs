@@ -12,6 +12,7 @@
 ----------------------------------------------------------------------------
 module FreeGame.Data.Font 
   ( Font
+  , loadFontFromFile
   , loadFont
   , fontBoundingBox
   , metricsAscent
@@ -51,8 +52,8 @@ import Unsafe.Coerce
 data Font = Font FT_Face (Double, Double) (BoundingBox Double) (IORef (M.Map (Double, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
-loadFont :: MonadIO m => FilePath -> m Font
-loadFont path = liftIO $ alloca $ \p -> do
+loadFontFromFile :: MonadIO m => FilePath -> m Font
+loadFontFromFile path = liftIO $ alloca $ \p -> do
     runFreeType $ withCString path $ \str -> ft_New_Face freeType str 0 p
     f <- peek p
     b <- peek (bbox f)
@@ -62,6 +63,9 @@ loadFont path = liftIO $ alloca $ \p -> do
     let box = BoundingBox (fromIntegral (xMin b)/u) (fromIntegral (yMin b)/u)
                           (fromIntegral (xMax b)/u) (fromIntegral (yMax b)/u)
     Font f (fromIntegral asc/u, fromIntegral desc/u) box <$> newIORef M.empty
+
+loadFont :: MonadIO m => FilePath -> m Font
+loadFont = loadFontFromFile
 
 -- | Get the font's metrics.
 metricsAscent :: Font -> Double

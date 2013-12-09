@@ -28,16 +28,16 @@ import Data.Default
 import Data.Color
 import Linear
 import Unsafe.Coerce
+import qualified Data.Map as Map
 
 data UI a =
     Draw (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a)
     | FromFinalizer (FinalizerT IO a)
-    | KeyState Key (Bool -> a)
+    | KeyStates (Map.Map Key Bool -> a)
+    | MouseButtons (Map.Map Int Bool -> a)
+    | PreviousKeyStates (Map.Map Key Bool -> a)
+    | PreviousMouseButtons (Map.Map Int Bool -> a)
     | MousePosition (Vec2 -> a)
-    | MouseWheel (Int -> a)
-    | MouseButtonL (Bool -> a)
-    | MouseButtonM (Bool -> a)
-    | MouseButtonR (Bool -> a)
     | Play Wave a
     | Configure Configuration a
     deriving Functor
@@ -69,11 +69,11 @@ instance FromFinalizer UI where
     fromFinalizer = FromFinalizer
 
 instance Keyboard UI where
-    keyState x = KeyState x id
+    keyStates = KeyStates id
+    previousKeyStates = PreviousKeyStates id
 
 instance Mouse UI where
     globalMousePosition = MousePosition id
-    mouseWheel = MouseWheel id
-    mouseButtonL = MouseButtonL id
-    mouseButtonR = MouseButtonR id
-    mouseButtonM = MouseButtonM id
+    -- mouseWheel = MouseWheel id
+    mouseButtons = MouseButtons id
+    previousMouseButtons = PreviousMouseButtons id

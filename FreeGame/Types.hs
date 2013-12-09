@@ -190,3 +190,7 @@ data Key =
   | KeyRightSuper
   | KeyMenu
   deriving (Enum, Eq, Ord, Read, Show, Typeable)
+
+instance Bounded Key where
+  minBound = KeyUnknown
+  maxBound = KeyMenu

@@ -30,6 +30,7 @@ import FreeGame.UI
 import FreeGame.Types
 import Linear
 import qualified Data.IntMap as IM
+import qualified Data.Map as Map
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
 import System.IO.Unsafe
@@ -39,10 +40,36 @@ runGame m = G.withGLFW 60 (BoundingBox 0 0 640 480)
     $ \sys -> do
         st <- newIORef IM.empty
         ms <- newMVar []
-        runFinalizerT $ give (Stream ms) $ give (TextureStorage st) $ give sys $ go m
+        keyBuffer <- newIORef $ Map.fromList $ zip [minBound..] (repeat False)
+        mouseBuffer <- newIORef $ Map.fromList $ zip [0..7] (repeat False)
+        keyBuffer' <- newIORef undefined
+        mouseBuffer' <- newIORef undefined
+        GLFW.setKeyCallback (G.theWindow sys) $ Just
+            $ \_ key _ st _ -> modifyIORef keyBuffer (Map.insert (toEnum $ fromEnum key) (G.fromKeyState st))
+        GLFW.setMouseButtonCallback (G.theWindow sys) $ Just
+            $ \_ btn st _ -> modifyIORef mouseBuffer (Map.insert (fromEnum btn) (G.fromMouseButtonState st))
+        -- setScrollCallback (G.theWindow sys)
+        runFinalizerT
+            $ give (RefKeyStates keyBuffer)
+            $ give (RefMouseButtonStates mouseBuffer)
+            $ give (Previous (RefKeyStates keyBuffer'))
+            $ give (Previous (RefMouseButtonStates mouseBuffer))
+            $ give (Stream ms)
+            $ give (TextureStorage st)
+            $ give sys
+            $ go m
     where
-        go :: (Given Stream, Given TextureStorage, Given G.System) => IterT (F UI) a -> FinalizerT IO (Maybe a)
+        go :: (Given Stream
+            , Given G.System
+            , Given TextureStorage
+            , Given KeyStates
+            , Given MouseButtonStates
+            , Given (Previous KeyStates)
+            , Given (Previous MouseButtonStates)
+            ) => IterT (F UI) a -> FinalizerT IO (Maybe a)
         go m = do
+            liftIO $ readIORef (getKeyStates given) >>= writeIORef (getKeyStates (getPrevious given))
+            liftIO $ readIORef (getMouseButtonStates given) >>= writeIORef (getMouseButtonStates (getPrevious given))
             liftIO $ G.beginFrame given
             r <- iterM runUI $ runIterT m
             ifThenElseM (liftIO $ G.endFrame given) (return Nothing) $ case r of
@@ -55,6 +82,11 @@ type DrawM = ReaderT (ViewPort ()) IO
 
 newtype Stream = Stream { getStream :: MVar [V2 Float] }
 
+newtype Previous a = Previous { getPrevious :: a }
+
+newtype KeyStates = RefKeyStates { getKeyStates :: IORef (Map.Map Key Bool) }
+newtype MouseButtonStates = RefMouseButtonStates { getMouseButtonStates :: IORef (Map.Map Int Bool) }
+
 streamTap :: Stream -> Artery IO () (V2 Float)
 streamTap (Stream mstr) = effectful $ const $ do
     st <- takeMVar mstr
@@ -62,17 +94,24 @@ streamTap (Stream mstr) = effectful $ const $ do
         [] -> putMVar mstr st >> return zero
         (x:xs) -> putMVar mstr xs >> return x
 
-runUI :: forall a. (Given Stream, Given G.System, Given TextureStorage) => UI (FinalizerT IO a) -> FinalizerT IO a
+runUI :: forall a.
+    ( Given Stream
+    , Given G.System
+    , Given TextureStorage
+    , Given KeyStates
+    , Given MouseButtonStates
+    , Given (Previous KeyStates)
+    , Given (Previous MouseButtonStates)
+    ) => UI (FinalizerT IO a) -> FinalizerT IO a
 runUI (Draw m) = do
     v <- liftIO $ newIORef (return () :: IO ())
     cont <- liftIO $ give v $ runReaderT (m :: DrawM (FinalizerT IO a)) (ViewPort id id)
     liftIO (readIORef v) >>= finalizer
     cont
-
-runUI (KeyState k cont) = liftIO (GLFW.getKey (G.theWindow given) $ toEnum $ fromEnum k) >>= cont . G.fromKeyState
-runUI (MouseButtonL cont) = liftIO (GLFW.getMouseButton (G.theWindow given) GLFW.MouseButton'1) >>= cont . G.fromMouseButtonState
-runUI (MouseButtonR cont) = liftIO (GLFW.getMouseButton (G.theWindow given) GLFW.MouseButton'2) >>= cont . G.fromMouseButtonState
-runUI (MouseButtonM cont) = liftIO (GLFW.getMouseButton (G.theWindow given) GLFW.MouseButton'3) >>= cont . G.fromMouseButtonState
+runUI (KeyStates cont) = liftIO (readIORef $ getKeyStates given) >>= cont
+runUI (MouseButtons cont) = liftIO (readIORef $ getMouseButtonStates given) >>= cont
+runUI (PreviousKeyStates cont) = liftIO (readIORef $ getKeyStates $ getPrevious given) >>= cont
+runUI (PreviousMouseButtons cont) = liftIO (readIORef $ getMouseButtonStates $ getPrevious given) >>= cont
 -- runUI _ _ (MouseWheel cont) = GLFW.getMouseWheel >>= cont
 runUI (MousePosition cont) = do
     (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)

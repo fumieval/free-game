@@ -4,12 +4,14 @@ module FreeGame.Data.Wave (
     , _WaveHash
     , toWave
     , makeWave
+    , loadWaveFromFile
 ) where
 
 import Data.Hashable
 import System.Random
 import Data.WAVE
 import Linear
+import Control.Monad.IO.Class
 
 instance Hashable a => Hashable (V2 a) where
     hashWithSalt s (V2 a b) = s `hashWithSalt` a `hashWithSalt` b
@@ -30,8 +32,8 @@ toWave w = WaveData w (hash w)
 makeWave :: [V2 Float] -> IO Wave
 makeWave w = fmap (WaveData w) randomIO
 
-loadWaveFromFile :: FilePath -> IO Wave
-loadWaveFromFile path = do
+loadWaveFromFile :: MonadIO m => FilePath -> m Wave
+loadWaveFromFile path = liftIO $ do
     WAVE h ss <- getWAVEFile path
     makeWave [V2 (f l) (f r) | [l, r] <- ss]
     where

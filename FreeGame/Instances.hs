@@ -20,6 +20,18 @@ import Data.Monoid
 import Control.Monad.Free.Church as Church
 import Control.Monad.Free as Free
 import FreeGame.Class
+import FreeGame.Data.Wave
+import FreeGame.Data.Bitmap
+import FreeGame.Data.Font
+
+instance FromFile Bitmap where
+    fromFile = loadBitmapFromFile
+
+instance FromFile Wave where
+    fromFile = loadWaveFromFile
+
+instance FromFile Font where
+    fromFile = loadFontFromFile
 
 #define _COMMA_ ,
 
@@ -44,19 +56,18 @@ import FreeGame.Class
     colored k = t (colored k); \
     }
 
-
 #define MK_LOCAL(cxt, ty, l) instance (Local m cxt) => Local (ty) where { \
     getViewPort = (l) getViewPort }
 
 #define MK_KEYBOARD(cxt, ty, l) instance (Keyboard m cxt) => Keyboard (ty) where { \
-    keyState = (l) . keyState }
+    keyStates = (l) keyStates; \
+    previousKeyStates = (l) previousKeyStates; }
 
 #define MK_MOUSE(cxt, ty, l) instance (Mouse m cxt) => Mouse (ty) where { \
     globalMousePosition = (l) globalMousePosition; \
-    mouseWheel = (l) mouseWheel; \
-    mouseButtonL = (l) mouseButtonL; \
-    mouseButtonR = (l) mouseButtonR; \
-    mouseButtonM = (l) mouseButtonM }
+    mouseButtons = (l) mouseButtons;\
+    previousMouseButtons = (l) previousMouseButtons; \
+    }
 
 #define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \
     fromFinalizer = (l) . fromFinalizer }

@@ -48,6 +48,7 @@ preservingMatrix' m = do
     r <- m
     liftIO glPopMatrix
     return r
+{-# INLINE preservingMatrix' #-}
 
 drawTexture :: Texture -> IO ()
 drawTexture (tex, w, h) = drawTextureAt tex (V2 (-w) (-h)) (V2 w (-h)) (V2 w h) (V2 (-w) h)
