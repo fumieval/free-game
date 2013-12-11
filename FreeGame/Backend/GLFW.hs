@@ -22,6 +22,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Data.IORef
 import Data.Reflection
+import Data.Default
 import FreeGame.Class
 import FreeGame.Data.Bitmap
 import FreeGame.Data.Wave
@@ -34,28 +35,30 @@ import qualified Data.Map as Map
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
 import System.IO.Unsafe
+import DSP.Artery.IO
+import Control.Artery
 
 runGame :: IterT (F UI) a -> IO (Maybe a)
 runGame m = G.withGLFW 60 (BoundingBox 0 0 640 480)
     $ \sys -> do
-        st <- newIORef IM.empty
-        ms <- newMVar []
+        texs <- newIORef IM.empty
+        str <- Stream <$> newMVar []
         keyBuffer <- newIORef $ Map.fromList $ zip [minBound..] (repeat False)
         mouseBuffer <- newIORef $ Map.fromList $ zip [0..7] (repeat False)
         keyBuffer' <- newIORef undefined
         mouseBuffer' <- newIORef undefined
         GLFW.setKeyCallback (G.theWindow sys) $ Just
-            $ \_ key _ st _ -> modifyIORef keyBuffer (Map.insert (toEnum $ fromEnum key) (G.fromKeyState st))
+            $ \_ key _ st _ -> modifyIORef' keyBuffer (Map.insert (toEnum $ fromEnum key) (G.fromKeyState st))
         GLFW.setMouseButtonCallback (G.theWindow sys) $ Just
-            $ \_ btn st _ -> modifyIORef mouseBuffer (Map.insert (fromEnum btn) (G.fromMouseButtonState st))
+            $ \_ btn st _ -> modifyIORef' mouseBuffer (Map.insert (fromEnum btn) (G.fromMouseButtonState st))
         -- setScrollCallback (G.theWindow sys)
-        runFinalizerT
+        withStream def (streamTap str) $ runFinalizerT
             $ give (RefKeyStates keyBuffer)
             $ give (RefMouseButtonStates mouseBuffer)
             $ give (Previous (RefKeyStates keyBuffer'))
             $ give (Previous (RefMouseButtonStates mouseBuffer))
-            $ give (Stream ms)
-            $ give (TextureStorage st)
+            $ give str
+            $ give (TextureStorage texs)
             $ give sys
             $ go m
     where
@@ -142,7 +145,7 @@ instance (Given (IORef (IO ())), Given TextureStorage) => Picture2D DrawM where
                 t <- G.installTexture bmp
                 writeIORef (getTextureStorage given) $ IM.insert h t m
                 G.drawTexture t
-                modifyIORef given $ (>>G.releaseTexture t) . (>>modifyIORef (getTextureStorage given) (IM.delete h))
+                modifyIORef given $ (>>G.releaseTexture t) . (>>modifyIORef' (getTextureStorage given) (IM.delete h))
     bitmap bmp@(BitmapData _ Nothing) = liftIO $ G.installTexture bmp >>= G.drawTexture
     circle r = liftIO (G.circle r)
     circleOutline r = liftIO (G.circleOutline r)

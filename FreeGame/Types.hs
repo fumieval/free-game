@@ -29,6 +29,7 @@ import Data.Foldable
 import Data.Traversable
 import Data.Typeable
 import Data.Color
+import Control.Artery
 
 -- | 2D bounding box
 data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Read, Typeable)
@@ -66,6 +67,7 @@ data Configuration = FPS Int
     | CursorVisibility Bool
     | ClearColor Color
     | Region (BoundingBox Int)
+    | MasterEffect (Artery IO (V2 Float) (V2 Float))
 
 data Key =
     KeyUnknown

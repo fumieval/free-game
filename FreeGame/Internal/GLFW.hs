@@ -167,7 +167,6 @@ endFrame sys = do
         else writeIORef (refFrameCounter sys) (succ n)
     liftIO $ GLFW.windowShouldClose (theWindow sys)
 
-
 withGLFW :: Int -> BoundingBox Float -> (System -> IO a) -> IO a
 withGLFW fps bbox@(BoundingBox x0 y0 x1 y1) m = do
     let title = "free-game"
