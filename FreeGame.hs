@@ -1,11 +1,13 @@
-{-|
-Module      :  FreeGame
-Copyright   :  (C) 2013 Fumiaki Kinoshita
-License     :  BSD-style (see the file LICENSE)
-Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
-
-free-game is a library that abstracts and purifies GUI applications with simple interfaces.
--}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  FreeGame
+-- Copyright   :  (C) 2013 Fumiaki Kinoshita
+-- License     :  BSD-style (see the file LICENSE)
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  non-portable
+----------------------------------------------------------------------------
 module FreeGame
   ( -- * Main
     Game,
@@ -32,13 +34,12 @@ import FreeGame.Util
 import FreeGame.Types
 import FreeGame.Text
 import FreeGame.Class
-import FreeGame.Instances
+import FreeGame.Instances ()
 import FreeGame.Data.Bitmap
 import FreeGame.Data.Font
 import qualified FreeGame.Backend.GLFW as GLFW
 import Control.Monad.Free.Church
 import Control.Monad.Trans.Iter
-import Data.Default
 import Control.Monad
 import Control.Applicative
 import Control.Bool
@@ -66,12 +67,5 @@ import Linear hiding (rotate)
 
 type Game = IterT (F UI)
 
-tick :: (Monad f, MonadFree f m) => m ()
-tick = delay (return ())
-
+runGame :: IterT (F UI) a -> IO (Maybe a)
 runGame = GLFW.runGame
-
-foo :: Game ()
-foo = foreverTick $ do
-    p <- mousePosition
-    translate p $ colored blue $ polygonOutline [V2 (-8) (-8), V2 8 (-8), V2 8 8, V2 (-8) 8]

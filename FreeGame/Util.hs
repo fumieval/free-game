@@ -13,6 +13,7 @@
 
 module FreeGame.Util (
     -- * Controlling
+    tick,
     foreverTick,
     untick,
     untickInfinite,
@@ -38,7 +39,6 @@ import Control.Monad.Free.Church
 import Data.Char
 import Data.Void
 import FreeGame.Data.Bitmap
-import FreeGame.UI
 import FreeGame.Class
 import Language.Haskell.TH
 import Linear
@@ -48,17 +48,13 @@ import System.IO.Unsafe
 import System.Random
 import System.Environment
 
+-- | Delimit the computation to yield a frame.
+tick :: (Monad f, MonadFree f m) => m ()
+tick = delay (return ())
+
 -- | An infinite loop that run 'tick' every frame after the given action.
 foreverTick :: (Monad f, MonadFree f m) => m a -> m any
 foreverTick m = m >> delay (foreverTick m)
-
--- | An unit vector with the specified angle.
-unitV2 :: Floating a => a -> V2 a
-unitV2 t = V2 (cos t) (sin t)
-
--- | An angle of the given vector.
-angleV2 :: RealFloat a => V2 a -> a
-angleV2 (V2 a b) = atan2 b a
 
 -- | Extract the next frame of the action.
 untick :: (Functor f, MonadFree f m) => IterT (F f) a -> m (Either (IterT (F f) a) a)
@@ -74,9 +70,17 @@ untickInfinite = liftM go . iterM wrap . runIterT where
     go (Iter b) = b
     {-# INLINE go #-}
 
+-- | An unit vector with the specified angle.
+unitV2 :: Floating a => a -> V2 a
+unitV2 t = V2 (cos t) (sin t)
+
+-- | An angle of the given vector.
+angleV2 :: RealFloat a => V2 a -> a
+angleV2 (V2 a b) = atan2 b a
+
 -- | Get a given range of value.
 randomness :: (Random r, FromFinalizer m) => (r, r) -> m r
-randomness r = fromFinalizer $ lift $ randomRIO r
+randomness r = embedIO $ randomRIO r
 {-# INLINE randomness #-}
 
 -- | Convert radians to degrees.

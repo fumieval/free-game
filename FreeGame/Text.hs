@@ -7,7 +7,7 @@ import FreeGame.Internal.Raindrop
 import FreeGame.Data.Font
 import FreeGame.Data.Bitmap
 import FreeGame.Class
-import FreeGame.Instances
+import FreeGame.Instances ()
 import Control.Monad.Trans.Free
 import Control.Monad.State
 import Linear

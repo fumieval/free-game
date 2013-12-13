@@ -1,12 +1,20 @@
 {-# LANGUAGE BangPatterns, FlexibleInstances #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  FreeGame.Class
+-- Copyright   :  (C) 2013 Fumiaki Kinoshita
+-- License     :  BSD-style (see the file LICENSE)
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  non-portable
+-- 
+----------------------------------------------------------------------------
 module FreeGame.Class where
 
 import Linear
 
 import Control.Applicative
-import Control.Monad.Free.Class
-import Control.Monad.Free.Church
-import qualified Control.Monad.Free as Free
 import Unsafe.Coerce
 import FreeGame.Types
 import FreeGame.Data.Bitmap
@@ -43,20 +51,20 @@ class Affine p => Picture2D p where
     colored :: Color -> p a -> p a
 
 class Affine p => Local p where
-    getViewPort :: p (ViewPort a)
+    getLocation :: p (Location a)
 
-data ViewPort a = ViewPort (Vec2 -> Vec2) (Vec2 -> Vec2)
+data Location a = Location (Vec2 -> Vec2) (Vec2 -> Vec2)
 
-coerceViewPort :: ViewPort a -> ViewPort b
-coerceViewPort = unsafeCoerce
+coerceLocation :: Location a -> Location b
+coerceLocation = unsafeCoerce
 
-flipViewPort :: ViewPort a -> ViewPort b
-flipViewPort (ViewPort f g) = ViewPort g f
+flipLocation :: Location a -> Location b
+flipLocation (Location f g) = Location g f
 
-instance Affine ViewPort where
-    translate v (ViewPort f g) = ViewPort ((^+^v) . f) (g . (^-^v))
-    rotateR t (ViewPort f g) = ViewPort (rot2 t . f) (g . rot2 (-t))
-    scale v (ViewPort f g) = ViewPort ((*v) . f) (g . (/v))
+instance Affine Location where
+    translate v (Location f g) = Location ((^+^v) . f) (g . (^-^v))
+    rotateR t (Location f g) = Location (rot2 t . f) (g . rot2 (-t))
+    scale v (Location f g) = Location ((*v) . f) (g . (/v))
 
 rot2 :: Floating a => a -> V2 a -> V2 a
 rot2 a (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
@@ -105,7 +113,7 @@ class Mouse t where
 
 -- | Returns the relative coordinate of the cursor.
 mousePosition :: (Applicative f, Mouse f, Local f) => f Vec2
-mousePosition = (\v (ViewPort f _) -> f v) <$> globalMousePosition <*> getViewPort
+mousePosition = (\v (Location f _) -> f v) <$> globalMousePosition <*> getLocation
 
 mouseButton :: (Functor f, Mouse f) => Int -> f Bool
 mouseButton k = (Map.! k) <$> mouseButtons

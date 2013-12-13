@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, ExistentialQuantification, Rank2Types #-}
+{-# LANGUAGE DeriveFunctor, ExistentialQuantification, Rank2Types, FlexibleContexts #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.UI
@@ -12,26 +12,22 @@
 ----------------------------------------------------------------------------
 module FreeGame.UI (
     UI(..)
+    , draw
+    , configure
 ) where
 
 import Control.Monad
+import Control.Monad.Free.Class
 import FreeGame.Class
-import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer
-import FreeGame.Internal.Raindrop
-import FreeGame.Data.Bitmap
 import FreeGame.Data.Wave
 import FreeGame.Types
-import Data.Color
 import Control.Applicative
-import Data.Default
-import Data.Color
-import Linear
-import Unsafe.Coerce
 import qualified Data.Map as Map
 
 data UI a =
     Draw (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a)
+    | PreloadBitmap Bitmap a
     | FromFinalizer (FinalizerT IO a)
     | KeyStates (Map.Map Key Bool -> a)
     | MouseButtons (Map.Map Int Bool -> a)
@@ -42,15 +38,31 @@ data UI a =
     | Configure Configuration a
     deriving Functor
 
+draw :: MonadFree UI m => (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) => m a
+draw m = wrap $ Draw (liftM return m)
+{-# INLINE draw #-}
+
+preloadBitmap :: MonadFree UI m => Bitmap -> m ()
+preloadBitmap bmp = wrap $ PreloadBitmap bmp $ return ()
+{-# INLINE preloadBitmap #-}
+
+configure :: MonadFree UI m => Configuration -> m ()
+configure conf = wrap $ Configure conf $ return ()
+{-# INLINE configure #-}
+
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)
-overDraw f x = x
+overDraw _ x = x
 
 instance Affine UI where
     translate v = overDraw (translate v)
+    {-# INLINE translate #-}
     rotateR t = overDraw (rotateR t)
+    {-# INLINE rotateR #-}
     rotateD t = overDraw (rotateD t)
+    {-# INLINE rotateD #-}
     scale v = overDraw (scale v)
+    {-# INLINE scale #-}
 
 instance Picture2D UI where
     bitmap x = Draw (bitmap x)

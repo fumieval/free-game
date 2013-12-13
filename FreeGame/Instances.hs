@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, Rank2Types #-}
 {-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module FreeGame.Instances () where
 
 import Control.Monad.Trans
@@ -72,7 +73,7 @@ instance FromFile Font where
 #define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \
     fromFinalizer = (l) . fromFinalizer }
 
-hoistF :: (Functor f, Functor g) => (forall a. f a -> g a) -> Church.F f a -> Church.F g a
+hoistF :: (Functor f, Functor g) => (forall x. f x -> g x) -> Church.F f a -> Church.F g a
 hoistF t = Church.iterM (wrap . t)
 {-# INLINE hoistF #-}
 

@@ -13,6 +13,8 @@ category:            Graphics, Monads
 build-type:          Simple
 stability:           experimental
 cabal-version:       >=1.10
+data-files:          VL-PGothic-Regular.ttf
+
 
 source-repository head
   type: git

@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, Rank2Types, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, Rank2Types #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.Backend.GLFW
@@ -6,7 +8,7 @@
 -- License     :  BSD-style (see the file LICENSE)
 --
 -- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
- -- Stability   :  experimental
+-- Stability   :  experimental
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
@@ -15,7 +17,6 @@ import Control.Applicative
 import Control.Artery
 import Control.Bool
 import Control.Concurrent.MVar
-import Control.Monad
 import Control.Monad.Free.Church
 import Control.Monad.Trans.Iter
 import Control.Monad.IO.Class
@@ -34,12 +35,9 @@ import qualified Data.IntMap as IM
 import qualified Data.Map as Map
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
-import System.IO.Unsafe
 import DSP.Artery.IO
-import Control.Artery
-
 runGame :: IterT (F UI) a -> IO (Maybe a)
-runGame m = G.withGLFW 60 (BoundingBox 0 0 640 480)
+runGame m_ = G.withGLFW 60 (BoundingBox 0 0 640 480)
     $ \sys -> do
         texs <- newIORef IM.empty
         str <- Stream <$> newMVar []
@@ -56,11 +54,11 @@ runGame m = G.withGLFW 60 (BoundingBox 0 0 640 480)
             $ give (RefKeyStates keyBuffer)
             $ give (RefMouseButtonStates mouseBuffer)
             $ give (Previous (RefKeyStates keyBuffer'))
-            $ give (Previous (RefMouseButtonStates mouseBuffer))
+            $ give (Previous (RefMouseButtonStates mouseBuffer'))
             $ give str
             $ give (TextureStorage texs)
             $ give sys
-            $ go m
+            $ go m_
     where
         go :: (Given Stream
             , Given G.System
@@ -81,7 +79,7 @@ runGame m = G.withGLFW 60 (BoundingBox 0 0 640 480)
 
 newtype TextureStorage = TextureStorage { getTextureStorage :: IORef (IM.IntMap G.Texture) }
 
-type DrawM = ReaderT (ViewPort ()) IO
+type DrawM = ReaderT (Location ()) IO
 
 newtype Stream = Stream { getStream :: MVar [V2 Float] }
 
@@ -108,9 +106,11 @@ runUI :: forall a.
     ) => UI (FinalizerT IO a) -> FinalizerT IO a
 runUI (Draw m) = do
     v <- liftIO $ newIORef (return () :: IO ())
-    cont <- liftIO $ give v $ runReaderT (m :: DrawM (FinalizerT IO a)) (ViewPort id id)
+    cont <- liftIO $ give v $ runReaderT (m :: DrawM (FinalizerT IO a)) (Location id id)
     liftIO (readIORef v) >>= finalizer
     cont
+runUI (FromFinalizer m) = join m
+runUI (Configure _ cont) = cont
 runUI (KeyStates cont) = liftIO (readIORef $ getKeyStates given) >>= cont
 runUI (MouseButtons cont) = liftIO (readIORef $ getMouseButtonStates given) >>= cont
 runUI (PreviousKeyStates cont) = liftIO (readIORef $ getKeyStates $ getPrevious given) >>= cont
@@ -156,4 +156,4 @@ instance (Given (IORef (IO ())), Given TextureStorage) => Picture2D DrawM where
     colored c = mapReaderWith id (G.colored c)
 
 instance Local DrawM where
-    getViewPort = asks coerceViewPort
+    getLocation = asks coerceLocation

@@ -2,13 +2,11 @@ module FreeGame.Internal.GLFW where
 
 import Control.Bool
 import Control.Concurrent
-import Control.Monad
 import Control.Monad.IO.Class
 import Data.Color
 import Data.IORef
 import Foreign.ForeignPtr
 import FreeGame.Data.Bitmap
-import FreeGame.Internal.Finalizer
 import FreeGame.Types
 import Graphics.Rendering.OpenGL.GL.StateVar
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
