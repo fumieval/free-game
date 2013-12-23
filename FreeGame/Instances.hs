@@ -58,7 +58,7 @@ instance FromFile Font where
     }
 
 #define MK_LOCAL(cxt, ty, l) instance (Local m cxt) => Local (ty) where { \
-    getViewPort = (l) getViewPort }
+    getLocation = (l) getLocation }
 
 #define MK_KEYBOARD(cxt, ty, l) instance (Keyboard m cxt) => Keyboard (ty) where { \
     keyStates = (l) keyStates; \

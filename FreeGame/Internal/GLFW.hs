@@ -135,7 +135,7 @@ installTexture bmp@(BitmapData ar _) = do
     let (width, height) = bitmapSize bmp
     let siz = GL.TextureSize2D (gsizei width) (gsizei height)
     withForeignPtr (RF.toForeignPtr ar)
-        $ GL.texImage2D Nothing GL.NoProxy 0 GL.RGBA8 siz 0
+        $ GL.texImage2D GL.Texture2D GL.NoProxy 0 GL.RGBA8 siz 0
         . GL.PixelData GL.RGBA GL.UnsignedInt8888
     return (tex, fromIntegral width / 2, fromIntegral height / 2)
 

@@ -6,3 +6,4 @@ dist
 Thumbs.db
 Desktop.ini
 .DS_Store
+.cabal-sandbox

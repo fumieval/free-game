@@ -80,7 +80,7 @@ bitmapSize (BitmapData a _) = let (Z :. h :. w :. _) = R.extent a in (w, h)
 
 -- | Create a 'Bitmap' from the given file.
 loadBitmapFromFile :: MonadIO m => FilePath -> m Bitmap
-loadBitmapFromFile path = liftIO $ readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData
+loadBitmapFromFile path = liftIO $ readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData . reverseColorChannel
 
 -- | Convert the 'Bitmap' uniformalized by the 'Hashable' value by the given function.
 onBitmapWithHashable :: Hashable h => h -> (R.Array RF.F DIM3 Word8 -> R.Array RF.F DIM3 Word8) -> Bitmap -> Bitmap

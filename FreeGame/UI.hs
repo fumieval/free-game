@@ -24,6 +24,7 @@ import FreeGame.Data.Wave
 import FreeGame.Types
 import Control.Applicative
 import qualified Data.Map as Map
+import FreeGame.Data.Bitmap (Bitmap)
 
 data UI a =
     Draw (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a)
@@ -75,7 +76,7 @@ instance Picture2D UI where
     colored c = overDraw (colored c)
 
 instance Local UI where
-    getViewPort = Draw getViewPort
+    getLocation = Draw getLocation
 
 instance FromFinalizer UI where
     fromFinalizer = FromFinalizer

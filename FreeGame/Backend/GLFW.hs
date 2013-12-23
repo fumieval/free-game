@@ -50,7 +50,7 @@ runGame m_ = G.withGLFW 60 (BoundingBox 0 0 640 480)
         GLFW.setMouseButtonCallback (G.theWindow sys) $ Just
             $ \_ btn st _ -> modifyIORef' mouseBuffer (Map.insert (fromEnum btn) (G.fromMouseButtonState st))
         -- setScrollCallback (G.theWindow sys)
-        withStream def (streamTap str) $ runFinalizerT
+        withStream def (const $ streamTap str) $ runFinalizerT
             $ give (RefKeyStates keyBuffer)
             $ give (RefMouseButtonStates mouseBuffer)
             $ give (Previous (RefKeyStates keyBuffer'))
