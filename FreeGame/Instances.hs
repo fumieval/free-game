@@ -54,7 +54,7 @@ instance FromFile Font where
     circle = (l) . circle; \
     circleOutline = (l) . circleOutline; \
     thickness k = t (thickness k); \
-    colored k = t (colored k); \
+    color k = t (color k); \
     }
 
 #define MK_LOCAL(cxt, ty, l) instance (Local m cxt) => Local (ty) where { \

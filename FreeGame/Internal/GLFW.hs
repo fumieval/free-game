@@ -103,8 +103,8 @@ circleOutline r = do
     let s = 2 * pi / 64
     GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
 
-colored :: Color -> IO a -> IO a
-colored col m = do
+color :: Color -> IO a -> IO a
+color col m = do
     oldColor <- liftIO $ get GL.currentColor
     liftIO $ GL.currentColor $= unsafeCoerce col
     res <- m

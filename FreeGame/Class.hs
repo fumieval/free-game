@@ -48,7 +48,11 @@ class Affine p => Picture2D p where
     circle :: Double -> p ()
     circleOutline :: Double -> p ()
     thickness :: Float -> p a -> p a
-    colored :: Color -> p a -> p a
+    color :: Color -> p a -> p a
+
+{-# DEPRECATED colored "Use color instead" #-}
+colored :: Picture2D p => Color -> p a -> p a
+colored = color
 
 class Affine p => Local p where
     getLocation :: p (Location a)

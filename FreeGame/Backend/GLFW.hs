@@ -153,7 +153,7 @@ instance (Given (IORef (IO ())), Given TextureStorage) => Picture2D DrawM where
     polygonOutline vs = liftIO (G.polygonOutline vs)
     line vs = liftIO (G.line vs)
     thickness t = mapReaderWith id (G.thickness t)
-    colored c = mapReaderWith id (G.colored c)
+    color c = mapReaderWith id (G.color c)
 
 instance Local DrawM where
     getLocation = asks coerceLocation

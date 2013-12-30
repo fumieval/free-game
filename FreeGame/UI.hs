@@ -73,7 +73,7 @@ instance Picture2D UI where
     circle r = Draw (circle r)
     circleOutline r = Draw (circleOutline r)
     thickness t = overDraw (thickness t)
-    colored c = overDraw (colored c)
+    color c = overDraw (color c)
 
 instance Local UI where
     getLocation = Draw getLocation
