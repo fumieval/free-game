@@ -10,3 +10,7 @@ free-game is a library that abstracts and purifies GUI applications with simple 
 * [jbracker](https://github.com/jbracker), extended features and fixed minor bugs
 
 Bug reports, pull requests, feature requests are welcome.
+
+# Donate
+
+Bitcoin Address: 1LX6zUJFb1o9xzrXh6zCHqyLRHrGYwDBFv
