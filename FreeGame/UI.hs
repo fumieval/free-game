@@ -14,6 +14,8 @@ module FreeGame.UI (
     UI(..)
     , draw
     , configure
+    , preloadBitmap
+    , takeScreenshot
 ) where
 
 import Control.Monad
@@ -37,6 +39,7 @@ data UI a =
     | MousePosition (Vec2 -> a)
     | Play Wave a
     | Configure Configuration a
+    | TakeScreenshot (Bitmap -> a)
     deriving Functor
 
 draw :: MonadFree UI m => (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) => m a
@@ -50,6 +53,9 @@ preloadBitmap bmp = wrap $ PreloadBitmap bmp $ return ()
 configure :: MonadFree UI m => Configuration -> m ()
 configure conf = wrap $ Configure conf $ return ()
 {-# INLINE configure #-}
+
+takeScreenshot :: MonadFree UI m => m Bitmap
+takeScreenshot = wrap $ TakeScreenshot return
 
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)

@@ -16,6 +16,10 @@ import qualified Graphics.Rendering.OpenGL.GL as GL
 import qualified Graphics.UI.GLFW as GLFW
 import System.Mem
 import Unsafe.Coerce
+import Foreign.Marshal.Alloc
+import qualified Data.Array.Repa as R
+import Data.Word
+import qualified Data.Array.Repa.Operators.IndexSpace as R
 
 data System = System
     { refFrameCounter :: IORef Int
@@ -136,7 +140,7 @@ installTexture bmp@(BitmapData ar _) = do
     let siz = GL.TextureSize2D (gsizei width) (gsizei height)
     withForeignPtr (RF.toForeignPtr ar)
         $ GL.texImage2D GL.Texture2D GL.NoProxy 0 GL.RGBA8 siz 0
-        . GL.PixelData GL.RGBA GL.UnsignedInt8888
+        . GL.PixelData GL.ABGR GL.UnsignedInt8888
     return (tex, fromIntegral width / 2, fromIntegral height / 2)
 
 releaseTexture :: Texture -> IO ()
@@ -159,7 +163,8 @@ endFrame sys = do
     performGC
     Just t <- GLFW.getTime
     n <- readIORef (refFrameCounter sys)
-    threadDelay $ floor $ (1000000 *) $ fromIntegral n / fromIntegral (theFPS sys) - t
+
+    threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral (theFPS sys) - t
     if t > 1
         then GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
         else writeIORef (refFrameCounter sys) (succ n)
@@ -195,3 +200,25 @@ withGLFW fps bbox@(BoundingBox x0 y0 x1 y1) m = do
     GLFW.destroyWindow win
     GLFW.terminate
     return res
+
+screenshotFlipped :: System -> IO (R.Array RF.F R.DIM3 Word8)
+screenshotFlipped sys = do
+    ptr <- mallocBytes (w * h * 4)
+    GL.readBuffer $= GL.FrontBuffers
+    GL.readPixels (GL.Position 0 0) (GL.Size (gsizei w) (gsizei h)) (GL.PixelData GL.RGBA GL.UnsignedByte ptr)
+    let sh = R.Z R.:. h R.:. w R.:. 4
+    ptr' <- newForeignPtr_ ptr
+    return $ RF.fromForeignPtr sh ptr'
+    where
+        BoundingBox x0 y0 x1 y1 = theRegion sys
+        w = floor $ x1 - x0
+        h = floor $ y1 - y0
+
+screenshot :: System -> IO (R.Array RF.F R.DIM3 Word8)
+screenshot sys = screenshotFlipped sys >>= flipVertically 
+
+flipVertically :: Monad m => R.Array RF.F R.DIM3 Word8 -> m (R.Array RF.F R.DIM3 Word8)
+flipVertically rp = R.computeP $ R.unsafeBackpermute e order rp where
+    e@(R.Z R.:. r R.:. _ R.:. _) = R.extent rp
+    order (R.Z R.:. y R.:. x R.:. c) = R.Z R.:. r - 1 - y R.:. x R.:. c
+    {-# INLINE order #-}

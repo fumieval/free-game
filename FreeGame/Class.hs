@@ -117,7 +117,7 @@ class Mouse t where
 
 -- | Returns the relative coordinate of the cursor.
 mousePosition :: (Applicative f, Mouse f, Local f) => f Vec2
-mousePosition = (\v (Location f _) -> f v) <$> globalMousePosition <*> getLocation
+mousePosition = (\v (Location _ g) -> g v) <$> globalMousePosition <*> getLocation
 
 mouseButton :: (Functor f, Mouse f) => Int -> f Bool
 mouseButton k = (Map.! k) <$> mouseButtons

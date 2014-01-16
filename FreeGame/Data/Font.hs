@@ -14,7 +14,6 @@ module FreeGame.Data.Font
   ( Font
   , loadFontFromFile
   , loadFont
-  , defaultFont
   , fontBoundingBox
   , metricsAscent
   , metricsDescent
@@ -48,7 +47,6 @@ import Foreign.C.String
 import Foreign.Storable
 import System.IO.Unsafe
 import Unsafe.Coerce
-import Paths_free_game
 
 -- | Font object
 data Font = Font FT_Face (Double, Double) (BoundingBox Double) (IORef (M.Map (Double, Char) RenderedChar))
@@ -68,9 +66,6 @@ loadFontFromFile path = liftIO $ alloca $ \p -> do
 
 loadFont :: MonadIO m => FilePath -> m Font
 loadFont = loadFontFromFile
-
-defaultFont :: Font
-defaultFont = unsafePerformIO $ getDataFileName "VL-PGothic-Regular.ttf" >>= loadFontFromFile
 
 -- | Get the font's metrics.
 metricsAscent :: Font -> Double
@@ -145,7 +140,7 @@ charToBitmap (Font face _ _ refCache) pixel ch = fromFinalizer $ do
 
             ar <- unsafeFreezeMVec (Z:.h:.w) mv :: IO (R.Array U DIM2 Word8)
 
-            let pix (crd:.0) = R.index ar crd
+            let pix (crd:.3) = R.index ar crd
                 pix (_:._) = 255
 
             result <- computeP (fromFunction (Z:.h:.w:.4) pix) >>= makeStableBitmap

@@ -18,8 +18,9 @@ module FreeGame.Data.Bitmap (
     , _BitmapHash
     ,bitmapSize
 
-    -- * Loading from a file
-    ,loadBitmapFromFile
+    -- * Load and Save
+    ,readBitmap
+    ,writeBitmap
 
     -- * Constructing bitmaps
     ,toBitmap
@@ -34,14 +35,16 @@ module FreeGame.Data.Bitmap (
 
 import Control.Applicative
 import Codec.Picture.Repa
+import qualified Codec.Picture as C
 import Data.Array.Repa as R
 import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import Data.Word
 import System.Random
 import Data.Hashable
 import Control.Monad.IO.Class
+import qualified Data.Vector.Storable as V
 
--- | Concrete bitmap data. Internal representation is stored as y * x * RGBA.
+-- | Bitmap data with unique hashes. 
 data Bitmap = BitmapData (R.Array RF.F DIM3 Word8) (Maybe Int) -- ^ This value is used to ensure that two bitmaps are equivalent.
 
 instance Show Bitmap where
@@ -54,6 +57,7 @@ instance Ord Bitmap where
     BitmapData _ h <= BitmapData _ h' = h <= h'
 
 -- | @'_BitmapArray' :: Lens' 'Bitmap' ('R.Array' 'RF.F' 'DIM3' 'Word8')@
+-- The concrete data is stored as a repa array (y * x * ABGR).
 _BitmapArray :: Functor f => (R.Array RF.F DIM3 Word8 -> f (R.Array RF.F DIM3 Word8)) -> Bitmap -> f Bitmap
 _BitmapArray f (BitmapData a h) = fmap (\a' -> BitmapData a' h) (f a)
 
@@ -78,9 +82,14 @@ makeStableBitmap ar = BitmapData ar <$> Just <$> randomIO
 bitmapSize :: Bitmap -> (Int, Int)
 bitmapSize (BitmapData a _) = let (Z :. h :. w :. _) = R.extent a in (w, h)
 
--- | Create a 'Bitmap' from the given file.
-loadBitmapFromFile :: MonadIO m => FilePath -> m Bitmap
-loadBitmapFromFile path = liftIO $ readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData . reverseColorChannel
+-- | Load an image file.
+readBitmap :: MonadIO m => FilePath -> m Bitmap
+readBitmap path = liftIO $ readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData
+
+-- | Save 'Bitmap' into a file.
+writeBitmap :: MonadIO m => FilePath -> Bitmap -> m ()
+writeBitmap path (BitmapData img _) = liftIO $ C.writePng path (C.Image w h $ V.unsafeFromForeignPtr0 (RF.toForeignPtr img) (h * w * 4) :: C.Image C.PixelRGBA8) where
+    e@(R.Z R.:. h R.:. w R.:. z) = R.extent img
 
 -- | Convert the 'Bitmap' uniformalized by the 'Hashable' value by the given function.
 onBitmapWithHashable :: Hashable h => h -> (R.Array RF.F DIM3 Word8 -> R.Array RF.F DIM3 Word8) -> Bitmap -> Bitmap

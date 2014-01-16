@@ -54,7 +54,7 @@ tick = delay (return ())
 
 -- | An infinite loop that run 'tick' every frame after the given action.
 foreverTick :: (Monad f, MonadFree f m) => m a -> m any
-foreverTick m = m >> delay (foreverTick m)
+foreverTick m = m >> wrap (return $ foreverTick m)
 
 -- | Extract the next frame of the action.
 untick :: (Functor f, MonadFree f m) => IterT (F f) a -> m (Either (IterT (F f) a) a)
@@ -95,7 +95,7 @@ radians x = x / 180 * pi
 
 -- | Create a 'Picture' from the given file.
 loadPictureFromFile :: (Picture2D p, FromFinalizer m) => FilePath -> m (p ())
-loadPictureFromFile = embedIO . fmap bitmap . loadBitmapFromFile
+loadPictureFromFile = embedIO . fmap bitmap . readBitmap
 
 -- | The type of the given 'Name' must be @String -> IO String@
 loadBitmapsWith :: ExpQ -> FilePath -> Q [Dec]
@@ -115,7 +115,7 @@ loadBitmapsWith getFullPath path = do
 
             appE (varE 'unsafePerformIO) $ uInfixE (appE getFullPath $ litE $ StringL fp)
                 (varE '(>>=))
-                (varE 'loadBitmapFromFile)
+                (varE 'readBitmap)
 
 -- | Load and define all pictures in the specified directory.
 loadBitmaps :: FilePath -> Q [Dec]

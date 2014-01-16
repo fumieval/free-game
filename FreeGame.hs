@@ -29,7 +29,7 @@ module FreeGame
     module Linear
 ) where
 
-import FreeGame.UI (UI)
+import FreeGame.UI
 import FreeGame.Util
 import FreeGame.Types
 import FreeGame.Text

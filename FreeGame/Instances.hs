@@ -26,7 +26,7 @@ import FreeGame.Data.Bitmap
 import FreeGame.Data.Font
 
 instance FromFile Bitmap where
-    fromFile = loadBitmapFromFile
+    fromFile = readBitmap
 
 instance FromFile Wave where
     fromFile = loadWaveFromFile

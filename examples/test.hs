@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
-import Graphics.UI.FreeGame
+import FreeGame
 import Control.Applicative
 import Control.Monad
+import Control.Monad.State
 
 figureTest :: Game ()
 figureTest = do
@@ -24,12 +25,14 @@ figureTest = do
 fontTest :: Font -> Game ()
 fontTest font = do
     translate (V2 100 300) $ colored black
-        $ text font 17 "Hello, World" -- Use 'text font size string' to draw a string.
+        $ text font 48 "Hello, World" -- Use 'text font size string' to draw a string.
 
 bitmapTest :: Bitmap -> Game ()
 bitmapTest bmp = do
-    translate (V2 300 350) $ fromBitmap bmp -- 'fromBitmap' creates an action from the bitmap.
-    translate (V2 100 350) $ fromBitmap (cropBitmap bmp (32, 32) (0, 0)) -- You can slice bitmaps using 'cropBitmap'.
+    colored (Color 1 1 1 0.5) $ do
+        translate (V2 300 350) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
+        translate (V2 300 360) $ bitmap bmp
+    translate (V2 100 350) $ bitmap (cropBitmap bmp (32, 32) (0, 0)) -- You can slice bitmaps using 'cropBitmap'.
 
 mouseTest :: Game ()
 mouseTest = do
@@ -43,18 +46,19 @@ mouseTest = do
             (True, True) -> blend 0.5 red blue
     translate p $ colored color $ thickness 4 $ circleOutline 16
 
-main = runGame def {
-        _framePerSecond = 60
-        , _windowTitle = "free-game"
-        , _windowed = True -- If you want to run in full screen mode, specify False.
-        , _cursorVisible = True -- Whether the application shows the cursor
-        , _clearColor = white -- Background color
-        , _windowRegion = BoundingBox 0 0 640 480 -- The region of the window 
-    } $ do
-    font <- loadFont "VL-PGothic-Regular.ttf"
-    bmp <- loadBitmapFromFile "logo.png"
-    foreverTick $ do
-        bitmapTest bmp
-        figureTest
-        fontTest font
-        translate (V2 240 240) $ mouseTest
+main = runGame $ do
+    bmp <- embedIO $ readBitmap "logo.png"
+    bmp' <- embedIO $ readBitmap "Icon.png"
+    font <- embedIO $ loadFontFromFile "VL-PGothic-Regular.ttf"
+    flip execStateT bmp' $ foreverTick $ do
+        lift $ bitmapTest bmp'
+        whenM (keyDown KeyS) $ do
+            lift (lift takeScreenshot) >>= put
+        lift figureTest
+
+        lift $ fontTest font
+
+
+        translate (V2 240 240) $ do
+            lift $ mouseTest
+            get >>= scale 0.25 . bitmap
