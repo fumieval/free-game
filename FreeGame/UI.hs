@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, ExistentialQuantification, Rank2Types, FlexibleContexts #-}
+{-# LANGUAGE DeriveFunctor, ExistentialQuantification, Rank2Types #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.UI
@@ -18,8 +18,6 @@ module FreeGame.UI (
     , takeScreenshot
 ) where
 
-import Control.Monad
-import Control.Monad.Free.Class
 import FreeGame.Class
 import FreeGame.Internal.Finalizer
 import FreeGame.Data.Wave

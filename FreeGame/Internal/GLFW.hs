@@ -1,7 +1,7 @@
+{-# LANGUAGE BangPatterns #-}
 module FreeGame.Internal.GLFW where
 
 import Control.Bool
-import Control.Concurrent
 import Control.Monad.IO.Class
 import Data.Color
 import Data.IORef
@@ -14,7 +14,6 @@ import Linear
 import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import qualified Graphics.UI.GLFW as GLFW
-import System.Mem
 import Unsafe.Coerce
 import Foreign.Marshal.Alloc
 import qualified Data.Array.Repa as R
@@ -31,15 +30,6 @@ data System = System
 
 type Texture = (GL.TextureObject, Double, Double)
 
-fromKeyState :: GLFW.KeyState -> Bool
-fromKeyState GLFW.KeyState'Pressed = True
-fromKeyState GLFW.KeyState'Released = False
-fromKeyState GLFW.KeyState'Repeating = True
-
-fromMouseButtonState :: GLFW.MouseButtonState -> Bool
-fromMouseButtonState GLFW.MouseButtonState'Pressed = True
-fromMouseButtonState GLFW.MouseButtonState'Released = False
-
 runVertices :: MonadIO m => [V2 Double] -> m ()
 runVertices = liftIO . mapM_ (GL.vertex . mkVertex2)
 {-# INLINE runVertices #-}
@@ -53,7 +43,7 @@ preservingMatrix' m = do
 {-# INLINE preservingMatrix' #-}
 
 drawTexture :: Texture -> IO ()
-drawTexture (tex, w, h) = drawTextureAt tex (V2 (-w) (-h)) (V2 w (-h)) (V2 w h) (V2 (-w) h)
+drawTexture (tex, !w, !h) = drawTextureAt tex (V2 (-w) (-h)) (V2 w (-h)) (V2 w h) (V2 (-w) h)
 {-# INLINE drawTexture #-}
 
 drawTextureAt :: GL.TextureObject -> V2 Double -> V2 Double -> V2 Double -> V2 Double -> IO ()
@@ -89,13 +79,13 @@ gsizei :: Int -> GL.GLsizei
 gsizei = unsafeCoerce
 
 translate :: V2 Double -> IO a -> IO a
-translate (V2 tx ty) m = preservingMatrix' $ liftIO (GL.translate (GL.Vector3 (gd tx) (gd ty) 0)) >> m
+translate (V2 tx ty) m = preservingMatrix' $ GL.translate (GL.Vector3 (gd tx) (gd ty) 0) >> m
 
 rotateD :: Double -> IO a -> IO a
-rotateD theta m = preservingMatrix' $ liftIO (GL.rotate (gd (-theta)) (GL.Vector3 0 0 1)) >> m
+rotateD theta m = preservingMatrix' $ GL.rotate (gd (-theta)) (GL.Vector3 0 0 1) >> m
 
 scale :: V2 Double -> IO a -> IO a
-scale (V2 sx sy) m = preservingMatrix' $ liftIO (GL.scale (gd sx) (gd sy) 1) >> m
+scale (V2 sx sy) m = preservingMatrix' $ GL.scale (gd sx) (gd sy) 1 >> m
 
 circle :: Double -> IO ()
 circle r = do
@@ -158,9 +148,7 @@ beginFrame sys = do
 endFrame :: System -> IO Bool
 endFrame sys = do
     GLFW.swapBuffers $ theWindow sys
-    GL.flush
     GLFW.pollEvents
-    performGC
     Just t <- GLFW.getTime
     n <- readIORef (refFrameCounter sys)
     -- threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral (theFPS sys) - t
@@ -173,7 +161,6 @@ withGLFW :: Int -> BoundingBox Float -> (System -> IO a) -> IO a
 withGLFW fps bbox@(BoundingBox x0 y0 x1 y1) m = do
     let title = "free-game"
         windowed = True
-        cur = True
         ww = floor $ x1 - x0
         wh = floor $ y1 - y0
     () <- unlessM GLFW.init (fail "Failed to initialize")

@@ -38,8 +38,8 @@ library
     FreeGame.Types
     FreeGame.Util
 
-  ghc-options: -Wall -fexcess-precision -O2
-
+  ghc-options: -Wall -fexcess-precision -O2 -threaded
+  default-extensions: FlexibleContexts, FlexibleInstances
   build-depends:
     base == 4.*,
     array >= 0.4,

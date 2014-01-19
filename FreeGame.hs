@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame
@@ -11,6 +12,7 @@
 module FreeGame
   ( -- * Main
     Game,
+    Frame,
     runGame,
     -- * Reexports
     module FreeGame.Data.Bitmap,
@@ -20,7 +22,6 @@ module FreeGame
     module FreeGame.Text,
     module FreeGame.Types,
     module FreeGame.Class,
-    module FreeGame.Instances,
     module Control.Monad,
     module Control.Applicative,
     module Control.Bool,
@@ -40,6 +41,7 @@ import FreeGame.Data.Font
 import qualified FreeGame.Backend.GLFW as GLFW
 import Control.Monad.Free.Church
 import Control.Monad.Trans.Iter
+import Control.Monad.IO.Class
 import Control.Monad
 import Control.Applicative
 import Control.Bool
@@ -65,7 +67,15 @@ import Linear hiding (rotate)
 --
 -- For more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
 
-type Game = IterT (F UI)
+type Game = IterT Frame
 
-runGame :: IterT (F UI) a -> IO (Maybe a)
+type Frame = F UI
+
+runGame :: Game a -> IO (Maybe a)
 runGame = GLFW.runGame
+
+instance MonadIO Game where
+    liftIO = embedIO
+
+instance MonadIO Frame where
+    liftIO = embedIO

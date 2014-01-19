@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.Util
@@ -32,7 +32,6 @@ module FreeGame.Util (
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Trans
 import Control.Monad.Free.Class
 import Control.Monad.Trans.Iter
 import Control.Monad.Free.Church

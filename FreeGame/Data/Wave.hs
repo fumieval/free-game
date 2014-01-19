@@ -5,6 +5,7 @@ module FreeGame.Data.Wave (
     , toWave
     , makeWave
     , loadWaveFromFile
+    , Voice(..)
 ) where
 
 import Data.Hashable
@@ -34,7 +35,7 @@ makeWave w = fmap (WaveData w) randomIO
 
 loadWaveFromFile :: MonadIO m => FilePath -> m Wave
 loadWaveFromFile path = liftIO $ do
-    WAVE h ss <- getWAVEFile path
+    WAVE _ ss <- getWAVEFile path
     makeWave [V2 (f l) (f r) | [l, r] <- ss]
     where
 

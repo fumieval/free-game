@@ -89,7 +89,7 @@ readBitmap path = liftIO $ readImageRGBA path >>= either fail return >>= makeSta
 -- | Save 'Bitmap' into a file.
 writeBitmap :: MonadIO m => FilePath -> Bitmap -> m ()
 writeBitmap path (BitmapData img _) = liftIO $ C.writePng path (C.Image w h $ V.unsafeFromForeignPtr0 (RF.toForeignPtr img) (h * w * 4) :: C.Image C.PixelRGBA8) where
-    e@(R.Z R.:. h R.:. w R.:. z) = R.extent img
+    R.Z R.:. h R.:. w R.:. _ = R.extent img
 
 -- | Convert the 'Bitmap' uniformalized by the 'Hashable' value by the given function.
 onBitmapWithHashable :: Hashable h => h -> (R.Array RF.F DIM3 Word8 -> R.Array RF.F DIM3 Word8) -> Bitmap -> Bitmap

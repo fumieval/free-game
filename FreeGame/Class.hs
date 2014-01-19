@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, FlexibleInstances, Rank2Types #-}
+{-# LANGUAGE BangPatterns, Rank2Types #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.Class
