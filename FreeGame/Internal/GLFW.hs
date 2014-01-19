@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 module FreeGame.Internal.GLFW where
-
+import Control.Concurrent
 import Control.Bool
 import Control.Monad.IO.Class
 import Data.Color
@@ -151,9 +151,9 @@ endFrame sys = do
     GLFW.pollEvents
     Just t <- GLFW.getTime
     n <- readIORef (refFrameCounter sys)
-    -- threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral (theFPS sys) - t
+    threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral (theFPS sys) - t
     if t > 1
-        then print n >> GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
+        then GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
         else writeIORef (refFrameCounter sys) (succ n)
     GLFW.windowShouldClose (theWindow sys)
 
