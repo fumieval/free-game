@@ -2,7 +2,7 @@
 import FreeGame
 import Control.Applicative
 import Control.Monad
-import Control.Monad.State
+import Control.Monad.State.Strict
 
 figureTest :: Game ()
 figureTest = do
@@ -50,15 +50,15 @@ main = runGame $ do
     bmp <- embedIO $ readBitmap "logo.png"
     bmp' <- embedIO $ readBitmap "Icon.png"
     font <- embedIO $ loadFontFromFile "VL-PGothic-Regular.ttf"
-    flip execStateT bmp' $ foreverTick $ do
-        lift $ bitmapTest bmp'
-        whenM (keyDown KeyS) $ do
-            lift (lift takeScreenshot) >>= put
-        lift figureTest
+    foreverTick $ do
+        return ()
+        
+        bitmapTest bmp'
+        
+        figureTest
 
-        lift $ fontTest font
-
+        fontTest font
 
         translate (V2 240 240) $ do
-            lift $ mouseTest
-            get >>= scale 0.25 . bitmap
+            mouseTest
+        

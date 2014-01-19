@@ -54,7 +54,7 @@ tick = delay (return ())
 
 -- | An infinite loop that run 'tick' every frame after the given action.
 foreverTick :: (Monad f, MonadFree f m) => m a -> m any
-foreverTick m = m >> wrap (return $ foreverTick m)
+foreverTick m = let m' = foreverTick m in m >> wrap (return m')
 
 -- | Extract the next frame of the action.
 untick :: (Functor f, MonadFree f m) => IterT (F f) a -> m (Either (IterT (F f) a) a)

@@ -1,5 +1,5 @@
 {-# LANGUAGE Rank2Types #-}
-module FreeGame.Internal.Finalizer (FinalizerT(..), finalizer, runFinalizerT) where
+module FreeGame.Internal.Finalizer (FinalizerT(..), finalizer, runFinalizerT, execFinalizerT, mapFinalizerT) where
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans
@@ -33,8 +33,17 @@ instance MonadTrans FinalizerT where
     {-# INLINE lift #-}
 
 -- | Run the action and run all associated finalizers.
-runFinalizerT :: MonadIO m => FinalizerT m a -> m a
-runFinalizerT (FinalizerT z) = do
-    (fin, a) <- z (\a -> return (return (), a)) (\m (fs, r) -> return (m >> fs,　r))
+runFinalizerT :: Monad m => FinalizerT m a -> m (a, IO ())
+runFinalizerT (FinalizerT z) = z (\a -> return (a, return ())) (\m (r, fs) -> return (r, m >> fs))
+
+execFinalizerT :: MonadIO m => FinalizerT m a -> m a
+execFinalizerT m = do
+    (a, fin) <- runFinalizerT m
     liftIO fin
     return a
+
+mapFinalizerT :: (Monad m, Monad n) => (forall x. m x -> n x) -> FinalizerT m a -> FinalizerT n a
+mapFinalizerT t m = FinalizerT $ \p f -> do
+    (a, fin) <- t (runFinalizerT m)
+    r <- p a
+    f fin r

@@ -163,12 +163,11 @@ endFrame sys = do
     performGC
     Just t <- GLFW.getTime
     n <- readIORef (refFrameCounter sys)
-
-    threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral (theFPS sys) - t
+    -- threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral (theFPS sys) - t
     if t > 1
-        then GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
+        then print n >> GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
         else writeIORef (refFrameCounter sys) (succ n)
-    liftIO $ GLFW.windowShouldClose (theWindow sys)
+    GLFW.windowShouldClose (theWindow sys)
 
 withGLFW :: Int -> BoundingBox Float -> (System -> IO a) -> IO a
 withGLFW fps bbox@(BoundingBox x0 y0 x1 y1) m = do

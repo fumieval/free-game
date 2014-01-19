@@ -42,20 +42,15 @@ data UI a =
     | TakeScreenshot (Bitmap -> a)
     deriving Functor
 
-draw :: MonadFree UI m => (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) => m a
-draw m = wrap $ Draw (liftM return m)
-{-# INLINE draw #-}
-
-preloadBitmap :: MonadFree UI m => Bitmap -> m ()
-preloadBitmap bmp = wrap $ PreloadBitmap bmp $ return ()
-{-# INLINE preloadBitmap #-}
-
-configure :: MonadFree UI m => Configuration -> m ()
-configure conf = wrap $ Configure conf $ return ()
-{-# INLINE configure #-}
-
-takeScreenshot :: MonadFree UI m => m Bitmap
-takeScreenshot = wrap $ TakeScreenshot return
+instance FreeGame UI where
+    draw = Draw
+    {-# INLINE draw #-}
+    preloadBitmap bmp = PreloadBitmap bmp ()
+    {-# INLINE preloadBitmap #-}
+    configure conf = Configure conf ()
+    {-# INLINE configure #-}
+    takeScreenshot = TakeScreenshot id
+    {-# INLINE takeScreenshot #-}
 
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)

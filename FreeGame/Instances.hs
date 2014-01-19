@@ -44,10 +44,12 @@ instance FromFile Font where
     translate a = t (translate a); \
     {-# INLINE translate #-}; \
     scale a = t (scale a); \
+    {-# INLINE scale #-}; \
      }
 
 #define MK_PICTURE_2D(cxt, ty, l, t) instance (Picture2D m cxt) => Picture2D (ty) where { \
-    bitmap = (l) . bitmap; \
+    bitmap b = (l) (bitmap b); \
+    {-# INLINE bitmap #-}; \
     line = (l) . line; \
     polygon = (l) . polygon; \
     polygonOutline = (l) . polygonOutline; \
@@ -55,6 +57,7 @@ instance FromFile Font where
     circleOutline = (l) . circleOutline; \
     thickness k = t (thickness k); \
     color k = t (color k); \
+    {-# INLINE color #-}; \
     }
 
 #define MK_LOCAL(cxt, ty, l) instance (Local m cxt) => Local (ty) where { \
@@ -72,6 +75,13 @@ instance FromFile Font where
 
 #define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \
     fromFinalizer = (l) . fromFinalizer }
+
+#define MK_FREE_GAME(cxt, ty, l) instance (FreeGame m cxt) => FreeGame (ty) where { \
+    draw = (l) . draw; \
+    preloadBitmap = (l) . preloadBitmap; \
+    configure c = (l) (configure c); \
+    takeScreenshot = (l) takeScreenshot }
+
 
 hoistF :: (Functor f, Functor g) => (forall x. f x -> g x) -> Church.F f a -> Church.F g a
 hoistF t = Church.iterM (wrap . t)
@@ -171,3 +181,18 @@ MK_FROM_FINALIZER(_COMMA_ Monad m, MaybeT m, lift)
 MK_FROM_FINALIZER(_COMMA_ Monad m, ListT m, lift)
 MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
 MK_FROM_FINALIZER(_COMMA_ Monad m, ContT r m, lift)
+
+MK_FREE_GAME(_COMMA_ Functor m, F m, liftF)
+MK_FREE_GAME(_COMMA_ Functor m, Free.Free m, Free.liftF)
+MK_FREE_GAME(_COMMA_ Monad m, IterT m, lift)
+MK_FREE_GAME(_COMMA_ Monad m, Lazy.StateT s m, lift)
+MK_FREE_GAME(_COMMA_ Monad m, Strict.StateT s m, lift)
+MK_FREE_GAME(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift)
+MK_FREE_GAME(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift)
+MK_FREE_GAME(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift)
+MK_FREE_GAME(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
+MK_FREE_GAME(_COMMA_ Monad m, IdentityT m, lift)
+MK_FREE_GAME(_COMMA_ Monad m, MaybeT m, lift)
+MK_FREE_GAME(_COMMA_ Monad m, ListT m, lift)
+MK_FREE_GAME(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_FREE_GAME(_COMMA_ Monad m, ContT r m, lift)

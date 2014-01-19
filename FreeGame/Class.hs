@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, FlexibleInstances #-}
+{-# LANGUAGE BangPatterns, FlexibleInstances, Rank2Types #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.Class
@@ -166,3 +166,9 @@ instance FromFinalizer (FinalizerT IO) where
 embedIO :: FromFinalizer m => IO a -> m a
 embedIO m = fromFinalizer (liftIO m)
 {-# INLINE embedIO #-}
+
+class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where
+    draw :: (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) => m a
+    preloadBitmap :: Bitmap -> m ()
+    configure :: Configuration -> m ()
+    takeScreenshot :: m Bitmap
