@@ -15,6 +15,7 @@ module FreeGame.Util (
     -- * Controlling
     tick,
     foreverTick,
+    foreverFrame,
     untick,
     untickInfinite,
     -- * Random
@@ -34,6 +35,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Free.Class
 import Control.Monad.Trans.Iter
+import Control.Monad.Trans
 import Control.Monad.Free.Church
 import Data.Char
 import Data.Void
@@ -54,6 +56,10 @@ tick = delay (return ())
 -- | An infinite loop that run 'tick' every frame after the given action.
 foreverTick :: (Monad f, MonadFree f m) => m a -> m any
 foreverTick m = let m' = foreverTick m in m >> wrap (return m')
+
+-- | @foreverFrame :: Frame a -> Game any@
+foreverFrame :: (Monad f, Monad m, MonadTrans t, MonadFree f (t m)) => m a -> t m any
+foreverFrame m = foreverTick (lift m)
 
 -- | Extract the next frame of the action.
 untick :: (Functor f, MonadFree f m) => IterT (F f) a -> m (Either (IterT (F f) a) a)
@@ -96,7 +102,7 @@ radians x = x / 180 * pi
 loadPictureFromFile :: (Picture2D p, FromFinalizer m) => FilePath -> m (p ())
 loadPictureFromFile = embedIO . fmap bitmap . readBitmap
 
--- | The type of the given 'Name' must be @String -> IO String@
+-- | The type of the given 'Name' must be @FilePath -> IO FilePath@
 loadBitmapsWith :: ExpQ -> FilePath -> Q [Dec]
 loadBitmapsWith getFullPath path = do
     loc <- (</>path) <$> takeDirectory <$> loc_filename <$> location

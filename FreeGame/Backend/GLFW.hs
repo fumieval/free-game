@@ -139,15 +139,22 @@ runUI (PreloadBitmap bmp@(BitmapData _ (Just h)) cont) = do
     _ <- loadTexture given bmp $ \t -> finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
     cont
 runUI (PreloadBitmap _ cont) = cont
-runUI (KeyStates cont) = liftIO (readIORef $ getKeyStates given) >>= cont
-runUI (MouseButtons cont) = liftIO (readIORef $ getMouseButtonStates given) >>= cont
-runUI (PreviousKeyStates cont) = liftIO (readIORef $ getKeyStates $ getPrevious given) >>= cont
-runUI (PreviousMouseButtons cont) = liftIO (readIORef $ getMouseButtonStates $ getPrevious given) >>= cont
+runUI (KeyStates cont) = do
+    let k = liftIO . readIORef . getKeyStates
+    s <- k given
+    t <- k (getPrevious given)
+    cont s t
+runUI (MouseButtons cont) = do
+    let k = liftIO . readIORef . getMouseButtonStates
+    s <- k given
+    t <- k (getPrevious given)
+    cont s t
 -- runUI _ _ (MouseWheel cont) = GLFW.getMouseWheel >>= cont
 runUI (MousePosition cont) = do
     (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)
     cont $ V2 x y
 runUI (Play _ cont) = cont
+runUI (Bracket m) = join $ iterM runUI m
 {-
 runUI (Play (WaveData w _) cont) = do
     liftIO $ takeMVar (getStream given) >>= \st -> putMVar (getStream given) $ go st w

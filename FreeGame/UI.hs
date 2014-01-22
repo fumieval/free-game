@@ -12,10 +12,9 @@
 ----------------------------------------------------------------------------
 module FreeGame.UI (
     UI(..)
-    , draw
-    , configure
-    , preloadBitmap
-    , takeScreenshot
+    , Frame
+    , Game
+    , FreeGame(..)
 ) where
 
 import FreeGame.Class
@@ -26,19 +25,37 @@ import Control.Applicative
 import qualified Data.Map as Map
 import FreeGame.Data.Bitmap (Bitmap)
 
+import Control.Monad.Free.Church
+import Control.Monad.Trans.Iter
+
 data UI a =
     Draw (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a)
     | PreloadBitmap Bitmap a
     | FromFinalizer (FinalizerT IO a)
-    | KeyStates (Map.Map Key Bool -> a)
-    | MouseButtons (Map.Map Int Bool -> a)
-    | PreviousKeyStates (Map.Map Key Bool -> a)
-    | PreviousMouseButtons (Map.Map Int Bool -> a)
+    | KeyStates (Map.Map Key Bool -> Map.Map Key Bool -> a)
+    | MouseButtons (Map.Map Int Bool -> Map.Map Int Bool -> a)
     | MousePosition (Vec2 -> a)
     | Play Wave a
     | Configure Configuration a
     | TakeScreenshot (Bitmap -> a)
+    | Bracket (Frame a)
     deriving Functor
+
+type Game = IterT Frame
+
+type Frame = F UI
+
+class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where
+    -- | Draw an action that consist of 'Picture2D''s methods.
+    draw :: (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) => m a
+    -- | Load a 'Bitmap' to avoid the cost of the first invocation of 'bitmap'.
+    preloadBitmap :: Bitmap -> m ()
+    -- | Apply a 'Configuration'.
+    configure :: Configuration -> m ()
+    -- | Generate a 'Bitmap' from the front buffer.
+    takeScreenshot :: m Bitmap
+    -- | Run a 'Frame', and release all the matter happened.
+    bracket :: Frame a -> m a
 
 instance FreeGame UI where
     draw = Draw
@@ -49,6 +66,8 @@ instance FreeGame UI where
     {-# INLINE configure #-}
     takeScreenshot = TakeScreenshot id
     {-# INLINE takeScreenshot #-}
+    bracket = Bracket
+    {-# INLINE bracket #-}
 
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)
@@ -81,11 +100,9 @@ instance FromFinalizer UI where
     fromFinalizer = FromFinalizer
 
 instance Keyboard UI where
-    keyStates = KeyStates id
-    previousKeyStates = PreviousKeyStates id
+    keyStates_ = KeyStates (,)
 
 instance Mouse UI where
     globalMousePosition = MousePosition id
     -- mouseWheel = MouseWheel id
-    mouseButtons = MouseButtons id
-    previousMouseButtons = PreviousMouseButtons id
+    mouseButtons_ = MouseButtons (,)

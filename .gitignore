@@ -7,3 +7,4 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 .cabal-sandbox
+examples/test.exe

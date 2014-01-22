@@ -24,6 +24,7 @@ import FreeGame.Class
 import FreeGame.Data.Wave
 import FreeGame.Data.Bitmap
 import FreeGame.Data.Font
+import FreeGame.UI
 
 instance FromFile Bitmap where
     fromFile = readBitmap
@@ -64,13 +65,11 @@ instance FromFile Font where
     getLocation = (l) getLocation }
 
 #define MK_KEYBOARD(cxt, ty, l) instance (Keyboard m cxt) => Keyboard (ty) where { \
-    keyStates = (l) keyStates; \
-    previousKeyStates = (l) previousKeyStates; }
+    keyStates_ = (l) keyStates_; }
 
 #define MK_MOUSE(cxt, ty, l) instance (Mouse m cxt) => Mouse (ty) where { \
     globalMousePosition = (l) globalMousePosition; \
-    mouseButtons = (l) mouseButtons;\
-    previousMouseButtons = (l) previousMouseButtons; \
+    mouseButtons_ = (l) mouseButtons_;\
     }
 
 #define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \
@@ -80,7 +79,8 @@ instance FromFile Font where
     draw = (l) . draw; \
     preloadBitmap = (l) . preloadBitmap; \
     configure c = (l) (configure c); \
-    takeScreenshot = (l) takeScreenshot }
+    takeScreenshot = (l) takeScreenshot; \
+    bracket m = (l) (bracket m); }
 
 
 hoistF :: (Functor f, Functor g) => (forall x. f x -> g x) -> Church.F f a -> Church.F g a

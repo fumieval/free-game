@@ -3,7 +3,7 @@ free-game
 
 [![Build Status](https://secure.travis-ci.org/fumieval/free-game.png?branch=master)](http://travis-ci.org/fumieval/free-game)
 
-free-game is a library that abstracts and purifies GUI applications with simple interfaces.
+free-game is a library that abstracts graphical applications with simple interfaces.
 
 # Special Thanks
 
@@ -13,4 +13,4 @@ Bug reports, pull requests, feature requests are welcome.
 
 # Donate
 
-Bitcoin Address: 1LX6zUJFb1o9xzrXh6zCHqyLRHrGYwDBFv
+Bitcoin Address: 1EvewG7YHdcgMjmQEYEBrKiPjUwGWBckY4

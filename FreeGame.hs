@@ -10,24 +10,74 @@
 -- Portability :  non-portable
 ----------------------------------------------------------------------------
 module FreeGame
-  ( -- * Main
+  ( -- * Game
     Game,
-    Frame,
     runGame,
+    delay,
+    foreverFrame,
+    untick,
+    untickInfinite,
+    -- * Configuration
+    BoundingBox(..),
+    Configuration(..),
+    -- * Frame
+    Frame,
+    FreeGame(),
+    -- * Transformations
+    Vec2,
+    Affine(..),
+    Local(),
+    globalize,
+    localize,
+    -- * Pictures
+    Picture2D(..),
+    text,
+    readBitmap,
+    cropBitmap,
+    loadBitmaps,
+    loadBitmapsWith,
+    loadFont,
+    preloadBitmap,
+    writeBitmap,
+    -- * Keyboard
+    Keyboard(..),
+    Key,
+    keyPress,
+    keyUp,
+    keyDown,
+    -- * Mouse
+    Mouse(),
+    mousePosition,
+    mouseButtonL,
+    mouseButtonR,
+    mouseButtonM,
+    mouseDownL,
+    mouseDownR,
+    mouseDownM,
+    mouseUpL,
+    mouseUpR,
+    mouseUpM,
+    -- * IO
+    FromFinalizer(),
+    embedIO,
+    liftIO,
+    fromFile,
+    randomness,
+    -- * Utility functions
+    unitV2,
+    angleV2,
+    degrees,
+    radians,
     -- * Reexports
-    module FreeGame.Data.Bitmap,
-    module FreeGame.Data.Font,
-    module FreeGame.UI,
-    module FreeGame.Util,
-    module FreeGame.Text,
-    module FreeGame.Types,
-    module FreeGame.Class,
     module Control.Monad,
     module Control.Applicative,
     module Control.Bool,
     module Data.Color,
     module Data.Color.Names,
-    module Linear
+    module Linear,
+    -- * Deprecated
+    fromBitmap,
+    colored
 ) where
 
 import FreeGame.UI
@@ -39,8 +89,6 @@ import FreeGame.Instances ()
 import FreeGame.Data.Bitmap
 import FreeGame.Data.Font
 import qualified FreeGame.Backend.GLFW as GLFW
-import Control.Monad.Free.Church
-import Control.Monad.Trans.Iter
 import Control.Monad.IO.Class
 import Control.Monad
 import Control.Applicative
@@ -48,13 +96,14 @@ import Control.Bool
 import Data.Color
 import Data.Color.Names
 import Linear hiding (rotate)
+import Control.Monad.Trans.Iter
 
 -- | 'Game' is a monad literally expressing games.
 -- This monad is an instance of 'Picture2D' so you can construct it using 'fromBitmap' and can be transformed with 'translate', 'scale', 'rotate', 'colored'.
 --
 -- It is also an instance of 'Keyboard' and 'Mouse'. Note that 'mousePosition' returns a relative position.
 --
--- > foo = foreverTick $ do
+-- > foo = foreverFrame $ do
 -- >   p <- mousePosition
 -- >   translate p $ colored blue $ polygonOutline [V2 (-8) (-8), V2 8 (-8), V2 8 8, V2 (-8) 8]
 -- 
@@ -66,10 +115,6 @@ import Linear hiding (rotate)
 -- The only way to embody a 'Game' as a real stuff is to apply 'runGame'.
 --
 -- For more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
-
-type Game = IterT Frame
-
-type Frame = F UI
 
 runGame :: Game a -> IO (Maybe a)
 runGame = GLFW.runGame

@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, Rank2Types #-}
+{-# LANGUAGE BangPatterns, Rank2Types, DeriveFunctor #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.Class
@@ -13,7 +13,6 @@
 module FreeGame.Class where
 
 import Linear
-
 import Control.Applicative
 import Unsafe.Coerce
 import FreeGame.Types
@@ -27,7 +26,7 @@ import qualified Data.Map as Map
 class FromFile a where
     fromFile :: MonadIO m => FilePath -> m a
 
-class Affine p where
+class Functor p => Affine p where
     -- | (radians)
     rotateR :: Double -> p a -> p a
     -- | (degrees)
@@ -50,6 +49,10 @@ class Affine p => Picture2D p where
     thickness :: Float -> p a -> p a
     color :: Color -> p a -> p a
 
+{-# DEPRECATED fromBitmap "Use bitmap instead" #-}
+fromBitmap :: Picture2D p => Bitmap -> p ()
+fromBitmap = bitmap
+
 {-# DEPRECATED colored "Use color instead" #-}
 colored :: Picture2D p => Color -> p a -> p a
 colored = color
@@ -57,13 +60,19 @@ colored = color
 class Affine p => Local p where
     getLocation :: p (Location a)
 
-data Location a = Location (Vec2 -> Vec2) (Vec2 -> Vec2)
+data Location a = Location (Vec2 -> Vec2) (Vec2 -> Vec2) deriving Functor
 
 coerceLocation :: Location a -> Location b
 coerceLocation = unsafeCoerce
 
 flipLocation :: Location a -> Location b
 flipLocation (Location f g) = Location g f
+
+localize :: Local f => Vec2 -> f Vec2
+localize v = (\(Location _ g) -> g v) <$> getLocation
+
+globalize :: Local f => Vec2 -> f Vec2
+globalize v = (\(Location f _) -> f v) <$> getLocation
 
 instance Affine Location where
     translate v (Location f g) = Location ((^+^v) . f) (g . (^-^v))
@@ -76,20 +85,20 @@ rot2 a (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
     !p = cos d
     !q = sin d
 
-class Keyboard t where
-    keyStates :: t (Map.Map Key Bool)
-    previousKeyStates :: t (Map.Map Key Bool)
+class Functor f => Keyboard f where
+    keyStates_ :: f (Map.Map Key Bool, Map.Map Key Bool)
 
-keyPress :: (Functor f, Keyboard f) => Key -> f Bool
+keyStates :: Keyboard f => f (Map.Map Key Bool)
+keyStates = fmap fst keyStates_
+
+keyPress :: Keyboard f => Key -> f Bool
 keyPress k = (Map.! k) <$> keyStates
 
-keyDown :: (Applicative f, Keyboard f) => Key -> f Bool
-keyDown k = go <$> keyStates <*> previousKeyStates where
-    go m n = m Map.! k && not (n Map.! k)
+keyDown :: Keyboard f => Key -> f Bool
+keyDown k = (\(m, n) -> m Map.! k && not (n Map.! k)) <$> keyStates_ where
 
-keyUp :: (Applicative f, Keyboard f) => Key -> f Bool
-keyUp k = go <$> keyStates <*> previousKeyStates where
-    go m n = not (m Map.! k) && n Map.! k
+keyUp :: Keyboard f => Key -> f Bool
+keyUp k = (\(m, n) -> not (m Map.! k) && n Map.! k) <$> keyStates_ where
 
 class Sound t where
     play :: Wave -> t ()
@@ -106,55 +115,51 @@ keyChar = undefined
 
 -}
 
-{-# DEPRECATED fromBitmap "Use bitmap instead" #-}
-fromBitmap :: Picture2D p => Bitmap -> p ()
-fromBitmap = bitmap
-
-class Mouse t where
-    globalMousePosition :: t Vec2
-    mouseButtons :: t (Map.Map Int Bool)
-    previousMouseButtons :: t (Map.Map Int Bool)
+class Functor f => Mouse f where
+    globalMousePosition :: f Vec2
+    mouseButtons_ :: f (Map.Map Int Bool, Map.Map Int Bool)
 
 -- | Returns the relative coordinate of the cursor.
 mousePosition :: (Applicative f, Mouse f, Local f) => f Vec2
 mousePosition = (\v (Location _ g) -> g v) <$> globalMousePosition <*> getLocation
 
-mouseButton :: (Functor f, Mouse f) => Int -> f Bool
+mouseButtons :: Mouse f => f (Map.Map Int Bool)
+mouseButtons = fmap fst mouseButtons_
+
+mouseButton :: Mouse f => Int -> f Bool
 mouseButton k = (Map.! k) <$> mouseButtons
 
-mouseDown :: (Applicative f, Mouse f) => Int -> f Bool
-mouseDown k = go <$> mouseButtons <*> previousMouseButtons where
-    go m n = m Map.! k && not (n Map.! k)
+mouseDown :: Mouse f => Int -> f Bool
+mouseDown k = (\(m, n) -> m Map.! k && not (n Map.! k)) <$> mouseButtons_
 
-mouseUp :: (Applicative f, Mouse f) => Int -> f Bool
-mouseUp k = go <$> mouseButtons <*> previousMouseButtons where
-    go m n = not (m Map.! k) && n Map.! k
+mouseUp :: Mouse f => Int -> f Bool
+mouseUp k = (\(m, n) -> not (m Map.! k) && n Map.! k) <$> mouseButtons_
 
-mouseButtonL :: (Functor f, Mouse f) => f Bool
+mouseButtonL :: Mouse f => f Bool
 mouseButtonL = mouseButton 0
 
-mouseButtonR :: (Functor f, Mouse f) => f Bool
+mouseButtonR :: Mouse f => f Bool
 mouseButtonR = mouseButton 1
 
-mouseButtonM :: (Functor f, Mouse f) => f Bool
+mouseButtonM :: Mouse f => f Bool
 mouseButtonM = mouseButton 2
 
-mouseDownL :: (Applicative f, Mouse f) => f Bool
+mouseDownL :: Mouse f => f Bool
 mouseDownL = mouseDown 0
 
-mouseDownR :: (Applicative f, Mouse f) => f Bool
+mouseDownR :: Mouse f => f Bool
 mouseDownR = mouseDown 1
 
-mouseDownM :: (Applicative f, Mouse f) => f Bool
+mouseDownM :: Mouse f => f Bool
 mouseDownM = mouseDown 2
 
-mouseUpL :: (Applicative f, Mouse f) => f Bool
+mouseUpL :: Mouse f => f Bool
 mouseUpL = mouseUp 0
 
-mouseUpR :: (Applicative f, Mouse f) => f Bool
+mouseUpR :: Mouse f => f Bool
 mouseUpR = mouseUp 1
 
-mouseUpM :: (Applicative f, Mouse f) => f Bool
+mouseUpM :: Mouse f => f Bool
 mouseUpM = mouseUp 2
 
 class FromFinalizer m where
@@ -166,9 +171,3 @@ instance FromFinalizer (FinalizerT IO) where
 embedIO :: FromFinalizer m => IO a -> m a
 embedIO m = fromFinalizer (liftIO m)
 {-# INLINE embedIO #-}
-
-class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where
-    draw :: (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) => m a
-    preloadBitmap :: Bitmap -> m ()
-    configure :: Configuration -> m ()
-    takeScreenshot :: m Bitmap
