@@ -5,7 +5,6 @@ import Data.String
 import FreeGame.Types
 import FreeGame.Internal.Raindrop
 import FreeGame.Data.Font
-import FreeGame.Data.Bitmap
 import FreeGame.Class
 import FreeGame.Instances ()
 import Control.Monad.Trans.Free
@@ -28,11 +27,9 @@ runTextT bbox font size = flip evalStateT (V2 x0 y0) . go where
             modify $ over _x (const x0) . over _y (+advV)
             go cont
         Free (TypeChar ch cont) -> do
-            RenderedChar bmp (V2 x y) adv <- fromFinalizer $ charToBitmap font size ch
+            RenderedChar bmp offset adv <- fromFinalizer $ charToBitmap font size ch
             pen <- get
-            let (w,h) = bitmapSize bmp
-                offset = pen ^+^ V2 (x + fromIntegral w / 2) (y + fromIntegral h / 2)
-            translate offset $ bitmap bmp
+            translate (pen + offset) $ bitmap bmp
             let pen' = over _x (+adv) pen
             put $ if cond pen'
                 then pen'

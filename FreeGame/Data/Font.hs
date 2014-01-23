@@ -25,7 +25,7 @@ import Control.Applicative
 import Control.Monad.IO.Class
 import Data.IORef
 import Data.Array.Repa as R
-import Data.Array.Repa.Eval
+import Data.Array.Repa.Repr.ForeignPtr as R
 import qualified Data.Map as M
 import Data.Word
 import Linear
@@ -45,8 +45,9 @@ import Foreign.Marshal.Alloc
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.Storable
+import Foreign.ForeignPtr
+import Foreign.Ptr
 import System.IO.Unsafe
-import Unsafe.Coerce
 
 -- | Font object
 data Font = Font FT_Face (Double, Double) (BoundingBox Double) (IORef (M.Map (Double, Char) RenderedChar))
@@ -103,46 +104,46 @@ resolutionDPI = 300
 
 charToBitmap :: FromFinalizer m => Font -> Double -> Char -> m RenderedChar
 charToBitmap (Font face _ _ refCache) pixel ch = fromFinalizer $ do
+    let siz = pixel * 72 / fromIntegral resolutionDPI
     cache <- liftIO $ readIORef refCache
     case M.lookup (siz, ch) cache of
+        Just d -> return d
         Nothing -> do
-            d <- liftIO render
+            d <- liftIO $ render face siz ch
             liftIO $ writeIORef refCache $ M.insert (siz, ch) d cache
             finalizer $ modifyIORef refCache $ M.delete (siz, ch)
             return d
-        Just d -> return d
-    where
-        siz = pixel * 72 / fromIntegral resolutionDPI
-        render = do
-            let dpi = fromIntegral resolutionDPI
 
-            runFreeType $ ft_Set_Char_Size face 0 (floor $ siz * 64) dpi dpi
-            
-            ix <- ft_Get_Char_Index face (fromIntegral $ fromEnum ch)
-            runFreeType $ ft_Load_Glyph face ix ft_LOAD_DEFAULT
+render :: FT_Face -> Double -> Char -> IO RenderedChar
+render face siz ch = do
+    let dpi = fromIntegral resolutionDPI
 
-            slot <- peek $ glyph face
-            runFreeType $ ft_Render_Glyph slot ft_RENDER_MODE_NORMAL
+    runFreeType $ ft_Set_Char_Size face 0 (floor $ siz * 64) dpi dpi
+    
+    ix <- ft_Get_Char_Index face (fromIntegral $ fromEnum ch)
+    runFreeType $ ft_Load_Glyph face ix ft_LOAD_DEFAULT
 
-            bmp <- peek $ GS.bitmap slot
-            left <- fmap fromIntegral $ peek $ GS.bitmap_left slot
-            top <- fmap fromIntegral $ peek $ GS.bitmap_top slot
+    slot <- peek $ glyph face
+    runFreeType $ ft_Render_Glyph slot ft_RENDER_MODE_NORMAL
 
-            let h = fromIntegral $ B.rows bmp
-                w = fromIntegral $ B.width bmp
-                
-            mv <- newMVec (w * h)
+    bmp <- peek $ GS.bitmap slot
+    left <- fmap fromIntegral $ peek $ GS.bitmap_left slot
+    top <- fmap fromIntegral $ peek $ GS.bitmap_top slot
 
-            fillChunkedIOP (w * h) (unsafeWriteMVec mv) $ const $ return
-                $ fmap unsafeCoerce . peekElemOff (buffer bmp)
+    let h = fromIntegral $ B.rows bmp
+        w = fromIntegral $ B.width bmp
+    
+    fptr <- newForeignPtr_ $ castPtr $ buffer bmp
 
-            adv <- peek $ GS.advance slot
+    adv <- peek $ GS.advance slot
 
-            ar <- unsafeFreezeMVec (Z:.h:.w) mv :: IO (R.Array U DIM2 Word8)
+    let ar = fromForeignPtr (Z:.h:.w) fptr :: R.Array F DIM2 Word8
+        pix (crd:.3) = R.index ar crd
+        pix (_:._) = 255
 
-            let pix (crd:.3) = R.index ar crd
-                pix (_:._) = 255
-
-            result <- computeP (fromFunction (Z:.h:.w:.4) pix) >>= makeStableBitmap
-            
-            return $ RenderedChar result (V2 left (-top)) (fromIntegral (V.x adv) / 64)
+    result <- computeP (fromFunction (Z:.h:.w:.4) pix) >>= makeStableBitmap
+    
+    return $ RenderedChar
+        result
+        (V2 (left + fromIntegral w / 2) (-top + fromIntegral h / 2))
+        (fromIntegral (V.x adv) / 64)

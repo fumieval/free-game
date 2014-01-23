@@ -49,9 +49,8 @@ mouseTest = do
 main = runGame $ do
     bmp <- embedIO $ readBitmap "logo.png"
     bmp' <- embedIO $ readBitmap "Icon.png"
-    font <- embedIO $ loadFontFromFile "VL-PGothic-Regular.ttf"
-    foreverTick $ lift $ do
-        return ()
+    font <- embedIO $ loadFont "VL-PGothic-Regular.ttf"
+    foreverFrame $ do
         
         bitmapTest bmp'
         

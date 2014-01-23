@@ -31,16 +31,19 @@ module FreeGame
     localize,
     -- * Pictures
     Picture2D(..),
-    text,
+    Bitmap,
     readBitmap,
     cropBitmap,
     loadBitmaps,
     loadBitmapsWith,
-    loadFont,
     writeBitmap,
+    -- * Text
+    Font,
+    loadFont,
+    text,
     -- * Keyboard
     Keyboard(..),
-    Key,
+    Key(..),
     keyPress,
     keyUp,
     keyDown,
