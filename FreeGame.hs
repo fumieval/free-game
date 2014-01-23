@@ -22,7 +22,7 @@ module FreeGame
     Configuration(..),
     -- * Frame
     Frame,
-    FreeGame(),
+    FreeGame(..),
     -- * Transformations
     Vec2,
     Affine(..),
@@ -37,7 +37,6 @@ module FreeGame
     loadBitmaps,
     loadBitmapsWith,
     loadFont,
-    preloadBitmap,
     writeBitmap,
     -- * Keyboard
     Keyboard(..),

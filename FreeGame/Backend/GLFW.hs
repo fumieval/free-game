@@ -135,10 +135,12 @@ runUI (Draw m) = do
     cont
 runUI (FromFinalizer m) = join m
 runUI (Configure _ cont) = cont
-runUI (PreloadBitmap bmp@(BitmapData _ (Just h)) cont) = do
-    _ <- loadTexture given bmp $ \t -> finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
+runUI (PreloadBitmap bmp cont) = do
+    loadTexture given bmp
+        (\t h -> finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h))
+        (const $ return ())
+        (const $ return ())
     cont
-runUI (PreloadBitmap _ cont) = cont
 runUI (KeyStates cont) = do
     let k = liftIO . readIORef . getKeyStates
     s <- k given
@@ -180,30 +182,33 @@ instance Affine DrawM where
     scale v = mapReaderWith (scale v) (G.scale v)
     {-# INLINE scale #-}
 
-loadTexture :: MonadIO m => TextureStorage -> Bitmap -> (G.Texture -> m ()) -> m G.Texture
-loadTexture (TextureStorage st) bmp@(BitmapData _ (Just h)) hook = do
+loadTexture :: MonadIO m => TextureStorage -> Bitmap
+    -> (G.Texture -> Int -> m ())
+    -> (G.Texture -> m ())
+    -> (G.Texture -> m ())
+    -> m ()
+loadTexture (TextureStorage st) (BitmapData img (Just h)) hook cont _ = do
     m <- liftIO $ readIORef st
     case IM.lookup h m of
-        Just t -> return t
+        Just t -> cont t
         Nothing -> do
-            t <- liftIO $ G.installTexture bmp
+            t <- liftIO $ G.installTexture img
             liftIO $ writeIORef st $ IM.insert h t m
-            hook t
-            return t
-loadTexture _ _ _ = undefined
+            hook t h
+            cont t
+loadTexture _ (BitmapData img Nothing) _ cont fin = do
+    t <- liftIO $ G.installTexture img
+    cont t
+    fin t
 
 newtype Context = Context { getContext :: IORef [(G.Texture, Int)] }
 
 instance (Given Context, Given TextureStorage) => Picture2D DrawM where
-    bitmap bmp@(BitmapData _ Nothing) = liftIO $ do
-        t <- G.installTexture bmp
-        G.drawTexture t
-        G.releaseTexture t
-    bitmap bmp@(BitmapData _ (Just h)) = liftIO $ do
-        t <- loadTexture given bmp $ \t -> modifyIORef (getContext given) ((t, h) :)
-        G.drawTexture t
+    bitmap bmp = liftIO $ loadTexture given bmp
+        (\t h -> modifyIORef (getContext given) ((t, h) :))
+        G.drawTexture
+        G.releaseTexture
     {-# INLINE bitmap #-}
-
     circle r = liftIO (G.circle r)
     {-# INLINE circle #-}
     circleOutline r = liftIO (G.circleOutline r)

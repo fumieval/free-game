@@ -6,7 +6,6 @@ import Control.Monad.IO.Class
 import Data.Color
 import Data.IORef
 import Foreign.ForeignPtr
-import FreeGame.Data.Bitmap
 import FreeGame.Types
 import Graphics.Rendering.OpenGL.GL.StateVar
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
@@ -122,11 +121,11 @@ thickness t m = do
     liftIO $ GL.lineWidth $= oldWidth
     return res
 
-installTexture :: Bitmap -> IO Texture
-installTexture bmp@(BitmapData ar _) = do
+installTexture :: R.Array RF.F R.DIM3 Word8 -> IO Texture
+installTexture ar = do
     [tex] <- GL.genObjectNames 1
     GL.textureBinding GL.Texture2D GL.$= Just tex
-    let (width, height) = bitmapSize bmp
+    let R.Z R.:. height R.:. width R.:. _ = R.extent ar
     let siz = GL.TextureSize2D (gsizei width) (gsizei height)
     withForeignPtr (RF.toForeignPtr ar)
         $ GL.texImage2D GL.Texture2D GL.NoProxy 0 GL.RGBA8 siz 0
