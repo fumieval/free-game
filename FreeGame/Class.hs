@@ -75,15 +75,14 @@ globalize :: Local f => Vec2 -> f Vec2
 globalize v = (\(Location f _) -> f v) <$> getLocation
 
 instance Affine Location where
-    translate v (Location f g) = Location ((^+^v) . f) (g . (^-^v))
-    rotateR t (Location f g) = Location (rot2 t . f) (g . rot2 (-t))
-    scale v (Location f g) = Location ((*v) . f) (g . (/v))
+    translate v (Location f g) = Location (f . (^+^v)) ((^-^v) . g)
+    rotateR t (Location f g) = Location (f . rot2 t) (rot2 (-t) . g)
+    scale v (Location f g) = Location (f . (*v)) ((/v) . g)
 
 rot2 :: Floating a => a -> V2 a -> V2 a
-rot2 a (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
-    !d = a * (pi / 180) 
-    !p = cos d
-    !q = sin d
+rot2 t (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
+    !p = cos t
+    !q = sin t
 
 class Functor f => Keyboard f where
     keyStates_ :: f (Map.Map Key Bool, Map.Map Key Bool)

@@ -107,7 +107,7 @@ import Control.Monad.Trans.Iter
 --
 -- > foo = foreverFrame $ do
 -- >   p <- mousePosition
--- >   translate p $ colored blue $ polygonOutline [V2 (-8) (-8), V2 8 (-8), V2 8 8, V2 (-8) 8]
+-- >   translate p $ color blue $ polygonOutline [V2 (-8) (-8), V2 8 (-8), V2 8 8, V2 (-8) 8]
 -- 
 -- When we run @foo@ using 'runGame', a blue square follows the cursor.
 -- And 'translate' (V2 240 240) @foo@, 'rotate' 45 @foo@, 'scale' 1.5 @foo@ also does in the same way.

@@ -177,7 +177,7 @@ instance Affine DrawM where
     {-# INLINE translate #-}
     rotateD t = mapReaderWith (rotateD t) (G.rotateD t)
     {-# INLINE rotateD #-}
-    rotateR t = let t' = t * pi / 180 in mapReaderWith (rotateD t') (G.rotateD t')
+    rotateR t = let t' = t / pi * 180 in mapReaderWith (rotateR t) (G.rotateD t')
     {-# INLINE rotateR #-}
     scale v = mapReaderWith (scale v) (G.scale v)
     {-# INLINE scale #-}
