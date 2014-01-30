@@ -11,6 +11,7 @@
 --
 ----------------------------------------------------------------------------
 module FreeGame.Types (
+    WindowMode(..),
     Vec2,
     BoundingBox(..),
     inBoundingBox,
@@ -19,7 +20,6 @@ module FreeGame.Types (
     _TopRight,
     _BottomLeft,
     _BottomRight
-    , Configuration(..)
     , Key(..)
     ) where
 
@@ -28,8 +28,8 @@ import Control.Applicative
 import Data.Foldable
 import Data.Traversable
 import Data.Typeable
-import Data.Color
-import Control.Artery
+
+data WindowMode = Windowed | FullScreen
 
 -- | 2D bounding box
 data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Read, Typeable)
@@ -60,14 +60,6 @@ _BottomLeft f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x0' y1') -> BoundingBox x0'
 -- | @'_BottomRight' :: Lens' ('BoundingBox' a) ('V2' a)@
 _BottomRight :: Functor f => (V2 a -> f (V2 a)) -> (BoundingBox a -> f (BoundingBox a))
 _BottomRight f (BoundingBox x0 y0 x1 y1) = fmap (\(V2 x1' y1') -> BoundingBox x0 y0 x1' y1') (f (V2 x1 y1))
-
-data Configuration = FPS Int
-    | Title String
-    | FullScreen String
-    | CursorVisibility Bool
-    | ClearColor Color
-    | Region (BoundingBox Int)
-    | MasterEffect (Artery IO (V2 Float) (V2 Float))
 
 data Key =
       KeyUnknown

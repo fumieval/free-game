@@ -17,14 +17,10 @@ import Control.Applicative
 import Unsafe.Coerce
 import FreeGame.Types
 import FreeGame.Data.Bitmap
-import FreeGame.Data.Wave
 import FreeGame.Internal.Finalizer
 import Data.Color
 import Control.Monad.IO.Class
 import qualified Data.Map as Map
-
-class FromFile a where
-    fromFile :: MonadIO m => FilePath -> m a
 
 class Functor p => Affine p where
     -- | (radians)
@@ -99,12 +95,9 @@ keyDown k = (\(m, n) -> m Map.! k && not (n Map.! k)) <$> keyStates_ where
 keyUp :: Keyboard f => Key -> f Bool
 keyUp k = (\(m, n) -> not (m Map.! k) && n Map.! k) <$> keyStates_ where
 
-class Sound t where
-    play :: Wave -> t ()
-
 {-
 
-{-# DEPRECATED keySpecial "Use keyState instead" #-}
+{-# DEPRECATED keySpecial "Use keyPress instead" #-}
 keySpecial :: Keyboard t => SpecialKey -> t Bool
 keySpecial = keyState
 

@@ -19,12 +19,11 @@ module FreeGame.UI (
 
 import FreeGame.Class
 import FreeGame.Internal.Finalizer
-import FreeGame.Data.Wave
 import FreeGame.Types
 import Control.Applicative
 import qualified Data.Map as Map
 import FreeGame.Data.Bitmap (Bitmap)
-
+import Data.Color
 import Control.Monad.Free.Church
 import Control.Monad.Trans.Iter
 
@@ -35,10 +34,14 @@ data UI a =
     | KeyStates (Map.Map Key Bool -> Map.Map Key Bool -> a)
     | MouseButtons (Map.Map Int Bool -> Map.Map Int Bool -> a)
     | MousePosition (Vec2 -> a)
-    | Play Wave a
-    | Configure Configuration a
     | TakeScreenshot (Bitmap -> a)
     | Bracket (Frame a)
+    | SetFPS Int a
+    | SetTitle String a
+    | ShowCursor a
+    | HideCursor a
+    | ClearColor Color a
+    | GetFPS (Int -> a)
     deriving Functor
 
 type Game = IterT Frame
@@ -50,28 +53,37 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     draw :: (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) => m a
     -- | Load a 'Bitmap' to avoid the cost of the first invocation of 'bitmap'.
     preloadBitmap :: Bitmap -> m ()
-    -- | Apply a 'Configuration'.
-    configure :: Configuration -> m ()
-    -- | Generate a 'Bitmap' from the front buffer.
-    takeScreenshot :: m Bitmap
     -- | Run a 'Frame', and release all the matter happened.
     bracket :: Frame a -> m a
+    -- | Generate a 'Bitmap' from the front buffer.
+    takeScreenshot :: m Bitmap
+
+    setFPS :: Int -> m ()
+    setTitle :: String -> m ()
+    showCursor :: m ()
+    hideCursor :: m ()
+    clearColor :: Color -> m ()
+    getFPS :: m Int
 
 instance FreeGame UI where
     draw = Draw
     {-# INLINE draw #-}
     preloadBitmap bmp = PreloadBitmap bmp ()
     {-# INLINE preloadBitmap #-}
-    configure conf = Configure conf ()
-    {-# INLINE configure #-}
-    takeScreenshot = TakeScreenshot id
-    {-# INLINE takeScreenshot #-}
     bracket = Bracket
     {-# INLINE bracket #-}
+    takeScreenshot = TakeScreenshot id
+    setFPS a = SetFPS a ()
+    setTitle t = SetTitle t ()
+    showCursor = ShowCursor ()
+    hideCursor = HideCursor ()
+    clearColor c = ClearColor c ()
+    getFPS = GetFPS id
 
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)
 overDraw _ x = x
+{-# INLINE overDraw #-}
 
 instance Affine UI where
     translate v = overDraw (translate v)

@@ -21,19 +21,7 @@ import Data.Monoid
 import Control.Monad.Free.Church as Church
 import Control.Monad.Free as Free
 import FreeGame.Class
-import FreeGame.Data.Wave
-import FreeGame.Data.Bitmap
-import FreeGame.Data.Font
 import FreeGame.UI
-
-instance FromFile Bitmap where
-    fromFile = readBitmap
-
-instance FromFile Wave where
-    fromFile = loadWaveFromFile
-
-instance FromFile Font where
-    fromFile = loadFontFromFile
 
 #define _COMMA_ ,
 
@@ -78,9 +66,15 @@ instance FromFile Font where
 #define MK_FREE_GAME(cxt, ty, l) instance (FreeGame m cxt) => FreeGame (ty) where { \
     draw = (l) . draw; \
     preloadBitmap = (l) . preloadBitmap; \
-    configure c = (l) (configure c); \
     takeScreenshot = (l) takeScreenshot; \
-    bracket m = (l) (bracket m); }
+    bracket m = (l) (bracket m); \
+    setFPS a = (l) (setFPS a); \
+    setTitle t = (l) (setTitle t); \
+    showCursor = (l) showCursor; \
+    hideCursor = (l) hideCursor; \
+    clearColor c = (l) (clearColor c); \
+    getFPS = (l) getFPS; \
+    }
 
 
 hoistF :: (Functor f, Functor g) => (forall x. f x -> g x) -> Church.F f a -> Church.F g a

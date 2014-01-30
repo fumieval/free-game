@@ -13,13 +13,12 @@ module FreeGame
   ( -- * Game
     Game,
     runGame,
+    WindowMode(..),
+    BoundingBox(..),
     delay,
     foreverFrame,
     untick,
     untickInfinite,
-    -- * Configuration
-    BoundingBox(..),
-    Configuration(..),
     -- * Frame
     Frame,
     FreeGame(..),
@@ -63,7 +62,6 @@ module FreeGame
     FromFinalizer(),
     embedIO,
     liftIO,
-    fromFile,
     randomness,
     -- * Utility functions
     unitV2,
@@ -118,7 +116,7 @@ import Control.Monad.Trans.Iter
 --
 -- For more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
 
-runGame :: Game a -> IO (Maybe a)
+runGame :: WindowMode -> BoundingBox Double -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
 
 instance MonadIO Game where

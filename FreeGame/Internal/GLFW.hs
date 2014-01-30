@@ -2,6 +2,7 @@
 module FreeGame.Internal.GLFW where
 import Control.Concurrent
 import Control.Bool
+import Control.Applicative
 import Control.Monad.IO.Class
 import Data.Color
 import Data.IORef
@@ -22,8 +23,9 @@ import qualified Data.Array.Repa.Operators.IndexSpace as R
 data System = System
     { refFrameCounter :: IORef Int
     , refFPS :: IORef Int
-    , theFPS :: Int
-    , theRegion :: BoundingBox Float
+    , theFPS :: IORef Int
+    , currentFPS :: IORef Int
+    , theRegion :: BoundingBox Double
     , theWindow :: GLFW.Window
     }
 
@@ -139,7 +141,7 @@ beginFrame :: System -> IO ()
 beginFrame sys = do
     GL.matrixMode $= GL.Projection
     GL.loadIdentity
-    let BoundingBox wl wt wr wb = fmap realToFrac $ theRegion sys
+    let BoundingBox wl wt wr wb = fmap realToFrac (theRegion sys)
     GL.ortho wl wr wb wt 0 (-100)
     GL.matrixMode $= GL.Modelview 0
     GL.clear [GL.ColorBuffer]
@@ -150,21 +152,23 @@ endFrame sys = do
     GLFW.pollEvents
     Just t <- GLFW.getTime
     n <- readIORef (refFrameCounter sys)
-    threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral (theFPS sys) - t
+    fps <- readIORef (theFPS sys)
+    threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral fps - t
     if t > 1
-        then GLFW.setTime 0 >> writeIORef (refFrameCounter sys) 0
+        then GLFW.setTime 0 >> writeIORef (currentFPS sys) n >> writeIORef (refFrameCounter sys) 0
         else writeIORef (refFrameCounter sys) (succ n)
     GLFW.windowShouldClose (theWindow sys)
 
-withGLFW :: Int -> BoundingBox Float -> (System -> IO a) -> IO a
-withGLFW fps bbox@(BoundingBox x0 y0 x1 y1) m = do
+withGLFW :: WindowMode -> BoundingBox Double -> (System -> IO a) -> IO a
+withGLFW full bbox@(BoundingBox x0 y0 x1 y1) m = do
     let title = "free-game"
-        windowed = True
         ww = floor $ x1 - x0
         wh = floor $ y1 - y0
     () <- unlessM GLFW.init (fail "Failed to initialize")
 
-    mon <- bool GLFW.getPrimaryMonitor (return Nothing) windowed
+    mon <- case full of
+        FullScreen -> GLFW.getPrimaryMonitor
+        Windowed -> return Nothing
 
     Just win <- GLFW.createWindow ww wh title mon Nothing
     GLFW.makeContextCurrent (Just win)
@@ -176,9 +180,13 @@ withGLFW fps bbox@(BoundingBox x0 y0 x1 y1) m = do
     GLFW.swapInterval 1
     GL.clearColor $= GL.Color4 1 1 1 1
 
-    r0 <- newIORef 0
-    r1 <- newIORef 0
-    let sys = System r0 r1 fps bbox win
+    sys <- System
+        <$> newIORef 0
+        <*> newIORef 0
+        <*> newIORef 60
+        <*> newIORef 60
+        <*> pure bbox
+        <*> pure win
 
     res <- m sys
 
@@ -188,22 +196,23 @@ withGLFW fps bbox@(BoundingBox x0 y0 x1 y1) m = do
 
 screenshotFlipped :: System -> IO (R.Array RF.F R.DIM3 Word8)
 screenshotFlipped sys = do
+    let BoundingBox x0 y0 x1 y1 = theRegion sys
+        w = floor $ x1 - x0
+        h = floor $ y1 - y0
+        sh = R.Z R.:. h R.:. w R.:. 4
+    
     ptr <- mallocBytes (w * h * 4)
     GL.readBuffer $= GL.FrontBuffers
     GL.readPixels (GL.Position 0 0) (GL.Size (gsizei w) (gsizei h)) (GL.PixelData GL.RGBA GL.UnsignedByte ptr)
-    let sh = R.Z R.:. h R.:. w R.:. 4
+
     ptr' <- newForeignPtr_ ptr
     return $ RF.fromForeignPtr sh ptr'
-    where
-        BoundingBox x0 y0 x1 y1 = theRegion sys
-        w = floor $ x1 - x0
-        h = floor $ y1 - y0
 
 screenshot :: System -> IO (R.Array RF.F R.DIM3 Word8)
 screenshot sys = screenshotFlipped sys >>= flipVertically 
 
 flipVertically :: Monad m => R.Array RF.F R.DIM3 Word8 -> m (R.Array RF.F R.DIM3 Word8)
-flipVertically rp = R.computeP $ R.unsafeBackpermute e order rp where
-    e@(R.Z R.:. r R.:. _ R.:. _) = R.extent rp
+flipVertically img = R.computeP $ R.unsafeBackpermute e order img where
+    e@(R.Z R.:. r R.:. _ R.:. _) = R.extent img
     order (R.Z R.:. y R.:. x R.:. c) = R.Z R.:. r - 1 - y R.:. x R.:. c
     {-# INLINE order #-}

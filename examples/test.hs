@@ -47,6 +47,7 @@ mouseTest = do
     translate p $ color col $ thickness 4 $ circleOutline 16
 
 main = runGame $ do
+    setRegion $ BoundingBox 0 0 500 500
     bmp <- embedIO $ readBitmap "logo.png"
     bmp' <- embedIO $ readBitmap "Icon.png"
     font <- embedIO $ loadFont "VL-PGothic-Regular.ttf"
@@ -61,4 +62,7 @@ main = runGame $ do
         translate (V2 240 240) $ do
             mouseTest
 
+            fps <- getFPS
+
+            color black $ text font 15 (show fps)
         whenM (keyDown KeyS) $ takeScreenshot >>= writeBitmap "capture.png"

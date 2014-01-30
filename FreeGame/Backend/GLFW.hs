@@ -29,22 +29,8 @@ import qualified Data.IntMap.Strict as IM
 import qualified Data.Map.Strict as Map
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
+import qualified Graphics.Rendering.OpenGL.GL as GL
 import Unsafe.Coerce
-{-
-import DSP.Artery.IO
-
-import Control.Artery
-
-
-newtype Stream = Stream { getStream :: MVar [V2 Float] }
-
-streamTap :: Stream -> Artery IO () (V2 Float)
-streamTap (Stream mstr) = effectful $ const $ do
-    st <- takeMVar mstr
-    case st of
-        [] -> putMVar mstr st >> return zero
-        (x:xs) -> putMVar mstr xs >> return x
--}
 
 keyCallback :: IORef (Map.Map Key Bool) -> GLFW.Window -> GLFW.Key -> Int -> GLFW.KeyState -> GLFW.ModifierKeys -> IO ()
 keyCallback keyBuffer _ key _ GLFW.KeyState'Pressed _ = modifyIORef' keyBuffer $ Map.insert (toEnum $ fromEnum key) True
@@ -54,57 +40,59 @@ mouseButtonCallback :: IORef (Map.Map Int Bool) -> GLFW.Window -> GLFW.MouseButt
 mouseButtonCallback mouseBuffer _ btn GLFW.MouseButtonState'Pressed _ = modifyIORef' mouseBuffer (Map.insert (fromEnum btn) True)
 mouseButtonCallback _ _ _ _ _ = return ()
 
-runGame :: IterT (F UI) a -> IO (Maybe a)
-runGame m_ = G.withGLFW 60 (BoundingBox 0 0 640 480)
-    $ \sys -> do
-        texs <- newIORef IM.empty
-        keyBuffer <- newIORef initialKeyBuffer
-        mouseBuffer <- newIORef initialMouseBuffer
-        keyBuffer' <- newIORef initialKeyBuffer
-        mouseBuffer' <- newIORef initialMouseBuffer 
-        GLFW.setKeyCallback (G.theWindow sys) $ Just $ keyCallback keyBuffer
-        GLFW.setMouseButtonCallback (G.theWindow sys) $ Just $ mouseButtonCallback mouseBuffer
+runGame :: WindowMode -> BoundingBox Double -> IterT (F UI) a -> IO (Maybe a)
+runGame mode bbox m = G.withGLFW mode bbox (execGame m)
 
-        -- str <- Stream <$> newMVar []
-        -- setScrollCallback (G.theWindow sys)
-        -- withStream def (const $ streamTap str)
-        execFinalizerT
-            $ give (RefKeyStates keyBuffer)
-            $ give (RefMouseButtonStates mouseBuffer)
-            $ give (Previous (RefKeyStates keyBuffer'))
-            $ give (Previous (RefMouseButtonStates mouseBuffer'))
-            $ give (TextureStorage texs)
-            $ give sys
-            $ go m_
-    where
-        !initialKeyBuffer = Map.fromList $ zip [minBound..] (repeat False)
-        !initialMouseBuffer = Map.fromList $ zip [0..7] (repeat False)
-        go :: (
-            -- Given Stream
-             Given G.System
-            , Given TextureStorage
-            , Given KeyStates
-            , Given MouseButtonStates
-            , Given (Previous KeyStates)
-            , Given (Previous MouseButtonStates)
-            ) => IterT (F UI) a -> FinalizerT IO (Maybe a)
-        go m = do
-            liftIO $ G.beginFrame given
+initialKeyBuffer :: Map.Map Key Bool
+initialKeyBuffer = Map.fromList $ zip [minBound..] (repeat False)
 
-            r <- iterM runUI $ runIterT m
+initialMouseBuffer :: Map.Map Int Bool
+initialMouseBuffer = Map.fromList $ zip [0..7] (repeat False)
 
-            b <- liftIO $ do
-                readIORef (getKeyStates given) >>= writeIORef (getKeyStates (getPrevious given))
-                readIORef (getMouseButtonStates given) >>= writeIORef (getMouseButtonStates (getPrevious given))
-                writeIORef (getKeyStates given) initialKeyBuffer
-                writeIORef (getMouseButtonStates given) initialMouseBuffer
-                G.endFrame given
+execGame :: IterT (F UI) a -> G.System -> IO (Maybe a)
+execGame m sys = do
+    texs <- newIORef IM.empty
+    keyBuffer <- newIORef initialKeyBuffer
+    mouseBuffer <- newIORef initialMouseBuffer
+    keyBuffer' <- newIORef initialKeyBuffer
+    mouseBuffer' <- newIORef initialMouseBuffer 
+    GLFW.setKeyCallback (G.theWindow sys) $ Just $ keyCallback keyBuffer
+    GLFW.setMouseButtonCallback (G.theWindow sys) $ Just $ mouseButtonCallback mouseBuffer
 
-            if b
-                then return Nothing
-                else case r of
-                    Iter cont -> go cont
-                    Pure a -> return (Just a)    
+    execFinalizerT
+        $ give (RefKeyStates keyBuffer)
+        $ give (RefMouseButtonStates mouseBuffer)
+        $ give (Previous (RefKeyStates keyBuffer'))
+        $ give (Previous (RefMouseButtonStates mouseBuffer'))
+        $ give (TextureStorage texs)
+        $ give sys
+        $ gameLoop m
+
+gameLoop ::
+    ( Given G.System
+    , Given TextureStorage
+    , Given KeyStates
+    , Given MouseButtonStates
+    , Given (Previous KeyStates)
+    , Given (Previous MouseButtonStates)
+    ) => IterT (F UI) a -> FinalizerT IO (Maybe a)
+gameLoop m = do
+    liftIO $ G.beginFrame given
+
+    r <- iterM runUI $ runIterT m
+
+    b <- liftIO $ do
+        readIORef (getKeyStates given) >>= writeIORef (getKeyStates (getPrevious given))
+        readIORef (getMouseButtonStates given) >>= writeIORef (getMouseButtonStates (getPrevious given))
+        writeIORef (getKeyStates given) initialKeyBuffer
+        writeIORef (getMouseButtonStates given) initialMouseBuffer
+        G.endFrame given
+
+    if b
+        then return Nothing
+        else case r of
+            Iter cont -> gameLoop cont
+            Pure a -> return (Just a)    
 
 newtype TextureStorage = TextureStorage { getTextureStorage :: IORef (IM.IntMap G.Texture) }
 
@@ -115,10 +103,9 @@ newtype Previous a = Previous { getPrevious :: a }
 newtype KeyStates = RefKeyStates { getKeyStates :: IORef (Map.Map Key Bool) }
 newtype MouseButtonStates = RefMouseButtonStates { getMouseButtonStates :: IORef (Map.Map Int Bool) }
 
+
 runUI :: forall a.
-    (
---     Given Stream
-    Given G.System
+    ( Given G.System
     , Given TextureStorage
     , Given KeyStates
     , Given MouseButtonStates
@@ -134,7 +121,6 @@ runUI (Draw m) = do
     unless (null xs) $ finalizer $ forM_ xs $ \(t, h) -> G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
     cont
 runUI (FromFinalizer m) = join m
-runUI (Configure _ cont) = cont
 runUI (PreloadBitmap bmp cont) = do
     loadTexture given bmp
         (\t h -> finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h))
@@ -155,18 +141,24 @@ runUI (MouseButtons cont) = do
 runUI (MousePosition cont) = do
     (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)
     cont $ V2 x y
-runUI (Play _ cont) = cont
 runUI (Bracket m) = join $ iterM runUI m
-{-
-runUI (Play (WaveData w _) cont) = do
-    liftIO $ takeMVar (getStream given) >>= \st -> putMVar (getStream given) $ go st w
-    cont
-    where
-        go (x:xs) (y:ys) = x + y : go xs ys
-        go xs [] = xs
-        go [] ys = ys
--}
 runUI (TakeScreenshot cont) = liftIO (G.screenshot given >>= makeStableBitmap) >>= cont
+runUI (ClearColor col cont) = do
+    liftIO $ GL.clearColor GL.$= unsafeCoerce col
+    cont
+runUI (SetTitle str cont) = do
+    liftIO $ GLFW.setWindowTitle (G.theWindow given) str
+    cont
+runUI (ShowCursor cont) = do
+    liftIO $ GLFW.setCursorInputMode (G.theWindow given) GLFW.CursorInputMode'Normal
+    cont
+runUI (HideCursor cont) = do
+    liftIO $ GLFW.setCursorInputMode (G.theWindow given) GLFW.CursorInputMode'Hidden
+    cont
+runUI (SetFPS n cont) = do
+    liftIO $ writeIORef (G.theFPS given) n
+    cont
+runUI (GetFPS cont) = liftIO (readIORef (G.currentFPS given)) >>= cont
 
 mapReaderWith :: (s -> r) -> (m a -> n b) -> ReaderT r m a -> ReaderT s n b
 mapReaderWith f g m = unsafeCoerce $ \s -> g (unsafeCoerce m (f s))
