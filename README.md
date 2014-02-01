@@ -5,12 +5,21 @@ free-game
 
 free-game is a library that abstracts graphical applications with simple interfaces.
 
-# Special Thanks
+Install
+-------------------------------------------------------------------------------------
+
+    $ cabal install free-game
+
+In Older(<7.6) GHC versions, You may have to specify `repa-3.2.1.1`.
+
+Special Thanks
+------------------------------------------------------------------------------------
 
 * [jbracker](https://github.com/jbracker), extended features and fixed minor bugs
 
 Bug reports, pull requests, feature requests are welcome.
 
-# Donate
+Donate
+-------------------------------------
 
 Bitcoin Address: 1EvewG7YHdcgMjmQEYEBrKiPjUwGWBckY4
