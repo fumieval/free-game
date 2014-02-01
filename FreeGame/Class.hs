@@ -22,6 +22,13 @@ import Data.Color
 import Control.Monad.IO.Class
 import qualified Data.Map as Map
 
+infixr 5 `translate`
+infixr 5 `rotateR`
+infixr 5 `rotateD`
+infixr 5 `scale`
+infixr 5 `color`
+infixr 5 `colored`
+
 class Functor p => Affine p where
     -- | (radians)
     rotateR :: Double -> p a -> p a
