@@ -28,7 +28,11 @@ module FreeGame.Util (
     -- * Loading
     loadPictureFromFile,
     loadBitmaps,
-    loadBitmapsWith
+    loadBitmapsWith,
+    -- * Keyboard
+    charToKey,
+    keyChar,
+    keySpecial
     ) where
 
 import Control.Applicative
@@ -41,6 +45,7 @@ import Data.Char
 import Data.Void
 import FreeGame.Data.Bitmap
 import FreeGame.Class
+import FreeGame.Types
 import Language.Haskell.TH
 import Linear
 import System.Directory
@@ -50,6 +55,7 @@ import System.Random
 import System.Environment
 
 -- | Delimit the computation to yield a frame.
+{-# DEPRECATED tick "use delay or foreverFrame instead" #-}
 tick :: (Monad f, MonadFree f m) => m ()
 tick = delay (return ())
 
@@ -142,3 +148,31 @@ pathToName :: FilePath -> String
 pathToName = ('_':) . map p where
     p c | isAlphaNum c = c
         | otherwise = '_'
+
+charToKey :: Char -> Key
+charToKey ch
+    | isAlpha ch = toEnum $ fromEnum KeyA + fromEnum ch - fromEnum 'A'
+    | isDigit ch = toEnum $ fromEnum Key0 + fromEnum ch - fromEnum '0'
+charToKey '-' = KeyMinus
+charToKey ',' = KeyComma
+charToKey '.' = KeyPeriod
+charToKey '/' = KeySlash
+charToKey ' ' = KeySpace
+charToKey '\'' = KeyApostrophe
+charToKey '\\' = KeyBackslash
+charToKey '=' = KeyEqual
+charToKey ';' = KeySemicolon
+charToKey '[' = KeyLeftBracket
+charToKey ']' = KeyRightBracket
+charToKey '`' = KeyGraveAccent
+charToKey '\n' = KeyEnter
+charToKey '\r' = KeyEnter
+charToKey '\t' = KeyTab
+charToKey _ = KeyUnknown
+
+keyChar :: Keyboard f => Char -> f Bool
+keyChar = keyPress . charToKey
+
+{-# DEPRECATED keySpecial "use keyPress instead" #-}
+keySpecial :: Keyboard f => Key -> f Bool
+keySpecial = keyPress

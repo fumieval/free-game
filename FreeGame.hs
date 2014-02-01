@@ -43,6 +43,7 @@ module FreeGame
     -- * Keyboard
     Keyboard(..),
     Key(..),
+    charToKey,
     keyPress,
     keyUp,
     keyDown,
@@ -77,7 +78,12 @@ module FreeGame
     module Linear,
     -- * Deprecated
     fromBitmap,
-    colored
+    loadBitmapFromFile,
+    colored,
+    tick,
+    keyChar,
+    keySpecial
+
 ) where
 
 import FreeGame.UI
@@ -110,7 +116,6 @@ import Control.Monad.Trans.Iter
 -- When we run @foo@ using 'runGame', a blue square follows the cursor.
 -- And 'translate' (V2 240 240) @foo@, 'rotate' 45 @foo@, 'scale' 1.5 @foo@ also does in the same way.
 --
--- You have to call 'tick' at the end of the frame.
 --
 -- The only way to embody a 'Game' as a real stuff is to apply 'runGame'.
 --

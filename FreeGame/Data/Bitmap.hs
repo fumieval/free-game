@@ -21,7 +21,7 @@ module FreeGame.Data.Bitmap (
     -- * Load and Save
     ,readBitmap
     ,writeBitmap
-
+    , loadBitmapFromFile
     -- * Constructing bitmaps
     ,toBitmap
     ,toStableBitmap
@@ -85,6 +85,10 @@ bitmapSize (BitmapData a _) = let (Z :. h :. w :. _) = R.extent a in (w, h)
 -- | Load an image file.
 readBitmap :: MonadIO m => FilePath -> m Bitmap
 readBitmap path = liftIO $ readImageRGBA path >>= either fail return >>= makeStableBitmap . imgData
+
+{-# DEPRECATED loadBitmapFromFile "use readBitmap instead" #-}
+loadBitmapFromFile :: MonadIO m => FilePath -> m Bitmap
+loadBitmapFromFile = readBitmap
 
 -- | Save 'Bitmap' into a file.
 writeBitmap :: MonadIO m => FilePath -> Bitmap -> m ()
