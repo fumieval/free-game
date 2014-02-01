@@ -63,17 +63,11 @@ foreverFrame m = foreverTick (lift m)
 
 -- | Extract the next frame of the action.
 untick :: (Functor f, MonadFree f m) => IterT (F f) a -> m (Either (IterT (F f) a) a)
-untick = liftM go . iterM wrap . runIterT where
-    go (Pure a) = Right a
-    go (Iter b) = Left b
-    {-# INLINE go #-}
+untick = liftM (either Right Left) . iterM wrap . runIterT where
 
 -- | An infinite version of 'untick'.
 untickInfinite :: (Functor f, MonadFree f m) => IterT (F f) Void -> m (IterT (F f) Void)
-untickInfinite = liftM go . iterM wrap . runIterT where
-    go (Pure a) = absurd a
-    go (Iter b) = b
-    {-# INLINE go #-}
+untickInfinite = liftM (either absurd id) . iterM wrap . runIterT where
 
 -- | An unit vector with the specified angle.
 unitV2 :: Floating a => a -> V2 a

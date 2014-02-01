@@ -90,9 +90,7 @@ gameLoop m = do
 
     if b
         then return Nothing
-        else case r of
-            Iter cont -> gameLoop cont
-            Pure a -> return (Just a)    
+        else either (return . Just) gameLoop r
 
 newtype TextureStorage = TextureStorage { getTextureStorage :: IORef (IM.IntMap G.Texture) }
 
