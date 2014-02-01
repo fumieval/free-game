@@ -1,8 +1,14 @@
 name:                free-game
 version:             1.0
 synopsis:            Create games for free
-description:         free-game is a sophisticated library to develop 2D games. Twitter: #hs_free_game
-homepage:            https://github.com/fumieval/free-game/tree/maintainance0.9
+description:
+    free-game defines a monad that integrates features to create 2D games.
+    .
+    A simple playback and effectors will be supported in future versions.
+    .
+    Twitter: #hs_free_game
+
+homepage:            https://github.com/fumieval/free-game
 bug-reports:         https://github.com/fumieval/free-game/issues
 license:             BSD3
 license-file:        LICENSE
@@ -13,8 +19,6 @@ category:            Graphics, Monads
 build-type:          Simple
 stability:           experimental
 cabal-version:       >=1.10
-data-files:          VL-PGothic-Regular.ttf
-
 
 source-repository head
   type: git

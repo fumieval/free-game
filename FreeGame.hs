@@ -99,7 +99,7 @@ import Linear hiding (rotate)
 import Control.Monad.Trans.Iter
 
 -- | 'Game' is a monad literally expressing games.
--- This monad is an instance of 'Picture2D' so you can construct it using 'fromBitmap' and can be transformed with 'translate', 'scale', 'rotate', 'colored'.
+-- This monad is an instance of 'Picture2D' so you can construct it using 'bitmap' and can be transformed with 'translate', 'scale', 'rotate', 'color'.
 --
 -- It is also an instance of 'Keyboard' and 'Mouse'. Note that 'mousePosition' returns a relative position.
 --
