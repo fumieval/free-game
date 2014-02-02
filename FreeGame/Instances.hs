@@ -76,7 +76,6 @@ import FreeGame.UI
     getFPS = (l) getFPS; \
     }
 
-
 hoistF :: (Functor f, Functor g) => (forall x. f x -> g x) -> Church.F f a -> Church.F g a
 hoistF t = Church.iterM (wrap . t)
 {-# INLINE hoistF #-}

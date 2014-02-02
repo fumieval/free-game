@@ -46,8 +46,7 @@ mouseTest = do
             (True, True) -> blend 0.5 red blue
     translate p $ color col $ thickness 4 $ circleOutline 16
 
-main = runGame $ do
-    setRegion $ BoundingBox 0 0 500 500
+main = runGame Windowed (BoundingBox 0 0 640 480) $ do
     bmp <- embedIO $ readBitmap "logo.png"
     bmp' <- embedIO $ readBitmap "Icon.png"
     font <- embedIO $ loadFont "VL-PGothic-Regular.ttf"

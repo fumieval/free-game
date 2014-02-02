@@ -16,6 +16,7 @@ module FreeGame
     WindowMode(..),
     BoundingBox(..),
     delay,
+    tick,
     foreverFrame,
     untick,
     untickInfinite,
@@ -80,7 +81,6 @@ module FreeGame
     fromBitmap,
     loadBitmapFromFile,
     colored,
-    tick,
     keyChar,
     keySpecial
 

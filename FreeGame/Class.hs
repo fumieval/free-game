@@ -83,7 +83,7 @@ instance Affine Location where
     scale v (Location f g) = Location (f . (*v)) ((/v) . g)
 
 rot2 :: Floating a => a -> V2 a -> V2 a
-rot2 t (V2 !x !y) = V2 (p * x + q * y) (-q * x + p * y) where
+rot2 t (V2 x y) = V2 (p * x + q * y) (-q * x + p * y) where
     !p = cos t
     !q = sin t
 

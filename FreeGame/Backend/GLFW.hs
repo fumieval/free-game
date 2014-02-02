@@ -101,7 +101,6 @@ newtype Previous a = Previous { getPrevious :: a }
 newtype KeyStates = RefKeyStates { getKeyStates :: IORef (Map.Map Key Bool) }
 newtype MouseButtonStates = RefMouseButtonStates { getMouseButtonStates :: IORef (Map.Map Int Bool) }
 
-
 runUI :: forall a.
     ( Given G.System
     , Given TextureStorage

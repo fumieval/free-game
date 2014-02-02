@@ -57,19 +57,20 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     bracket :: Frame a -> m a
     -- | Generate a 'Bitmap' from the front buffer.
     takeScreenshot :: m Bitmap
-
     setFPS :: Int -> m ()
     setTitle :: String -> m ()
     showCursor :: m ()
     hideCursor :: m ()
     clearColor :: Color -> m ()
     getFPS :: m Int
+    
 
 instance FreeGame UI where
     draw = Draw
     {-# INLINE draw #-}
     preloadBitmap bmp = PreloadBitmap bmp ()
     {-# INLINE preloadBitmap #-}
+    
     bracket = Bracket
     {-# INLINE bracket #-}
     takeScreenshot = TakeScreenshot id
@@ -79,6 +80,7 @@ instance FreeGame UI where
     hideCursor = HideCursor ()
     clearColor c = ClearColor c ()
     getFPS = GetFPS id
+    
 
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)

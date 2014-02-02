@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, CPP #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.Util
@@ -55,13 +55,13 @@ import System.Random
 import System.Environment
 
 -- | Delimit the computation to yield a frame.
-{-# DEPRECATED tick "use delay or foreverFrame instead" #-}
 tick :: (Monad f, MonadFree f m) => m ()
 tick = delay (return ())
 
 -- | An infinite loop that run 'tick' every frame after the given action.
 foreverTick :: (Monad f, MonadFree f m) => m a -> m any
 foreverTick m = let m' = foreverTick m in m >> wrap (return m')
+{-# WARNING foreverTick "In most cases, foreverFrame is good enough and fast." #-}
 
 -- | @foreverFrame :: Frame a -> Game any@
 foreverFrame :: (Monad f, Monad m, MonadTrans t, MonadFree f (t m)) => m a -> t m any
@@ -102,7 +102,7 @@ radians x = x / 180 * pi
 loadPictureFromFile :: (Picture2D p, FromFinalizer m) => FilePath -> m (p ())
 loadPictureFromFile = embedIO . fmap bitmap . readBitmap
 
--- | The type of the given 'Name' must be @FilePath -> IO FilePath@
+-- | The type of the given 'ExpQ' must be @FilePath -> IO FilePath@
 loadBitmapsWith :: ExpQ -> FilePath -> Q [Dec]
 loadBitmapsWith getFullPath path = do
     loc <- (</>path) <$> takeDirectory <$> loc_filename <$> location
@@ -123,6 +123,10 @@ loadBitmapsWith getFullPath path = do
                 (varE 'readBitmap)
 
 -- | Load and define all pictures in the specified directory.
+-- In GHC >= 7.6, file paths to actually load will be respect to the directory of the executable. Otherwise it will be based on the current directory.
+
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 706
+
 loadBitmaps :: FilePath -> Q [Dec]
 loadBitmaps path = do
     v <- newName "v"
@@ -132,6 +136,13 @@ loadBitmaps path = do
                     (varE '(.))
                     (varE 'takeDirectory)
                 , varE 'getExecutablePath]) path
+
+#else
+
+loadBitmaps :: FilePath -> Q [Dec]
+loadBitmaps path = loadBitmapsWith (varE 'return) path
+
+#endif
 
 getFileList :: FilePath -> IO [FilePath]
 getFileList path = do

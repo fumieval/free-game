@@ -23,6 +23,7 @@ module FreeGame.Data.Font
 
 import Control.Applicative
 import Control.Monad.IO.Class
+import Control.Monad
 import Data.IORef
 import Data.Array.Repa as R
 import Data.Array.Repa.Repr.ForeignPtr as R
@@ -83,9 +84,7 @@ fontBoundingBox (Font _ _ b _) = b
 runFreeType :: IO CInt -> IO ()
 runFreeType m = do
     r <- m
-    case r of
-        0 -> return ()
-        e -> fail $ "FreeType Error:" Prelude.++ show e
+    unless (r == 0) $ fail $ "FreeType Error:" Prelude.++ show r
 
 freeType :: FT_Library
 freeType = unsafePerformIO $ alloca $ \p -> do
