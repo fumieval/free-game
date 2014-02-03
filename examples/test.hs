@@ -64,4 +64,7 @@ main = runGame Windowed (BoundingBox 0 0 640 480) $ do
             fps <- getFPS
 
             color black $ text font 15 (show fps)
+        whenM (keyDown KeyA) $ translate (V2 300 300) $ color black $ text font 30 "A"
+        whenM (keyPress KeyA) $ translate (V2 320 300) $ color black $ text font 30 "B"
+        whenM (keyUp KeyA) $ translate (V2 340 300) $ color black $ text font 30 "C"
         whenM (keyDown KeyS) $ takeScreenshot >>= writeBitmap "capture.png"

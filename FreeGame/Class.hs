@@ -51,6 +51,7 @@ class Affine p => Picture2D p where
     circleOutline :: Double -> p ()
     thickness :: Float -> p a -> p a
     color :: Color -> p a -> p a
+    blendMode :: BlendMode -> p a -> p a
 
 {-# DEPRECATED fromBitmap "Use bitmap instead" #-}
 fromBitmap :: Picture2D p => Bitmap -> p ()
@@ -87,52 +88,81 @@ rot2 t (V2 x y) = V2 (p * x + q * y) (-q * x + p * y) where
     !p = cos t
     !q = sin t
 
+data ButtonState = Down | Press | Up | Release　| ChatterDown | ChatterUp
+
+buttonDown :: ButtonState -> ButtonState
+buttonDown Release = Down
+buttonDown Up = ChatterDown
+buttonDown ChatterUp = ChatterDown
+buttonDown x = x
+
+buttonUp :: ButtonState -> ButtonState
+buttonUp Press = Up
+buttonUp Down = ChatterUp
+buttonUp ChatterDown = ChatterUp
+buttonUp x = x
+
+buttonStay :: ButtonState -> ButtonState
+buttonStay Down = Press
+buttonStay Press = Press
+buttonStay Up = Release
+buttonStay Release = Release
+buttonStay ChatterDown = Press
+buttonStay ChatterUp = Release
+
+isDown :: ButtonState -> Bool
+isDown Down = True
+isDown ChatterDown = True
+isDown ChatterUp = True
+isDown _ = False
+
+isUp :: ButtonState -> Bool
+isUp Up = True
+isUp ChatterUp = True
+isUp ChatterDown = True
+isUp _ = False
+
+isPressed :: ButtonState -> Bool
+isPressed Down = True
+isPressed ChatterUp = True
+isPressed Press = True
+isPressed ChatterDown = True
+isPressed _ = False
+
 class Functor f => Keyboard f where
-    keyStates_ :: f (Map.Map Key Bool, Map.Map Key Bool)
+    keyStates_ :: f (Map.Map Key ButtonState)
 
 keyStates :: Keyboard f => f (Map.Map Key Bool)
-keyStates = fmap fst keyStates_
+keyStates = Map.map isPressed <$> keyStates_
 
 keyPress :: Keyboard f => Key -> f Bool
-keyPress k = (Map.! k) <$> keyStates
+keyPress k = isPressed <$> (Map.! k) <$> keyStates_
 
 keyDown :: Keyboard f => Key -> f Bool
-keyDown k = (\(m, n) -> m Map.! k && not (n Map.! k)) <$> keyStates_ where
+keyDown k = isDown <$> (Map.! k) <$> keyStates_
 
 keyUp :: Keyboard f => Key -> f Bool
-keyUp k = (\(m, n) -> not (m Map.! k) && n Map.! k) <$> keyStates_ where
-
-{-
-
-{-# DEPRECATED keySpecial "Use keyPress instead" #-}
-keySpecial :: Keyboard t => SpecialKey -> t Bool
-keySpecial = keyState
-
-{-# DEPRECATED keyChar "Use keyState instead" #-}
-keyChar :: Keyboard t => Char -> t Bool
-keyChar = undefined
-
--}
+keyUp k = isUp <$> (Map.! k) <$> keyStates_
 
 class Functor f => Mouse f where
     globalMousePosition :: f Vec2
-    mouseButtons_ :: f (Map.Map Int Bool, Map.Map Int Bool)
+    mouseButtons_ :: f (Map.Map Int ButtonState)
 
 -- | Returns the relative coordinate of the cursor.
 mousePosition :: (Applicative f, Mouse f, Local f) => f Vec2
 mousePosition = (\v (Location _ g) -> g v) <$> globalMousePosition <*> getLocation
 
 mouseButtons :: Mouse f => f (Map.Map Int Bool)
-mouseButtons = fmap fst mouseButtons_
+mouseButtons = Map.map isPressed <$> mouseButtons_
 
 mouseButton :: Mouse f => Int -> f Bool
-mouseButton k = (Map.! k) <$> mouseButtons
+mouseButton k = isPressed <$> (Map.! k) <$> mouseButtons_
 
 mouseDown :: Mouse f => Int -> f Bool
-mouseDown k = (\(m, n) -> m Map.! k && not (n Map.! k)) <$> mouseButtons_
+mouseDown k = isDown <$> (Map.! k) <$> mouseButtons_
 
 mouseUp :: Mouse f => Int -> f Bool
-mouseUp k = (\(m, n) -> not (m Map.! k) && n Map.! k) <$> mouseButtons_
+mouseUp k = isUp <$> (Map.! k) <$> mouseButtons_
 
 mouseButtonL :: Mouse f => f Bool
 mouseButtonL = mouseButton 0

@@ -31,8 +31,8 @@ data UI a =
     Draw (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a)
     | PreloadBitmap Bitmap a
     | FromFinalizer (FinalizerT IO a)
-    | KeyStates (Map.Map Key Bool -> Map.Map Key Bool -> a)
-    | MouseButtons (Map.Map Int Bool -> Map.Map Int Bool -> a)
+    | KeyStates (Map.Map Key ButtonState -> a)
+    | MouseButtons (Map.Map Int ButtonState -> a)
     | MousePosition (Vec2 -> a)
     | TakeScreenshot (Bitmap -> a)
     | Bracket (Frame a)
@@ -106,6 +106,7 @@ instance Picture2D UI where
     circleOutline r = Draw (circleOutline r)
     thickness t = overDraw (thickness t)
     color c = overDraw (color c)
+    blendMode m = overDraw (blendMode m)
 
 instance Local UI where
     getLocation = Draw getLocation
@@ -114,9 +115,9 @@ instance FromFinalizer UI where
     fromFinalizer = FromFinalizer
 
 instance Keyboard UI where
-    keyStates_ = KeyStates (,)
+    keyStates_ = KeyStates id
 
 instance Mouse UI where
     globalMousePosition = MousePosition id
     -- mouseWheel = MouseWheel id
-    mouseButtons_ = MouseButtons (,)
+    mouseButtons_ = MouseButtons id

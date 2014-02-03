@@ -21,6 +21,7 @@ module FreeGame.Types (
     _BottomLeft,
     _BottomRight
     , Key(..)
+    , BlendMode(..)
     ) where
 
 import Linear.V2
@@ -188,3 +189,10 @@ data Key =
 instance Bounded Key where
     minBound = KeyUnknown
     maxBound = KeyMenu
+
+data BlendMode = Normal
+    | Inverse
+    | Add
+    | Multiply
+    | Screen
+    deriving (Enum, Eq, Ord, Read, Show, Typeable)

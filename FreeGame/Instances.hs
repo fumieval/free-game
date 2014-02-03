@@ -47,6 +47,8 @@ import FreeGame.UI
     thickness k = t (thickness k); \
     color k = t (color k); \
     {-# INLINE color #-}; \
+    blendMode m = t (blendMode m); \
+    {-# INLINE blendMode #-}; \
     }
 
 #define MK_LOCAL(cxt, ty, l) instance (Local m cxt) => Local (ty) where { \

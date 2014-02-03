@@ -31,6 +31,7 @@ module FreeGame
     localize,
     -- * Pictures
     Picture2D(..),
+    BlendMode(..),
     Bitmap,
     readBitmap,
     cropBitmap,
