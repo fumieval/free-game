@@ -170,6 +170,7 @@ withGLFW full bbox@(BoundingBox x0 y0 x1 y1) m = do
         FullScreen -> GLFW.getPrimaryMonitor
         Windowed -> return Nothing
 
+    GLFW.windowHint (GLFW.WindowHint'Resizable False)
     Just win <- GLFW.createWindow ww wh title mon Nothing
     GLFW.makeContextCurrent (Just win)
     GL.lineSmooth $= GL.Enabled
@@ -177,6 +178,7 @@ withGLFW full bbox@(BoundingBox x0 y0 x1 y1) m = do
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
     GL.shadeModel $= GL.Flat
     GL.textureFunction $= GL.Combine
+
     GLFW.swapInterval 1
     GL.clearColor $= GL.Color4 1 1 1 1
 
