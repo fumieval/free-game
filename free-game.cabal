@@ -1,5 +1,5 @@
 name:                free-game
-version:             1.0
+version:             1.0.2
 synopsis:            Create games for free
 description:
     free-game defines a monad that integrates features to create 2D games.
