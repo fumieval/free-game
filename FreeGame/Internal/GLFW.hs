@@ -216,3 +216,18 @@ flipVertically img = R.computeP $ R.unsafeBackpermute e order img where
     e@(R.Z R.:. r R.:. _ R.:. _) = R.extent img
     order (R.Z R.:. y R.:. x R.:. c) = R.Z R.:. r - 1 - y R.:. x R.:. c
     {-# INLINE order #-}
+
+blendMode2BlendingFactors :: BlendMode -> (GL.BlendingFactor, GL.BlendingFactor)
+blendMode2BlendingFactors Normal = (GL.SrcAlpha, GL.OneMinusSrcAlpha)
+blendMode2BlendingFactors Inverse = (GL.OneMinusDstColor, GL.Zero)
+blendMode2BlendingFactors Add = (GL.SrcAlpha, GL.One)
+blendMode2BlendingFactors Multiply = (GL.Zero, GL.SrcColor)
+blendMode2BlendingFactors Screen = (GL.One, GL.OneMinusSrcColor)
+
+blendMode :: BlendMode -> IO a -> IO a
+blendMode mode m = do
+    oldFunc <- get GL.blendFunc
+    GL.blendFunc $= blendMode2BlendingFactors mode
+    a <- m
+    GL.blendFunc $= oldFunc
+    return a
