@@ -21,6 +21,7 @@ module FreeGame.Types (
     _BottomLeft,
     _BottomRight
     , Key(..)
+    , Blending(..)
     ) where
 
 import Linear.V2
@@ -188,3 +189,12 @@ data Key =
 instance Bounded Key where
     minBound = KeyUnknown
     maxBound = KeyMenu
+
+data Blending = NormalNonAlpha
+              | NormalAlpha
+              | AddNonAlpha
+              | AddAlpha
+              | Multiply
+              | Screen
+              | Inverse
+              | Remove

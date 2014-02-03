@@ -23,6 +23,7 @@ module FreeGame
     -- * Frame
     Frame,
     FreeGame(..),
+    Blending(..),
     -- * Transformations
     Vec2,
     Affine(..),

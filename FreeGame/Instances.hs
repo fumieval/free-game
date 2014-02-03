@@ -74,6 +74,7 @@ import FreeGame.UI
     hideCursor = (l) hideCursor; \
     clearColor c = (l) (clearColor c); \
     getFPS = (l) getFPS; \
+    setBlendMode bl = (l) (setBlendMode bl); \
     }
 
 hoistF :: (Functor f, Functor g) => (forall x. f x -> g x) -> Church.F f a -> Church.F g a
