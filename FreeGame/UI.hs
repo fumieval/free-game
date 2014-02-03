@@ -42,6 +42,7 @@ data UI a =
     | HideCursor a
     | ClearColor Color a
     | GetFPS (Int -> a)
+    | SetBlendMode Blending a
     deriving Functor
 
 type Game = IterT Frame
@@ -63,6 +64,7 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     hideCursor :: m ()
     clearColor :: Color -> m ()
     getFPS :: m Int
+    setBlendMode :: Blending -> m ()
     
 
 instance FreeGame UI where
@@ -80,6 +82,7 @@ instance FreeGame UI where
     hideCursor = HideCursor ()
     clearColor c = ClearColor c ()
     getFPS = GetFPS id
+    setBlendMode bl = SetBlendMode bl ()
     
 
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a

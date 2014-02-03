@@ -156,6 +156,19 @@ runUI (SetFPS n cont) = do
     liftIO $ writeIORef (G.theFPS given) n
     cont
 runUI (GetFPS cont) = liftIO (readIORef (G.currentFPS given)) >>= cont
+runUI (SetBlendMode bl cont) = do
+    liftIO $ glBlending bl
+    cont
+
+glBlending :: Blending -> IO ()
+glBlending NormalNonAlpha = GL.blendFunc GL.$= (GL.SrcColor, GL.Zero)
+glBlending NormalAlpha = GL.blendFunc GL.$= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
+glBlending AddNonAlpha = GL.blendFunc GL.$= (GL.One, GL.One)
+glBlending AddAlpha = GL.blendFunc GL.$= (GL.SrcAlpha, GL.One)
+glBlending Multiply = GL.blendFunc GL.$= (GL.Zero, GL.SrcColor)
+glBlending Screen = GL.blendFunc GL.$= (GL.One, GL.OneMinusSrcColor)
+glBlending Inverse = GL.blendFunc GL.$= (GL.OneMinusDstColor, GL.Zero)
+glBlending Remove = GL.blendFunc GL.$= (GL.OneMinusDstColor, GL.OneMinusSrcColor)
 
 mapReaderWith :: (s -> r) -> (m a -> n b) -> ReaderT r m a -> ReaderT s n b
 mapReaderWith f g m = unsafeCoerce $ \s -> g (unsafeCoerce m (f s))
