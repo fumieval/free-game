@@ -25,10 +25,8 @@ import Control.Applicative
 import Control.Monad.IO.Class
 import Control.Monad
 import Data.IORef
-import Data.Array.Repa as R
-import Data.Array.Repa.Repr.ForeignPtr as R
 import qualified Data.Map as M
-import Data.Word
+import qualified Data.Vector.Storable as V
 import Linear
 import FreeGame.Types
 import FreeGame.Class
@@ -49,6 +47,8 @@ import Foreign.Storable
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import System.IO.Unsafe
+import Codec.Picture
+import Codec.Picture.RGBA8
 
 -- | Font object
 data Font = Font FT_Face (Double, Double) (BoundingBox Double) (IORef (M.Map (Double, Char) RenderedChar))
@@ -136,13 +136,7 @@ render face siz ch = do
 
     adv <- peek $ GS.advance slot
 
-    let ar = fromForeignPtr (Z:.h:.w) fptr :: R.Array F DIM2 Word8
-        pix (crd:.3) = R.index ar crd
-        pix (_:._) = 255
-
-    result <- computeP (fromFunction (Z:.h:.w:.4) pix) >>= makeStableBitmap
-    
     return $ RenderedChar
-        result
+        (fromColorAndOpacity (PixelRGB8 255 255 255) $ Image w h $ V.unsafeFromForeignPtr0 fptr $ h * w)
         (V2 (left + fromIntegral w / 2) (-top + fromIntegral h / 2))
         (fromIntegral (V.x adv) / 64)

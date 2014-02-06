@@ -44,6 +44,8 @@ class Functor p => Affine p where
 class Affine p => Picture2D p where
     -- | Construct a 'Picture2D' from a 'Bitmap'.
     bitmap :: Bitmap -> p ()
+    -- | Same as 'bitmap', but it does not create a cache.
+    bitmapOnce :: Bitmap -> p ()
     line :: [Vec2] -> p ()
     polygon :: [Vec2] -> p ()
     polygonOutline :: [Vec2] -> p ()

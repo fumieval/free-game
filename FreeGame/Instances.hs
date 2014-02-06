@@ -39,6 +39,8 @@ import FreeGame.UI
 #define MK_PICTURE_2D(cxt, ty, l, t) instance (Picture2D m cxt) => Picture2D (ty) where { \
     bitmap b = (l) (bitmap b); \
     {-# INLINE bitmap #-}; \
+    bitmapOnce b = (l) (bitmapOnce b); \
+    {-# INLINE bitmapOnce #-}; \
     line = (l) . line; \
     polygon = (l) . polygon; \
     polygonOutline = (l) . polygonOutline; \
@@ -70,6 +72,7 @@ import FreeGame.UI
     preloadBitmap = (l) . preloadBitmap; \
     takeScreenshot = (l) takeScreenshot; \
     bracket m = (l) (bracket m); \
+    forkFrame m = (l) (forkFrame m); \
     setFPS a = (l) (setFPS a); \
     setTitle t = (l) (setTitle t); \
     showCursor = (l) showCursor; \

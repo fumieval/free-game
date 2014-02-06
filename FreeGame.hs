@@ -33,6 +33,7 @@ module FreeGame
     Picture2D(..),
     BlendMode(..),
     Bitmap,
+    bitmapSize,
     readBitmap,
     cropBitmap,
     loadBitmaps,

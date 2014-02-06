@@ -6,19 +6,17 @@ import Control.Applicative
 import Control.Monad.IO.Class
 import Data.Color
 import Data.IORef
-import Foreign.ForeignPtr
 import FreeGame.Types
 import Graphics.Rendering.OpenGL.GL.StateVar
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
 import Linear
-import qualified Data.Array.Repa.Repr.ForeignPtr as RF
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import qualified Graphics.UI.GLFW as GLFW
 import Unsafe.Coerce
-import Foreign.Marshal.Alloc
-import qualified Data.Array.Repa as R
-import Data.Word
-import qualified Data.Array.Repa.Operators.IndexSpace as R
+import qualified Data.Vector.Storable as V
+import qualified Data.Vector.Storable.Mutable as MV
+import Codec.Picture
+import Codec.Picture.RGBA8
 
 data System = System
     { refFrameCounter :: IORef Int
@@ -123,16 +121,15 @@ thickness t m = do
     liftIO $ GL.lineWidth $= oldWidth
     return res
 
-installTexture :: R.Array RF.F R.DIM3 Word8 -> IO Texture
-installTexture ar = do
+installTexture :: Image PixelRGBA8 -> IO Texture
+installTexture (Image w h v) = do
     [tex] <- GL.genObjectNames 1
     GL.textureBinding GL.Texture2D GL.$= Just tex
-    let R.Z R.:. height R.:. width R.:. _ = R.extent ar
-    let siz = GL.TextureSize2D (gsizei width) (gsizei height)
-    withForeignPtr (RF.toForeignPtr ar)
+    let siz = GL.TextureSize2D (gsizei w) (gsizei h)
+    V.unsafeWith v
         $ GL.texImage2D GL.Texture2D GL.NoProxy 0 GL.RGBA8 siz 0
         . GL.PixelData GL.ABGR GL.UnsignedInt8888
-    return (tex, fromIntegral width / 2, fromIntegral height / 2)
+    return (tex, fromIntegral w / 2, fromIntegral h / 2)
 
 releaseTexture :: Texture -> IO ()
 releaseTexture (tex, _, _) = GL.deleteObjectNames [tex]
@@ -196,28 +193,22 @@ withGLFW full bbox@(BoundingBox x0 y0 x1 y1) m = do
     GLFW.terminate
     return res
 
-screenshotFlipped :: System -> IO (R.Array RF.F R.DIM3 Word8)
+screenshotFlipped :: System -> IO (Image PixelRGBA8)
 screenshotFlipped sys = do
     let BoundingBox x0 y0 x1 y1 = theRegion sys
         w = floor $ x1 - x0
         h = floor $ y1 - y0
-        sh = R.Z R.:. h R.:. w R.:. 4
     
-    ptr <- mallocBytes (w * h * 4)
+    mv <- MV.unsafeNew (w * h * 4)
     GL.readBuffer $= GL.FrontBuffers
-    GL.readPixels (GL.Position 0 0) (GL.Size (gsizei w) (gsizei h)) (GL.PixelData GL.RGBA GL.UnsignedByte ptr)
+    MV.unsafeWith mv
+        $ \ptr -> GL.readPixels (GL.Position 0 0) (GL.Size (gsizei w) (gsizei h))
+            (GL.PixelData GL.RGBA GL.UnsignedByte ptr)
 
-    ptr' <- newForeignPtr_ ptr
-    return $ RF.fromForeignPtr sh ptr'
+    Image w h <$> V.unsafeFreeze mv
 
-screenshot :: System -> IO (R.Array RF.F R.DIM3 Word8)
-screenshot sys = screenshotFlipped sys >>= flipVertically 
-
-flipVertically :: Monad m => R.Array RF.F R.DIM3 Word8 -> m (R.Array RF.F R.DIM3 Word8)
-flipVertically img = R.computeP $ R.unsafeBackpermute e order img where
-    e@(R.Z R.:. r R.:. _ R.:. _) = R.extent img
-    order (R.Z R.:. y R.:. x R.:. c) = R.Z R.:. r - 1 - y R.:. x R.:. c
-    {-# INLINE order #-}
+screenshot :: System -> IO (Image PixelRGBA8)
+screenshot sys = flipVertically <$> screenshotFlipped sys
 
 blendMode2BlendingFactors :: BlendMode -> (GL.BlendingFactor, GL.BlendingFactor)
 blendMode2BlendingFactors Normal = (GL.SrcAlpha, GL.OneMinusSrcAlpha)

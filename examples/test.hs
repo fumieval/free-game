@@ -24,16 +24,28 @@ figureTest = draw $ do
 
 fontTest :: Font -> Frame ()
 fontTest font = do
-    translate (V2 100 300) $ color black
-        $ text font 48 "Hello, World" -- Use 'text font size string' to draw a string.
+    translate (V2 30 300) $ color white $ do
+        text font 48 "The quick brown fox"
+        color red $ line [V2 (-100) 0, V2 640 0]
+        translate (V2 0 80) $ do
+            text font 48 "jumps over the lazy dog"
+            color red $ line [V2 (-100) 0, V2 640 0]
+        translate (V2 0 160) $ do
+            text font 48 "0123456789" -- Use 'text font size string' to draw a string.
+            color red $ line [V2 (-100) 0, V2 640 0]
+        
+        color red $ line [V2 0 (-600), V2 0 600]
 
 bitmapTest :: Bitmap -> Frame ()
-bitmapTest bmp = do
-    color (Color 1 1 1 0.5) $ do
-        translate (V2 300 350) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
-        translate (V2 300 360) $ bitmap bmp
-    translate (V2 100 350) $ bitmap (cropBitmap bmp (32, 32) (0, 0)) -- You can slice bitmaps using 'cropBitmap'.
-
+bitmapTest bmp = blendMode Add $ do
+    
+    color (Color 1 0 0 1) $ do
+        translate (V2 300 346) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
+    color (Color 0 1 0 1) $ do
+        translate (V2 310 350) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
+    color (Color 0 0 1 1) $ do
+        translate (V2 293 359) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
+    
 mouseTest :: Frame ()
 mouseTest = do
     p <- mousePosition
@@ -47,23 +59,25 @@ mouseTest = do
     translate p $ color col $ thickness 4 $ circleOutline 16
 
 main = runGame Windowed (BoundingBox 0 0 640 480) $ do
-    bmp <- embedIO $ readBitmap "logo.png"
-    bmp' <- embedIO $ readBitmap "Icon.png"
+    bmp <- embedIO $ readBitmap "bird.png"
     font <- embedIO $ loadFont "VL-PGothic-Regular.ttf"
+    let bmp' = cropBitmap bmp (128, 128) (64, 64)
+    clearColor black
+    forkFrame $ preloadBitmap bmp'
     foreverFrame $ do
-        
-        bitmapTest bmp'
-        
+
+        bitmapTest bmp
         figureTest
+        translate (V2 320 80) $ bitmap bmp' -- You can slice bitmaps using 'cropBitmap'.
 
         fontTest font
-
         translate (V2 240 240) $ do
             mouseTest
 
             fps <- getFPS
 
             color black $ text font 15 (show fps)
+        
         whenM (keyDown KeyA) $ translate (V2 300 300) $ color black $ text font 30 "A"
         whenM (keyPress KeyA) $ translate (V2 320 300) $ color black $ text font 30 "B"
         whenM (keyUp KeyA) $ translate (V2 340 300) $ color black $ text font 30 "C"
