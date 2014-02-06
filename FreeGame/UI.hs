@@ -42,6 +42,7 @@ data UI a =
     | HideCursor a
     | ClearColor Color a
     | GetFPS (Int -> a)
+    | ForkFrame (Frame ()) a
     deriving Functor
 
 type Game = IterT Frame
@@ -55,6 +56,8 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     preloadBitmap :: Bitmap -> m ()
     -- | Run a 'Frame', and release all the matter happened.
     bracket :: Frame a -> m a
+    -- | Run a 'Frame' action concurrently. Please do not use this function to draw pictures.
+    forkFrame :: Frame () -> m ()
     -- | Generate a 'Bitmap' from the front buffer.
     takeScreenshot :: m Bitmap
     setFPS :: Int -> m ()
@@ -64,7 +67,6 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     clearColor :: Color -> m ()
     getFPS :: m Int
     
-
 instance FreeGame UI where
     draw = Draw
     {-# INLINE draw #-}
@@ -73,6 +75,7 @@ instance FreeGame UI where
     
     bracket = Bracket
     {-# INLINE bracket #-}
+    forkFrame m = ForkFrame m ()
     takeScreenshot = TakeScreenshot id
     setFPS a = SetFPS a ()
     setTitle t = SetTitle t ()
@@ -99,14 +102,20 @@ instance Affine UI where
 
 instance Picture2D UI where
     bitmap x = Draw (bitmap x)
+    {-# INLINE bitmap #-}
+    bitmapOnce x = Draw (bitmapOnce x)
+    {-# INLINE bitmapOnce #-}
     line vs = Draw (line vs)
     polygon vs = Draw (polygon vs)
     polygonOutline vs = Draw (polygonOutline vs)
     circle r = Draw (circle r)
     circleOutline r = Draw (circleOutline r)
     thickness t = overDraw (thickness t)
+    {-# INLINE thickness #-}
     color c = overDraw (color c)
+    {-# INLINE color #-}
     blendMode m = overDraw (blendMode m)
+    {-# INLINE blendMode #-}
 
 instance Local UI where
     getLocation = Draw getLocation

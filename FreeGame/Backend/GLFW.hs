@@ -20,7 +20,6 @@ import Control.Monad.Reader
 import Data.IORef
 import Data.Reflection
 import FreeGame.Class
-import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer
 import FreeGame.UI
 import FreeGame.Types
@@ -31,6 +30,8 @@ import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import Unsafe.Coerce
+import Codec.Picture.RGBA8
+import Control.Concurrent
 
 keyCallback :: IORef (Map.Map Key ButtonState) -> GLFW.Window -> GLFW.Key -> Int -> GLFW.KeyState -> GLFW.ModifierKeys -> IO ()
 keyCallback keyBuffer _ key _ GLFW.KeyState'Pressed _ = modifyIORef' keyBuffer $ Map.adjust buttonDown (toEnum $ fromEnum key)
@@ -74,12 +75,15 @@ gameLoop ::
 gameLoop m = do
     liftIO $ G.beginFrame given
 
-    r <- iterM runUI $ runIterT m
+    fs <- liftIO $ newIORef ([] :: [IO ()])
+
+    r <- give fs $ iterM runUI $ runIterT m
 
     b <- liftIO $ do
         modifyIORef' (getKeyStates given) (Map.map buttonStay)
         modifyIORef' (getMouseButtonStates given) (Map.map buttonStay)
         G.endFrame given
+    liftIO (readIORef fs) >>= finalizer . sequence_
 
     if b
         then return Nothing
@@ -97,6 +101,7 @@ runUI :: forall a.
     , Given TextureStorage
     , Given KeyStates
     , Given MouseButtonStates
+    , Given (IORef [IO ()])
     ) => UI (FinalizerT IO a) -> FinalizerT IO a
 runUI (Draw m) = do
     (cont, xs) <- liftIO $ do
@@ -108,10 +113,10 @@ runUI (Draw m) = do
     cont
 runUI (FromFinalizer m) = join m
 runUI (PreloadBitmap bmp cont) = do
-    loadTexture given bmp
-        (\t h -> finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h))
-        (const $ return ())
-        (const $ return ())
+    t <- liftIO $ G.installTexture bmp
+    h <- liftIO $ addrImage bmp
+    liftIO $ modifyIORef' (getTextureStorage given) (IM.insert h t)
+    finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
     cont
 runUI (KeyStates cont) = liftIO (readIORef $ getKeyStates given) >>= cont
 runUI (MouseButtons cont) = liftIO (readIORef $ getMouseButtonStates given) >>= cont
@@ -120,7 +125,7 @@ runUI (MousePosition cont) = do
     (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)
     cont $ V2 x y
 runUI (Bracket m) = join $ iterM runUI m
-runUI (TakeScreenshot cont) = liftIO (G.screenshot given >>= makeStableBitmap) >>= cont
+runUI (TakeScreenshot cont) = liftIO (G.screenshot given) >>= cont
 runUI (ClearColor col cont) = do
     liftIO $ GL.clearColor GL.$= unsafeCoerce col
     cont
@@ -137,6 +142,11 @@ runUI (SetFPS n cont) = do
     liftIO $ writeIORef (G.theFPS given) n
     cont
 runUI (GetFPS cont) = liftIO (readIORef (G.currentFPS given)) >>= cont
+runUI (ForkFrame m cont) = do
+    _ <- liftIO $ forkIO $ do
+        (_, f) <- runFinalizerT $ iterM runUI m
+        modifyIORef' given (f:)
+    cont
 
 mapReaderWith :: (s -> r) -> (m a -> n b) -> ReaderT r m a -> ReaderT s n b
 mapReaderWith f g m = unsafeCoerce $ \s -> g (unsafeCoerce m (f s))
@@ -152,33 +162,24 @@ instance Affine DrawM where
     scale v = mapReaderWith (scale v) (G.scale v)
     {-# INLINE scale #-}
 
-loadTexture :: MonadIO m => TextureStorage -> Bitmap
-    -> (G.Texture -> Int -> m ())
-    -> (G.Texture -> m ())
-    -> (G.Texture -> m ())
-    -> m ()
-loadTexture (TextureStorage st) (BitmapData img (Just h)) hook cont _ = do
-    m <- liftIO $ readIORef st
-    case IM.lookup h m of
-        Just t -> cont t
-        Nothing -> do
-            t <- liftIO $ G.installTexture img
-            liftIO $ writeIORef st $ IM.insert h t m
-            hook t h
-            cont t
-loadTexture _ (BitmapData img Nothing) _ cont fin = do
-    t <- liftIO $ G.installTexture img
-    cont t
-    fin t
-
 newtype Context = Context { getContext :: IORef [(G.Texture, Int)] }
 
 instance (Given Context, Given TextureStorage) => Picture2D DrawM where
-    bitmap bmp = liftIO $ loadTexture given bmp
-        (\t h -> modifyIORef (getContext given) ((t, h) :))
-        G.drawTexture
-        G.releaseTexture
-    {-# INLINE bitmap #-}
+    bitmap bmp = liftIO $ do
+        m <- readIORef (getTextureStorage given)
+        h <- addrImage bmp
+        case IM.lookup h m of
+            Just t -> G.drawTexture t
+            Nothing -> do
+                t <- G.installTexture bmp
+                writeIORef (getTextureStorage given) $ IM.insert h t m
+                modifyIORef (getContext given) ((t, h) :)
+                G.drawTexture t
+    bitmapOnce bmp = liftIO $ do
+        t <- G.installTexture bmp
+        G.drawTexture t
+        G.releaseTexture t
+
     circle r = liftIO (G.circle r)
     {-# INLINE circle #-}
     circleOutline r = liftIO (G.circleOutline r)
