@@ -10,8 +10,6 @@ Install
 
     $ cabal install free-game
 
-In Older(<7.6) GHC versions, you may have to specify `repa-3.2.1.1`.
-
 
 Migration Guide
 -------------------------------------------------------------------------------------
