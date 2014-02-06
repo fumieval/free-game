@@ -27,8 +27,9 @@ Migration Guide
     * `keyPress` or `keyDown` or `keyUp` -- You don't have to keep key states anymore!
 * `foreverTick m`
     * `foreverFrame m` -- It is faster
-* do { some draw-only computation }
+* `do { some draw-only computation }`
     * Just apply `draw` to make your code faster.
+* `Game` is a kind of coroutine upon `Frame`.
 
 Special Thanks
 ------------------------------------------------------------------------------------
