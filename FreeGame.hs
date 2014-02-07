@@ -13,6 +13,7 @@ module FreeGame
   ( -- * Game
     Game,
     runGame,
+    runGameDefault,
     WindowMode(..),
     BoundingBox(..),
     delay,
@@ -106,25 +107,18 @@ import Data.Color.Names
 import Linear hiding (rotate)
 import Control.Monad.Trans.Iter
 
--- | 'Game' is a monad literally expressing games.
--- This monad is an instance of 'Picture2D' so you can construct it using 'bitmap' and can be transformed with 'translate', 'scale', 'rotate', 'color'.
+-- | 'Game' is a kind of procedure but you can also use it like a value.
+-- free-game's design is based on free structures, however, you don't have to mind it -- Just apply 'runGame', and enjoy.
 --
--- It is also an instance of 'Keyboard' and 'Mouse'. Note that 'mousePosition' returns a relative position.
---
--- > foo = foreverFrame $ do
--- >   p <- mousePosition
--- >   translate p $ color blue $ polygonOutline [V2 (-8) (-8), V2 8 (-8), V2 8 8, V2 (-8) 8]
--- 
--- When we run @foo@ using 'runGame', a blue square follows the cursor.
--- And 'translate' (V2 240 240) @foo@, 'rotate' 45 @foo@, 'scale' 1.5 @foo@ also does in the same way.
---
---
--- The only way to embody a 'Game' as a real stuff is to apply 'runGame'.
+-- <<http://shared.botis.org/free-game.png>>
 --
 -- For more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
 
 runGame :: WindowMode -> BoundingBox Double -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
+
+runGameDefault :: Game a -> IO (Maybe a)
+runGameDefault = runGame Windowed (BoundingBox 0 0 640 480)
 
 instance MonadIO Frame where
     liftIO = embedIO

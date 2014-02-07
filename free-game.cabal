@@ -49,7 +49,6 @@ library
     colors == 0.1.*,
     containers >= 0.4,
     control-bool,
-    data-default,
     directory >= 1.0,
     filepath >= 1.3,
     free >= 4.5 && < 5,

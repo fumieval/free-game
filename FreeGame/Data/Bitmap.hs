@@ -30,8 +30,7 @@ import qualified Codec.Picture as C
 import qualified Codec.Picture.RGBA8 as C
 import Control.Monad.IO.Class
 
--- | Bitmap data with unique hashes. 
-type Bitmap = C.Image C.PixelRGBA8 -- ^ This value is used to ensure that two bitmaps are equivalent.
+type Bitmap = C.Image C.PixelRGBA8
 
 -- | Get the size of the 'Bitmap'.
 bitmapSize :: Bitmap -> (Int, Int)
