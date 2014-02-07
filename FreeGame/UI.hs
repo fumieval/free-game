@@ -12,6 +12,7 @@
 ----------------------------------------------------------------------------
 module FreeGame.UI (
     UI(..)
+    , reUI
     , Frame
     , Game
     , FreeGame(..)
@@ -48,6 +49,25 @@ data UI a =
 type Game = IterT Frame
 
 type Frame = F UI
+
+reUI :: FreeGame f => UI a -> f a
+reUI (Draw m) = draw m
+reUI (PreloadBitmap bmp cont) = cont <$ preloadBitmap bmp
+reUI (FromFinalizer m) = fromFinalizer m
+reUI (KeyStates cont) = cont <$> keyStates_
+reUI (MouseButtons cont) = cont <$> mouseButtons_
+reUI (MousePosition cont) = cont <$> globalMousePosition
+reUI (TakeScreenshot cont) = cont <$> takeScreenshot
+reUI (Bracket m) = bracket m
+reUI (SetFPS i cont) = cont <$ setFPS i
+reUI (SetTitle t cont) = cont <$ setTitle t
+reUI (ShowCursor cont) = cont <$ showCursor
+reUI (HideCursor cont) = cont <$ hideCursor
+reUI (ClearColor col cont) = cont <$ clearColor col
+reUI (GetFPS cont) = cont <$> getFPS
+reUI (ForkFrame m cont) = cont <$ forkFrame m
+
+{-# RULES "reUI/Frame" reUI = id #-}
 
 class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where
     -- | Draw an action that consist of 'Picture2D''s methods.

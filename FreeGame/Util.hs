@@ -53,6 +53,7 @@ import System.FilePath
 import System.IO.Unsafe
 import System.Random
 import System.Environment
+import FreeGame.UI
 
 -- | Delimit the computation to yield a frame.
 tick :: (Monad f, MonadFree f m) => m ()
@@ -68,12 +69,12 @@ foreverFrame :: (Monad f, Monad m, MonadTrans t, MonadFree f (t m)) => m a -> t 
 foreverFrame m = foreverTick (lift m)
 
 -- | Extract the next frame of the action.
-untick :: (Functor f, MonadFree f m) => IterT (F f) a -> m (Either (IterT (F f) a) a)
-untick = liftM (either Right Left) . iterM wrap . runIterT where
+untick :: (Monad m, FreeGame m) => IterT Frame a -> m (Either (IterT Frame a) a)
+untick = liftM (either Right Left) . iterM (join . reUI) . runIterT where
 
 -- | An infinite version of 'untick'.
-untickInfinite :: (Functor f, MonadFree f m) => IterT (F f) Void -> m (IterT (F f) Void)
-untickInfinite = liftM (either absurd id) . iterM wrap . runIterT where
+untickInfinite :: (Monad m, FreeGame m) => IterT Frame Void -> m (IterT Frame Void)
+untickInfinite = liftM (either absurd id) . iterM (join . reUI) . runIterT where
 
 -- | An unit vector with the specified angle.
 unitV2 :: Floating a => a -> V2 a
