@@ -126,8 +126,5 @@ import Control.Monad.Trans.Iter
 runGame :: WindowMode -> BoundingBox Double -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
 
-instance MonadIO Game where
-    liftIO = embedIO
-
 instance MonadIO Frame where
     liftIO = embedIO
