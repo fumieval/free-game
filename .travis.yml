@@ -1,1 +1,4 @@
 language: haskell
+
+before_install:
+  - sudo apt-get install -qq libxxf86vm-dev
