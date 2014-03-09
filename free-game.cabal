@@ -57,7 +57,7 @@ library
     hashable >= 1.2,
     JuicyPixels,
     JuicyPixels-util == 0.1.*,
-    linear >= 1.0 && < 1.7,
+    linear >= 1.0 && < 1.9,
     mtl >= 2.1,
     OpenGL == 2.9.*,
     OpenGLRaw == 1.4.*,

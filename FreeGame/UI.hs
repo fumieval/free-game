@@ -71,7 +71,7 @@ reUI (ForkFrame m cont) = cont <$ forkFrame m
 
 class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where
     -- | Draw an action that consist of 'Picture2D''s methods.
-    draw :: (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) => m a
+    draw :: (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) -> m a
     -- | Load a 'Bitmap' to avoid the cost of the first invocation of 'bitmap'.
     preloadBitmap :: Bitmap -> m ()
     -- | Run a 'Frame', and release all the matter happened.
