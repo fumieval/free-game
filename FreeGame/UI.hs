@@ -44,6 +44,8 @@ data UI a =
     | ClearColor Color a
     | GetFPS (Int -> a)
     | ForkFrame (Frame ()) a
+    | GetBoundingBox (BoundingBox Double -> a)
+    | SetBoundingBox (BoundingBox Double) a
     deriving Functor
 
 type Game = IterT Frame
@@ -66,8 +68,10 @@ reUI (HideCursor cont) = cont <$ hideCursor
 reUI (ClearColor col cont) = cont <$ clearColor col
 reUI (GetFPS cont) = cont <$> getFPS
 reUI (ForkFrame m cont) = cont <$ forkFrame m
+reUI (GetBoundingBox cont) = cont <$> getBoundingBox
+reUI (SetBoundingBox bb cont) = cont <$ setBoundingBox bb
 
-{-# RULES "reUI/Frame" reUI = id #-}
+{-# RULES "reUI/sameness" reUI = id #-}
 
 class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where
     -- | Draw an action that consist of 'Picture2D''s methods.
@@ -76,7 +80,7 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     preloadBitmap :: Bitmap -> m ()
     -- | Run a 'Frame', and release all the matter happened.
     bracket :: Frame a -> m a
-    -- | Run a 'Frame' action concurrently. Please do not use this function to draw pictures.
+    -- | Run a 'Frame' action concurrently. Do not use this function to draw pictures.
     forkFrame :: Frame () -> m ()
     -- | Generate a 'Bitmap' from the front buffer.
     takeScreenshot :: m Bitmap
@@ -86,6 +90,8 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     hideCursor :: m ()
     clearColor :: Color -> m ()
     getFPS :: m Int
+    getBoundingBox :: m (BoundingBox Double)
+    setBoundingBox :: BoundingBox Double -> m ()
     
 instance FreeGame UI where
     draw = Draw
@@ -103,6 +109,8 @@ instance FreeGame UI where
     hideCursor = HideCursor ()
     clearColor c = ClearColor c ()
     getFPS = GetFPS id
+    getBoundingBox = GetBoundingBox id
+    setBoundingBox s = SetBoundingBox s ()
     
 
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a

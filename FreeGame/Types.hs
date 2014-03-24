@@ -30,7 +30,7 @@ import Data.Foldable
 import Data.Traversable
 import Data.Typeable
 
-data WindowMode = Windowed | FullScreen
+data WindowMode = Windowed | Resizable | FullScreen deriving (Show, Eq, Ord, Read)
 
 -- | 2D bounding box
 data BoundingBox a = BoundingBox a a a a deriving (Show, Eq, Ord, Functor, Foldable, Traversable, Read, Typeable)

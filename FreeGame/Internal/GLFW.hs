@@ -23,7 +23,7 @@ data System = System
     , refFPS :: IORef Int
     , theFPS :: IORef Int
     , currentFPS :: IORef Int
-    , theRegion :: BoundingBox Double
+    , refRegion :: IORef (BoundingBox Double)
     , theWindow :: GLFW.Window
     }
 
@@ -136,9 +136,10 @@ releaseTexture (tex, _, _) = GL.deleteObjectNames [tex]
 
 beginFrame :: System -> IO ()
 beginFrame sys = do
+    BoundingBox wl wt wr wb <- fmap realToFrac <$> readIORef (refRegion sys)
+    GL.viewport $= (GL.Position 0 0, GL.Size (floor $ wr - wl) (floor $ wb - wt))
     GL.matrixMode $= GL.Projection
     GL.loadIdentity
-    let BoundingBox wl wt wr wb = fmap realToFrac (theRegion sys)
     GL.ortho wl wr wb wt 0 (-100)
     GL.matrixMode $= GL.Modelview 0
     GL.clear [GL.ColorBuffer]
@@ -157,18 +158,18 @@ endFrame sys = do
     GLFW.windowShouldClose (theWindow sys)
 
 withGLFW :: WindowMode -> BoundingBox Double -> (System -> IO a) -> IO a
-withGLFW full bbox@(BoundingBox x0 y0 x1 y1) m = do
+withGLFW mode bbox@(BoundingBox x0 y0 x1 y1) m = do
     let title = "free-game"
         ww = floor $ x1 - x0
         wh = floor $ y1 - y0
     () <- unlessM GLFW.init (fail "Failed to initialize")
 
-    mon <- case full of
+    mon <- case mode of
         FullScreen -> GLFW.getPrimaryMonitor
-        Windowed -> return Nothing
+        _ -> return Nothing
 
-    GLFW.windowHint (GLFW.WindowHint'Resizable False)
-    Just win <- GLFW.createWindow ww wh title mon Nothing
+    GLFW.windowHint $ GLFW.WindowHint'Resizable $ mode == Resizable
+    win <- GLFW.createWindow ww wh title mon Nothing >>= maybe (fail "Failed to create a window") return
     GLFW.makeContextCurrent (Just win)
     GL.lineSmooth $= GL.Enabled
     GL.blend      $= GL.Enabled
@@ -179,12 +180,18 @@ withGLFW full bbox@(BoundingBox x0 y0 x1 y1) m = do
     GLFW.swapInterval 1
     GL.clearColor $= GL.Color4 1 1 1 1
 
+    rbox <- newIORef bbox
+
+    GLFW.setFramebufferSizeCallback win $ Just $ \_ w h -> do
+        BoundingBox x y _ _ <- readIORef rbox
+        writeIORef rbox $ BoundingBox x y (x + fromIntegral w) (y + fromIntegral h)
+
     sys <- System
         <$> newIORef 0
         <*> newIORef 0
         <*> newIORef 60
         <*> newIORef 60
-        <*> pure bbox
+        <*> pure rbox
         <*> pure win
 
     res <- m sys
@@ -195,8 +202,8 @@ withGLFW full bbox@(BoundingBox x0 y0 x1 y1) m = do
 
 screenshotFlipped :: System -> IO (Image PixelRGBA8)
 screenshotFlipped sys = do
-    let BoundingBox x0 y0 x1 y1 = theRegion sys
-        w = floor $ x1 - x0
+    BoundingBox x0 y0 x1 y1 <- readIORef (refRegion sys)
+    let w = floor $ x1 - x0
         h = floor $ y1 - y0
     
     mv <- MV.unsafeNew (w * h * 4)

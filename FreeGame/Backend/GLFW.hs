@@ -147,6 +147,12 @@ runUI (ForkFrame m cont) = do
         (_, f) <- runFinalizerT $ iterM runUI m
         modifyIORef' given (f:)
     cont
+runUI (GetBoundingBox cont) = liftIO (readIORef (G.refRegion given)) >>= cont
+runUI (SetBoundingBox bbox@(BoundingBox x0 y0 x1 y1) cont) = do
+    liftIO $ GLFW.setWindowSize (G.theWindow given) (floor $ x1 - x0) (floor $ y1 - y0)
+    liftIO $ writeIORef (G.refRegion given) bbox
+    cont
+
 
 mapReaderWith :: (s -> r) -> (m a -> n b) -> ReaderT r m a -> ReaderT s n b
 mapReaderWith f g m = unsafeCoerce $ \s -> g (unsafeCoerce m (f s))

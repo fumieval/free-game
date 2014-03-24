@@ -79,11 +79,9 @@ import FreeGame.UI
     hideCursor = (l) hideCursor; \
     clearColor c = (l) (clearColor c); \
     getFPS = (l) getFPS; \
+    getBoundingBox = (l) getBoundingBox; \
+    setBoundingBox b = (l) (setBoundingBox b); \
     }
-
-hoistF :: (Functor f, Functor g) => (forall x. f x -> g x) -> Church.F f a -> Church.F g a
-hoistF t = Church.iterM (wrap . t)
-{-# INLINE hoistF #-}
 
 MK_AFFINE(_COMMA_ Functor m, F m, hoistF)
 MK_AFFINE(_COMMA_ Functor m, Free.Free m, Free.hoistFree)
