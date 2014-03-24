@@ -28,6 +28,8 @@ infixr 5 `rotateD`
 infixr 5 `scale`
 infixr 5 `color`
 infixr 5 `colored`
+infixr 5 `thickness`
+infixr 5 `blendMode`
 
 class Functor p => Affine p where
     -- | (radians)

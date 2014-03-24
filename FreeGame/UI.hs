@@ -111,7 +111,6 @@ instance FreeGame UI where
     getFPS = GetFPS id
     getBoundingBox = GetBoundingBox id
     setBoundingBox s = SetBoundingBox s ()
-    
 
 overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)
