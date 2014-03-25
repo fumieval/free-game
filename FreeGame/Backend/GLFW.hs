@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types, BangPatterns #-}
+{-# LANGUAGE Rank2Types, BangPatterns, ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
@@ -19,6 +19,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Data.IORef
 import Data.Reflection
+import Data.BoundingBox.Dim2
 import FreeGame.Class
 import FreeGame.Internal.Finalizer
 import FreeGame.UI
@@ -32,6 +33,7 @@ import qualified Graphics.Rendering.OpenGL.GL as GL
 import Unsafe.Coerce
 import Codec.Picture.RGBA8
 import Control.Concurrent
+import Control.Lens (view)
 
 keyCallback :: IORef (Map.Map Key ButtonState) -> GLFW.Window -> GLFW.Key -> Int -> GLFW.KeyState -> GLFW.ModifierKeys -> IO ()
 keyCallback keyBuffer _ key _ GLFW.KeyState'Pressed _ = modifyIORef' keyBuffer $ Map.adjust buttonDown (toEnum $ fromEnum key)
@@ -148,8 +150,8 @@ runUI (ForkFrame m cont) = do
         modifyIORef' given (f:)
     cont
 runUI (GetBoundingBox cont) = liftIO (readIORef (G.refRegion given)) >>= cont
-runUI (SetBoundingBox bbox@(BoundingBox x0 y0 x1 y1) cont) = do
-    liftIO $ GLFW.setWindowSize (G.theWindow given) (floor $ x1 - x0) (floor $ y1 - y0)
+runUI (SetBoundingBox bbox@(view (size C)-> V2 w h) cont) = do
+    liftIO $ GLFW.setWindowSize (G.theWindow given) (floor w) (floor h)
     liftIO $ writeIORef (G.refRegion given) bbox
     cont
 

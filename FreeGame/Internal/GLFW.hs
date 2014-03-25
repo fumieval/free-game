@@ -7,6 +7,7 @@ import Control.Monad.IO.Class
 import Data.Color
 import Data.IORef
 import FreeGame.Types
+import Data.BoundingBox.Dim2
 import Graphics.Rendering.OpenGL.GL.StateVar
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
 import Linear

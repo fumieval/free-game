@@ -28,7 +28,7 @@ import Data.IORef
 import qualified Data.Map as M
 import qualified Data.Vector.Storable as V
 import Linear
-import FreeGame.Types
+import Data.BoundingBox.Dim2
 import FreeGame.Class
 import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer

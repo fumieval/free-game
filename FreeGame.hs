@@ -16,6 +16,8 @@ module FreeGame
     runGameDefault,
     WindowMode(..),
     BoundingBox(..),
+    inBoundingBox,
+    _Corners,
     delay,
     tick,
     foreverFrame,
@@ -104,7 +106,8 @@ import Control.Applicative
 import Control.Bool
 import Data.Color
 import Data.Color.Names
-import Linear hiding (rotate)
+import Linear
+import Data.BoundingBox.Dim2 (BoundingBox(..), inBoundingBox, _Corners)
 import Control.Monad.Trans.Iter
 
 -- | 'Game' is a kind of procedure but you can also use it like a value.

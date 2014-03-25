@@ -1,9 +1,9 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances, DeriveFunctor #-}
 module FreeGame.Text (TextF(..), TextT, runTextT, runTextT_, text) where
 
+import Control.Lens
 import Data.String
-import FreeGame.Types
-import FreeGame.Internal.Raindrop
+import Data.BoundingBox.Dim2
 import FreeGame.Data.Font
 import FreeGame.Class
 import FreeGame.Instances ()
@@ -20,14 +20,15 @@ instance Monad m => IsString (TextT m ()) where
 
 -- | Render a 'TextT'.
 runTextT :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (BoundingBox Double) -> Font -> Double -> TextT m a -> m a
-runTextT bbox font size = flip evalStateT (V2 x0 y0) . go where
+runTextT bbox font siz = flip evalStateT (V2 x0 y0) . go where
     go m = lift (runFreeT m) >>= \r -> case r of
         Pure a -> return a
         Free (TypeChar '\n' cont) -> do
-            modify $ over _x (const x0) . over _y (+advV)
+            _x .= x0
+            _y += advV
             go cont
         Free (TypeChar ch cont) -> do
-            RenderedChar bmp offset adv <- fromFinalizer $ charToBitmap font size ch
+            RenderedChar bmp offset adv <- fromFinalizer $ charToBitmap font siz ch
             pen <- get
             translate (pen + offset) $ bitmap bmp
             let pen' = over _x (+adv) pen
@@ -35,8 +36,8 @@ runTextT bbox font size = flip evalStateT (V2 x0 y0) . go where
                 then pen'
                 else V2 x0 (view _y pen + advV)
             go cont
-    advV = size * (metricsAscent font - metricsDescent font) * 1.1
-    (V2 x0 y0, cond) = maybe (zero, const True) (\b -> (view _TopLeft b, flip inBoundingBox b)) bbox
+    advV = siz * (metricsAscent font - metricsDescent font) * 1.1
+    (V2 x0 y0, cond) = maybe (zero, const True) (\b -> (b ^. position TL, flip inBoundingBox b)) bbox
 
 runTextT_ :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (BoundingBox Double) -> Font -> Double -> TextT m () -> m ()
 runTextT_ = runTextT
@@ -44,4 +45,4 @@ runTextT_ = runTextT
 
 -- | Render a 'String'.
 text :: (FromFinalizer m, Monad m, Picture2D m) => Font -> Double -> String -> m ()
-text font size str = runTextT Nothing font size (fromString str)
+text font siz str = runTextT Nothing font siz (fromString str)

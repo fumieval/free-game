@@ -25,6 +25,7 @@ import Control.Applicative
 import qualified Data.Map as Map
 import FreeGame.Data.Bitmap (Bitmap)
 import Data.Color
+import Data.BoundingBox.Dim2
 import Control.Monad.Free.Church
 import Control.Monad.Trans.Iter
 

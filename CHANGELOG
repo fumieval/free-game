@@ -19,7 +19,7 @@
 
 1.0.2
 ==========================================================================
-* Supported changing a blend function. `blendMode mode m` changes the blend mode while `m` is runnning.
+* Supported changing a blend function. `blendMode mode m` changes the blend mode while `m` is running.
 * Fixed fatal 'keyPress'-related bugs.
 * Special thanks: [@myuon_myon](https://twitter.com/myuon_myon)
 * Re-added `keyChar` and `keySpecial`.

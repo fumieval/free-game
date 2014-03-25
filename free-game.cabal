@@ -36,7 +36,6 @@ library
     FreeGame.Instances
     FreeGame.Backend.GLFW
     FreeGame.Internal.Finalizer
-    FreeGame.Internal.Raindrop
     FreeGame.Internal.GLFW
     FreeGame.Types
     FreeGame.Util
@@ -67,4 +66,5 @@ library
     transformers >= 0.3,
     vector >= 0.9 && <0.12,
     void >= 0.5,
-    boundingboxes < 0.2
+    boundingboxes >= 0.1.1 && < 0.2,
+    lens >= 3.8
