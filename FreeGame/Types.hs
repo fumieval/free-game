@@ -18,9 +18,6 @@ module FreeGame.Types (
     ) where
 
 import Linear.V2
-import Control.Applicative
-import Data.Foldable
-import Data.Traversable
 import Data.Typeable
 
 data WindowMode = Windowed | Resizable | FullScreen deriving (Show, Eq, Ord, Read)

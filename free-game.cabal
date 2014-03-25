@@ -26,6 +26,12 @@ source-repository head
 
 library
   default-language:   Haskell2010
+  extra-source-files:
+    CHANGELOG
+    examples/*.hs
+    examples/*.png
+    examples/*.ttf
+
   exposed-modules:
     FreeGame
     FreeGame.Class
