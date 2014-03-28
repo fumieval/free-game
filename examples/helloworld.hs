@@ -1,4 +1,6 @@
-import Graphics.UI.FreeGame
-main = runGame def $ do
+import FreeGame
+
+main = runGame Windowed (BoundingBox 0 0 640 480) $ do
+    hideCursor
     font <- embedIO $ loadFont "VL-PGothic-Regular.ttf"
-    foreverTick $ translate (V2 80 200) $ colored black $ text font 40 "Hello, World"
+    foreverFrame $ translate (V2 80 200) $ color black $ text font 40 "Hello, World"
