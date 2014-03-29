@@ -13,6 +13,8 @@
 module FreeGame.UI (
     UI(..)
     , reUI
+    , reFrame
+    , reGame
     , Frame
     , Game
     , FreeGame(..)
@@ -26,8 +28,9 @@ import qualified Data.Map as Map
 import FreeGame.Data.Bitmap (Bitmap)
 import Data.Color
 import Data.BoundingBox.Dim2
-import Control.Monad.Free.Church
-import Control.Monad.Trans.Iter
+import Control.Monad.Free.Church (F, iterM)
+import Control.Monad.Trans.Iter (IterT, foldM)
+import Control.Monad (join)
 
 data UI a =
     Draw (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a)
@@ -52,6 +55,14 @@ data UI a =
 type Game = IterT Frame
 
 type Frame = F UI
+
+-- | Generalize `Game` to any monad based on `FreeGame`.
+reGame :: (FreeGame m, Monad m) => Game a -> m a
+reGame = Control.Monad.Trans.Iter.foldM (join . reFrame)
+
+-- | Generalize `Frame` to any monad based on `FreeGame`.
+reFrame :: (FreeGame m, Monad m) => Frame a -> m a
+reFrame = iterM (join . reUI)
 
 reUI :: FreeGame f => UI a -> f a
 reUI (Draw m) = draw m

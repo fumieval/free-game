@@ -14,6 +14,7 @@ module FreeGame
     Game,
     runGame,
     runGameDefault,
+    reGame,
     WindowMode(..),
     BoundingBox(..),
     inBoundingBox,
@@ -25,6 +26,7 @@ module FreeGame
     untickInfinite,
     -- * Frame
     Frame,
+    reFrame,
     FreeGame(..),
     -- * Transformations
     Vec2,
