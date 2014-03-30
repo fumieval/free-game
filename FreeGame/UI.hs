@@ -59,10 +59,12 @@ type Frame = F UI
 -- | Generalize `Game` to any monad based on `FreeGame`.
 reGame :: (FreeGame m, Monad m) => Game a -> m a
 reGame = Control.Monad.Trans.Iter.foldM (join . reFrame)
+{-# RULES "reGame/sameness" reGame = id #-}
 
 -- | Generalize `Frame` to any monad based on `FreeGame`.
 reFrame :: (FreeGame m, Monad m) => Frame a -> m a
 reFrame = iterM (join . reUI)
+{-# RULES "reFrame/sameness" reFrame = id #-}
 
 reUI :: FreeGame f => UI a -> f a
 reUI (Draw m) = draw m

@@ -1,3 +1,4 @@
+-- Pointless demo
 {-# LANGUAGE OverloadedStrings #-}
 import FreeGame
 import Control.Applicative
@@ -59,8 +60,9 @@ mouseTest = do
     translate p $ color col $ thickness 4 $ circleOutline 16
 
 main = runGame Windowed (BoundingBox 0 0 640 480) $ do
-    bmp <- embedIO $ readBitmap "bird.png"
-    font <- embedIO $ loadFont "VL-PGothic-Regular.ttf"
+    bmp <- readBitmap "bird.png"
+    bmp' <- readBitmap "logo.png"
+    font <- loadFont "VL-PGothic-Regular.ttf"
     let bmp' = cropBitmap bmp (128, 128) (64, 64)
     clearColor black
     forkFrame $ preloadBitmap bmp'
@@ -77,7 +79,7 @@ main = runGame Windowed (BoundingBox 0 0 640 480) $ do
             fps <- getFPS
 
             color black $ text font 15 (show fps)
-        
+
         whenM (keyDown KeyA) $ translate (V2 300 300) $ color black $ text font 30 "A"
         whenM (keyPress KeyA) $ translate (V2 320 300) $ color black $ text font 30 "B"
         whenM (keyUp KeyA) $ translate (V2 340 300) $ color black $ text font 30 "C"
