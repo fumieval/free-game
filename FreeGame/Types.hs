@@ -146,11 +146,7 @@ data Key =
     | KeyRightAlt
     | KeyRightSuper
     | KeyMenu
-    deriving (Enum, Eq, Ord, Read, Show, Typeable)
-
-instance Bounded Key where
-    minBound = KeyUnknown
-    maxBound = KeyMenu
+    deriving (Enum, Eq, Ord, Read, Show, Typeable, Bounded)
 
 data BlendMode = Normal
     | Inverse

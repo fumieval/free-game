@@ -201,6 +201,7 @@ class FromFinalizer m where
 instance FromFinalizer (FinalizerT IO) where
     fromFinalizer = id
 
+-- | 'liftIO'　variety for 'FromFinalizer'.
 embedIO :: FromFinalizer m => IO a -> m a
 embedIO m = fromFinalizer (liftIO m)
 {-# INLINE embedIO #-}

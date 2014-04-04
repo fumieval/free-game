@@ -98,11 +98,13 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     forkFrame :: Frame () -> m ()
     -- | Generate a 'Bitmap' from the front buffer.
     takeScreenshot :: m Bitmap
+    -- | Set the goal FPS.
     setFPS :: Int -> m ()
     setTitle :: String -> m ()
     showCursor :: m ()
     hideCursor :: m ()
     clearColor :: Color -> m ()
+    -- | Get the actual FPS value.
     getFPS :: m Int
     getBoundingBox :: m (BoundingBox Double)
     setBoundingBox :: BoundingBox Double -> m ()
@@ -163,6 +165,7 @@ instance Local UI where
 
 instance FromFinalizer UI where
     fromFinalizer = FromFinalizer
+    {-# INLINE fromFinalizer #-}
 
 instance Keyboard UI where
     keyStates_ = KeyStates id

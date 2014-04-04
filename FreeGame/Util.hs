@@ -104,6 +104,7 @@ loadPictureFromFile :: (Picture2D p, FromFinalizer m) => FilePath -> m (p ())
 loadPictureFromFile = embedIO . fmap bitmap . readBitmap
 
 -- | The type of the given 'ExpQ' must be @FilePath -> IO FilePath@
+-- FIXME: This may cause name duplication if there are multiple non-alphanumeric file names.
 loadBitmapsWith :: ExpQ -> FilePath -> Q [Dec]
 loadBitmapsWith getFullPath path = do
     loc <- (</>path) <$> takeDirectory <$> loc_filename <$> location
@@ -124,9 +125,9 @@ loadBitmapsWith getFullPath path = do
                 (varE 'readBitmap)
 
 -- | Load and define all pictures in the specified directory.
--- In GHC >= 7.6, file paths to actually load will be respect to the directory of the executable. Otherwise it will be based on the current directory.
+-- On base >= 4.6, file paths to actually load will be respect to the directory of the executable. Otherwise it will be based on the current directory.
 
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 706
+#if (MIN_VERSION_base(4,6,0))
 
 loadBitmaps :: FilePath -> Q [Dec]
 loadBitmaps path = do
