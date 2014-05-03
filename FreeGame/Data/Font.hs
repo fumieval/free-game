@@ -25,10 +25,10 @@ import Control.Applicative
 import Control.Monad.IO.Class
 import Control.Monad
 import Data.IORef
+import Data.BoundingBox
 import qualified Data.Map as M
 import qualified Data.Vector.Storable as V
 import Linear
-import Data.BoundingBox.Dim2
 import FreeGame.Class
 import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer
@@ -51,7 +51,7 @@ import Codec.Picture
 import Codec.Picture.RGBA8
 
 -- | Font object
-data Font = Font FT_Face (Double, Double) (BoundingBox Double) (IORef (M.Map (Double, Char) RenderedChar))
+data Font = Font FT_Face (Double, Double) (Box V2 Double) (IORef (M.Map (Double, Char) RenderedChar))
 
 -- | Create a 'Font' from the given file.
 loadFontFromFile :: MonadIO m => FilePath -> m Font
@@ -62,8 +62,9 @@ loadFontFromFile path = liftIO $ alloca $ \p -> do
     asc <- peek (ascender f)
     desc <- peek (descender f)
     u <- fromIntegral <$> peek (units_per_EM f)
-    let box = BoundingBox (fromIntegral (xMin b)/u) (fromIntegral (yMin b)/u)
-                          (fromIntegral (xMax b)/u) (fromIntegral (yMax b)/u)
+    let box = fmap (/u) $ Box
+            (V2 (fromIntegral (xMin b)) (fromIntegral (yMin b)))
+            (V2 (fromIntegral (xMax b)) (fromIntegral (yMax b)))
     Font f (fromIntegral asc/u, fromIntegral desc/u) box <$> newIORef M.empty
 
 loadFont :: MonadIO m => FilePath -> m Font
@@ -78,7 +79,7 @@ metricsDescent :: Font -> Double
 metricsDescent (Font _ (_, d) _ _) = d
 
 -- | Get the font's boundingbox.
-fontBoundingBox :: Font -> BoundingBox Double
+fontBoundingBox :: Font -> Box V2 Double
 fontBoundingBox (Font _ _ b _) = b
 
 runFreeType :: IO CInt -> IO ()

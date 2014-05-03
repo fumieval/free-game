@@ -4,10 +4,11 @@ import Control.Concurrent
 import Control.Bool
 import Control.Applicative
 import Control.Monad.IO.Class
+import Control.Lens
 import Data.Color
 import Data.IORef
 import FreeGame.Types
-import Data.BoundingBox.Dim2
+import Data.BoundingBox
 import Graphics.Rendering.OpenGL.GL.StateVar
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
 import Linear
@@ -24,7 +25,7 @@ data System = System
     , refFPS :: IORef Int
     , theFPS :: IORef Int
     , currentFPS :: IORef Int
-    , refRegion :: IORef (BoundingBox Double)
+    , refRegion :: IORef BoundingBox2
     , theWindow :: GLFW.Window
     }
 
@@ -137,7 +138,7 @@ releaseTexture (tex, _, _) = GL.deleteObjectNames [tex]
 
 beginFrame :: System -> IO ()
 beginFrame sys = do
-    BoundingBox wl wt wr wb <- fmap realToFrac <$> readIORef (refRegion sys)
+    Box (V2 wl wt) (V2 wr wb) <- fmap realToFrac <$> readIORef (refRegion sys)
     GL.viewport $= (GL.Position 0 0, GL.Size (floor $ wr - wl) (floor $ wb - wt))
     GL.matrixMode $= GL.Projection
     GL.loadIdentity
@@ -158,8 +159,8 @@ endFrame sys = do
         else writeIORef (refFrameCounter sys) (succ n)
     GLFW.windowShouldClose (theWindow sys)
 
-withGLFW :: WindowMode -> BoundingBox Double -> (System -> IO a) -> IO a
-withGLFW mode bbox@(BoundingBox x0 y0 x1 y1) m = do
+withGLFW :: WindowMode -> BoundingBox2 -> (System -> IO a) -> IO a
+withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
     let title = "free-game"
         ww = floor $ x1 - x0
         wh = floor $ y1 - y0
@@ -184,8 +185,7 @@ withGLFW mode bbox@(BoundingBox x0 y0 x1 y1) m = do
     rbox <- newIORef bbox
 
     GLFW.setFramebufferSizeCallback win $ Just $ \_ w h -> do
-        BoundingBox x y _ _ <- readIORef rbox
-        writeIORef rbox $ BoundingBox x y (x + fromIntegral w) (y + fromIntegral h)
+        modifyIORef rbox $ size zero .~ fmap fromIntegral (V2 w h)
 
     sys <- System
         <$> newIORef 0
@@ -203,10 +203,7 @@ withGLFW mode bbox@(BoundingBox x0 y0 x1 y1) m = do
 
 screenshotFlipped :: System -> IO (Image PixelRGBA8)
 screenshotFlipped sys = do
-    BoundingBox x0 y0 x1 y1 <- readIORef (refRegion sys)
-    let w = floor $ x1 - x0
-        h = floor $ y1 - y0
-    
+    V2 w h <- fmap floor <$> view (size zero) <$> readIORef (refRegion sys)
     mv <- MV.unsafeNew (w * h * 4)
     GL.readBuffer $= GL.FrontBuffers
     MV.unsafeWith mv

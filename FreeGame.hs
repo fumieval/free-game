@@ -16,9 +16,8 @@ module FreeGame
     runGameDefault,
     reGame,
     WindowMode(..),
-    BoundingBox(..),
-    inBoundingBox,
-    _Corners,
+    BoundingBox2,
+    isInside,
     delay,
     tick,
     foreverFrame,
@@ -109,7 +108,7 @@ import Control.Bool
 import Data.Color
 import Data.Color.Names
 import Linear
-import Data.BoundingBox.Dim2 (BoundingBox(..), inBoundingBox, _Corners)
+import Data.BoundingBox
 import Control.Monad.Trans.Iter
 
 -- | 'Game' is a kind of procedure but you can also use it like a value.
@@ -119,11 +118,11 @@ import Control.Monad.Trans.Iter
 --
 -- For more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
 
-runGame :: WindowMode -> BoundingBox Double -> Game a -> IO (Maybe a)
+runGame :: WindowMode -> BoundingBox2 -> Game a -> IO (Maybe a)
 runGame = GLFW.runGame
 
 runGameDefault :: Game a -> IO (Maybe a)
-runGameDefault = runGame Windowed (BoundingBox 0 0 640 480)
+runGameDefault = runGame Windowed (Box (V2 0 0) (V2 640 480))
 
 instance MonadIO Frame where
     liftIO = embedIO

@@ -1,5 +1,5 @@
 name:                free-game
-version:             1.0.4
+version:             1.1
 synopsis:            Create games for free
 description:
     free-game defines a monad that integrates features to create 2D games.
@@ -21,7 +21,7 @@ stability:           experimental
 cabal-version:       >=1.10
 
 extra-source-files:
-  CHANGELOG
+  CHANGELOG.md
   examples/*.hs
   examples/*.png
   examples/*.ttf
@@ -73,5 +73,5 @@ library
     transformers >= 0.3,
     vector >= 0.9 && <0.12,
     void >= 0.5,
-    boundingboxes >= 0.1.1 && < 0.2,
-    lens >= 3.8
+    boundingboxes >= 0.2 && < 0.4,
+    lens >= 3.8 && < 5

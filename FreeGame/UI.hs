@@ -27,7 +27,7 @@ import Control.Applicative
 import qualified Data.Map as Map
 import FreeGame.Data.Bitmap (Bitmap)
 import Data.Color
-import Data.BoundingBox.Dim2
+import Data.BoundingBox
 import Control.Monad.Free.Church (F, iterM)
 import Control.Monad.Trans.Iter (IterT, foldM)
 import Control.Monad (join)
@@ -48,8 +48,8 @@ data UI a =
     | ClearColor Color a
     | GetFPS (Int -> a)
     | ForkFrame (Frame ()) a
-    | GetBoundingBox (BoundingBox Double -> a)
-    | SetBoundingBox (BoundingBox Double) a
+    | GetBoundingBox (BoundingBox2 -> a)
+    | SetBoundingBox BoundingBox2 a
     deriving Functor
 
 type Game = IterT Frame
@@ -106,8 +106,8 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     clearColor :: Color -> m ()
     -- | Get the actual FPS value.
     getFPS :: m Int
-    getBoundingBox :: m (BoundingBox Double)
-    setBoundingBox :: BoundingBox Double -> m ()
+    getBoundingBox :: m BoundingBox2
+    setBoundingBox :: BoundingBox2 -> m ()
     
 instance FreeGame UI where
     draw = Draw

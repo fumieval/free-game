@@ -19,7 +19,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Data.IORef
 import Data.Reflection
-import Data.BoundingBox.Dim2
+import Data.BoundingBox
 import FreeGame.Class
 import FreeGame.Internal.Finalizer
 import FreeGame.UI
@@ -48,7 +48,7 @@ mouseButtonCallback :: IORef (Map.Map Int ButtonState) -> GLFW.Window -> GLFW.Mo
 mouseButtonCallback mouseBuffer _ btn GLFW.MouseButtonState'Pressed _ = modifyIORef' mouseBuffer $ Map.adjust buttonDown (fromEnum btn)
 mouseButtonCallback mouseBuffer _ btn GLFW.MouseButtonState'Released _ = modifyIORef' mouseBuffer $ Map.adjust buttonUp (fromEnum btn)
 
-runGame :: WindowMode -> BoundingBox Double -> IterT (F UI) a -> IO (Maybe a)
+runGame :: WindowMode -> BoundingBox2 -> IterT (F UI) a -> IO (Maybe a)
 runGame mode bbox m = G.withGLFW mode bbox (execGame m)
 
 initialKeyBuffer :: Map.Map Key ButtonState
@@ -154,7 +154,7 @@ runUI (ForkFrame m cont) = do
         modifyIORef' given (f:)
     cont
 runUI (GetBoundingBox cont) = liftIO (readIORef (G.refRegion given)) >>= cont
-runUI (SetBoundingBox bbox@(view (size C)-> V2 w h) cont) = do
+runUI (SetBoundingBox bbox@(view (size zero)-> V2 w h) cont) = do
     liftIO $ GLFW.setWindowSize (G.theWindow given) (floor w) (floor h)
     liftIO $ writeIORef (G.refRegion given) bbox
     cont
