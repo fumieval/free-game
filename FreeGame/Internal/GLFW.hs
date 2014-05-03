@@ -19,6 +19,7 @@ import qualified Data.Vector.Storable as V
 import qualified Data.Vector.Storable.Mutable as MV
 import Codec.Picture
 import Codec.Picture.RGBA8
+import qualified GHC.IO.Encoding as Encoding
 
 data System = System
     { refFrameCounter :: IORef Int
@@ -161,6 +162,7 @@ endFrame sys = do
 
 withGLFW :: WindowMode -> BoundingBox2 -> (System -> IO a) -> IO a
 withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
+    Encoding.setForeignEncoding Encoding.utf8
     let title = "free-game"
         ww = floor $ x1 - x0
         wh = floor $ y1 - y0
@@ -176,7 +178,7 @@ withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
     GL.lineSmooth $= GL.Enabled
     GL.blend      $= GL.Enabled
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
-    GL.shadeModel $= GL.Flat
+    -- GL.shadeModel $= GL.Flat
     GL.textureFunction $= GL.Combine
 
     GLFW.swapInterval 1

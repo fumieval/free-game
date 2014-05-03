@@ -17,6 +17,7 @@ module FreeGame
     reGame,
     WindowMode(..),
     BoundingBox2,
+    Box(..),
     isInside,
     delay,
     tick,
