@@ -17,6 +17,7 @@ Migration Guide
 * `runGame param`
     * `runGame Window (BoundingBox 0 0 640 480)` or `runGame FullScreen (BoundingBox 0 0 640 480)`
     * `setTitle "Lorem ipsum"`
+    * (since 1.1) Any Unicode characters is OK: `setTitle "ニンジャ"`
     * `showCursor` or `hideCursor`
     * `clearColor black`
     * `setFPS 60`
