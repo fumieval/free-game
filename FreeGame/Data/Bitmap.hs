@@ -58,8 +58,8 @@ cropBitmap :: Bitmap -- ^original bitmap
     -> Bitmap -- ^result
 cropBitmap = C.trimImage
 
-clipBitmap :: Bitmap -> BoundingBox V2 Int -> Bitmap
-clipBitmap b (Box (V2 x0 y0) (V2 x1 y1)) = C.trimImage (x1 - x0, y1 - y0) (x0, y0)
+clipBitmap :: Bitmap -> Box V2 Int -> Bitmap
+clipBitmap b (Box (V2 x0 y0) (V2 x1 y1)) = C.trimImage b (x1 - x0, y1 - y0) (x0, y0)
 
 sizeBitmap :: Bitmap -> V2 Int
 sizeBitmap (C.Image w h _) = V2 w h
