@@ -15,7 +15,6 @@ module FreeGame.Data.Bitmap (
     -- * Basic types and functions
     Bitmap
     ,bitmapSize
-
     -- * Load and Save
     ,readBitmap
     ,writeBitmap
@@ -23,12 +22,16 @@ module FreeGame.Data.Bitmap (
 
     -- * Bitmap operations
     ,cropBitmap
-    
+    -- * V2
+    ,sizeBitmap
+    ,clipBitmap
     ) where
 
 import qualified Codec.Picture as C
 import qualified Codec.Picture.RGBA8 as C
 import Control.Monad.IO.Class
+import Data.BoundingBox
+import Linear.V2
 
 type Bitmap = C.Image C.PixelRGBA8
 
@@ -54,3 +57,9 @@ cropBitmap :: Bitmap -- ^original bitmap
     -> (Int, Int) -- ^x and y
     -> Bitmap -- ^result
 cropBitmap = C.trimImage
+
+clipBitmap :: Bitmap -> BoundingBox V2 Int -> Bitmap
+clipBitmap b (Box (V2 x0 y0) (V2 x1 y1)) = C.trimImage (x1 - x0, y1 - y0) (x0, y0)
+
+sizeBitmap :: Bitmap -> V2 Int
+sizeBitmap (C.Image w h _) = V2 w h
