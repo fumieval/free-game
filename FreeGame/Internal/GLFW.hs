@@ -13,6 +13,7 @@ import Graphics.Rendering.OpenGL.GL.StateVar
 import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
 import Linear
 import qualified Graphics.Rendering.OpenGL.GL as GL
+import qualified Graphics.Rendering.OpenGL.GLU.Matrix as GL
 import qualified Graphics.UI.GLFW as GLFW
 import Unsafe.Coerce
 import qualified Data.Vector.Storable as V
@@ -68,6 +69,10 @@ mkVertex2 :: V2 Double -> GL.Vertex2 GL.GLdouble
 {-# INLINE mkVertex2 #-}
 mkVertex2 = unsafeCoerce
 
+mkVertex3 :: V3 Double -> GL.Vertex3 GL.GLdouble
+{-# INLINE mkVertex3 #-}
+mkVertex3 = unsafeCoerce
+
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
 gf = unsafeCoerce
@@ -83,11 +88,17 @@ gsizei = unsafeCoerce
 translate :: V2 Double -> IO a -> IO a
 translate (V2 tx ty) m = preservingMatrix' $ GL.translate (GL.Vector3 (gd tx) (gd ty) 0) >> m
 
+translate3 :: V3 Double -> IO a -> IO a
+translate3 (V3 tx ty tz) m = preservingMatrix' $ GL.translate (GL.Vector3 (gd tx) (gd ty) (gd tz)) >> m
+
 rotateD :: Double -> IO a -> IO a
 rotateD theta m = preservingMatrix' $ GL.rotate (gd (-theta)) (GL.Vector3 0 0 1) >> m
 
 scale :: V2 Double -> IO a -> IO a
 scale (V2 sx sy) m = preservingMatrix' $ GL.scale (gd sx) (gd sy) 1 >> m
+
+scale3 :: V3 Double -> IO a -> IO a
+scale3 (V3 tx ty tz) m = preservingMatrix' $ GL.scale (gd tx) (gd ty) (gd tz) >> m
 
 circle :: Double -> IO ()
 circle r = do
@@ -116,6 +127,9 @@ polygonOutline path = GL.renderPrimitive GL.LineLoop $ runVertices path
 line :: [V2 Double] -> IO ()
 line path = GL.renderPrimitive GL.LineStrip $ runVertices path
 
+line3 :: [V3 Double] -> IO ()
+line3 path = GL.renderPrimitive GL.LineStrip $ liftIO $ mapM_ (GL.vertex . mkVertex3) path
+
 thickness :: Float -> IO a -> IO a
 thickness t m = do
     oldWidth <- liftIO $ get GL.lineWidth
@@ -123,6 +137,11 @@ thickness t m = do
     res <- m
     liftIO $ GL.lineWidth $= oldWidth
     return res
+
+viewFromToUp :: V3 Double -> V3 Double -> V3 Double -> IO a -> IO a
+viewFromToUp p t u m = preservingMatrix' $ do
+    GL.lookAt (unsafeCoerce p) (unsafeCoerce t) (unsafeCoerce u)
+    m
 
 installTexture :: Image PixelRGBA8 -> IO Texture
 installTexture (Image w h v) = do
@@ -145,7 +164,8 @@ beginFrame sys = do
     GL.loadIdentity
     GL.ortho wl wr wb wt 0 (-100)
     GL.matrixMode $= GL.Modelview 0
-    GL.clear [GL.ColorBuffer]
+    GL.loadIdentity
+    GL.clear [GL.ColorBuffer, GL.DepthBuffer]
 
 endFrame :: System -> IO Bool
 endFrame sys = do
@@ -159,6 +179,31 @@ endFrame sys = do
         then GLFW.setTime 0 >> writeIORef (currentFPS sys) n >> writeIORef (refFrameCounter sys) 0
         else writeIORef (refFrameCounter sys) (succ n)
     GLFW.windowShouldClose (theWindow sys)
+
+withPerspective :: System -> Float -> Float -> IO a -> IO a
+withPerspective sys near far m = preservingMatrix' $ do
+    Box (V2 wl wt) (V2 wr wb) <- fmap realToFrac <$> readIORef (refRegion sys)
+    GL.matrixMode GL.$= GL.Projection
+    GL.loadIdentity
+    GL.frustum
+        (realToFrac wl)
+        (realToFrac wr)
+        (realToFrac wt)
+        (realToFrac wb)
+        (realToFrac near)
+        (realToFrac far)
+    GL.matrixMode GL.$= GL.Modelview 0
+    GL.loadIdentity
+
+    r <- m
+    
+    GL.matrixMode $= GL.Projection
+    GL.loadIdentity
+    GL.ortho wl wr wb wt 0 (-100)
+    GL.matrixMode $= GL.Modelview 0
+    GL.loadIdentity
+    
+    return r
 
 withGLFW :: WindowMode -> BoundingBox2 -> (System -> IO a) -> IO a
 withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
@@ -180,7 +225,7 @@ withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
     GL.blendFunc  $= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
     -- GL.shadeModel $= GL.Flat
     GL.textureFunction $= GL.Combine
-
+    
     GLFW.swapInterval 1
     GL.clearColor $= GL.Color4 1 1 1 1
 

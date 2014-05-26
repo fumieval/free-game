@@ -13,18 +13,21 @@
 module FreeGame.Types (
     WindowMode(..)
     , Vec2
+    , Vec3
     , BoundingBox2
     , Key(..)
     , BlendMode(..)
     ) where
 
 import Linear.V2
+import Linear.V3
 import Data.Typeable
 import Data.BoundingBox
 
 data WindowMode = Windowed | Resizable | FullScreen deriving (Show, Eq, Ord, Read)
 
 type Vec2 = V2 Double
+type Vec3 = V3 Double
 
 type BoundingBox2 = Box V2 Double
 

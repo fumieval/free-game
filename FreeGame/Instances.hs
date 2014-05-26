@@ -53,6 +53,13 @@ import FreeGame.UI
     {-# INLINE blendMode #-}; \
     }
 
+#define MK_PICTURE_3D(cxt, ty, l, trans) instance (Picture3D m cxt) => Picture3D (ty) where { \
+    viewFromToUp p t u = trans (viewFromToUp p t u); \
+    scale3 v = trans (scale3 v); \
+    translate3 v = trans (translate3 v); \
+    perspective n f = trans (perspective n f); \
+    }
+
 #define MK_LOCAL(cxt, ty, l) instance (Local m cxt) => Local (ty) where { \
     getLocation = (l) getLocation }
 
@@ -114,6 +121,22 @@ MK_PICTURE_2D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
 MK_PICTURE_2D(_COMMA_ Monad m, ListT m, lift, mapListT)
 MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
 MK_PICTURE_2D(_COMMA_ Monad m, ContT r m, lift, mapContT)
+
+MK_PICTURE_3D(_COMMA_ Functor m, F m, Church.liftF, hoistF)
+MK_PICTURE_3D(_COMMA_ Functor m, Free.Free m, Free.liftF, Free.hoistFree)
+MK_PICTURE_3D(_COMMA_ Monad m, IterT m, lift, hoistIterT)
+MK_PICTURE_3D(_COMMA_ Monad m, ReaderT r m, lift, mapReaderT)
+MK_PICTURE_3D(_COMMA_ Monad m, Lazy.StateT s m, lift, Lazy.mapStateT)
+MK_PICTURE_3D(_COMMA_ Monad m, Strict.StateT s m, lift, Strict.mapStateT)
+MK_PICTURE_3D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift, Lazy.mapWriterT)
+MK_PICTURE_3D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift, Strict.mapWriterT)
+MK_PICTURE_3D(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift, Lazy.mapRWST)
+MK_PICTURE_3D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift, Strict.mapRWST)
+MK_PICTURE_3D(_COMMA_ Monad m, IdentityT m, lift, mapIdentityT)
+MK_PICTURE_3D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
+MK_PICTURE_3D(_COMMA_ Monad m, ListT m, lift, mapListT)
+MK_PICTURE_3D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
+MK_PICTURE_3D(_COMMA_ Monad m, ContT r m, lift, mapContT)
 
 MK_LOCAL(_COMMA_ Functor m, F m, Church.liftF)
 MK_LOCAL(_COMMA_ Functor m, Free.Free m, Free.liftF)

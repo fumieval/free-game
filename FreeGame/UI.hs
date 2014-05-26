@@ -33,7 +33,7 @@ import Control.Monad.Trans.Iter (IterT, foldM)
 import Control.Monad (join)
 
 data UI a =
-    Draw (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a)
+    Draw (forall m. (Applicative m, Monad m, Picture2D m, Picture3D m, Local m) => m a)
     | PreloadBitmap Bitmap a
     | FromFinalizer (FinalizerT IO a)
     | KeyStates (Map.Map Key ButtonState -> a)
@@ -89,7 +89,7 @@ reUI (SetBoundingBox bb cont) = cont <$ setBoundingBox bb
 
 class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where
     -- | Draw an action that consist of 'Picture2D''s methods.
-    draw :: (forall f. (Applicative f, Monad f, Picture2D f, Local f) => f a) -> m a
+    draw :: (forall f. (Applicative f, Monad f, Picture2D f, Picture3D f, Local f) => f a) -> m a
     -- | Load a 'Bitmap' to avoid the cost of the first invocation of 'bitmap'.
     preloadBitmap :: Bitmap -> m ()
     -- | Run a 'Frame', and release all the matter happened.
@@ -128,7 +128,7 @@ instance FreeGame UI where
     getBoundingBox = GetBoundingBox id
     setBoundingBox s = SetBoundingBox s ()
 
-overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a -> m a) -> UI a -> UI a
+overDraw :: (forall m. (Applicative m, Monad m, Picture2D m, Picture3D m, Local m) => m a -> m a) -> UI a -> UI a
 overDraw f (Draw m) = Draw (f m)
 overDraw _ x = x
 {-# INLINE overDraw #-}
@@ -159,6 +159,12 @@ instance Picture2D UI where
     {-# INLINE color #-}
     blendMode m = overDraw (blendMode m)
     {-# INLINE blendMode #-}
+
+instance Picture3D UI where
+    viewFromToUp p t u = overDraw (viewFromToUp p t u)
+    translate3 v = overDraw (translate3 v)
+    scale3 v = overDraw (scale3 v)
+    perspective n f = overDraw (perspective n f)
 
 instance Local UI where
     getLocation = Draw getLocation

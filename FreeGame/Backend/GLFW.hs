@@ -209,5 +209,12 @@ instance (Given Context, Given TextureStorage) => Picture2D DrawM where
     blendMode m = mapReaderWith id (G.blendMode m)
     {-# INLINE blendMode #-}
 
+instance Given G.System => Picture3D DrawM where
+    translate3 v = mapReaderWith id (G.translate3 v)
+    scale3 v = mapReaderWith id (G.scale3 v)
+    viewFromToUp p t u = mapReaderWith id (G.viewFromToUp p t u)
+    line3 vs = liftIO $ G.line3 vs
+    perspective near far = mapReaderWith id (G.withPerspective given near far)
+
 instance Local DrawM where
     getLocation = asks coerceLocation

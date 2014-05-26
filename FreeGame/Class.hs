@@ -57,6 +57,13 @@ class Affine p => Picture2D p where
     color :: Color -> p a -> p a
     blendMode :: BlendMode -> p a -> p a
 
+class Affine p => Picture3D p where
+    translate3 :: Vec3 -> p a -> p a
+    scale3 :: Vec3 -> p a -> p a
+    viewFromToUp :: Vec3 -> Vec3 -> Vec3 -> p a -> p a
+    line3 :: [Vec3] -> p ()
+    perspective :: Float -> Float -> p a -> p a
+
 {-# DEPRECATED fromBitmap "Use bitmap instead" #-}
 fromBitmap :: Picture2D p => Bitmap -> p ()
 fromBitmap = bitmap

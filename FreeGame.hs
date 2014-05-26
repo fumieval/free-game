@@ -44,6 +44,8 @@ module FreeGame
     loadBitmaps,
     loadBitmapsWith,
     writeBitmap,
+    -- * 3D
+    Picture3D(..),
     -- * Text
     Font,
     loadFont,
