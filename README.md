@@ -3,13 +3,13 @@ free-game
 
 [![Build Status](https://secure.travis-ci.org/fumieval/free-game.png?branch=master)](http://travis-ci.org/fumieval/free-game)
 
-free-game is a library that abstracts graphical applications with simple interfaces.
+free-game gives you a world so that you can create games easily.
 
 Install
 -------------------------------------------------------------------------------------
 
+    $ cabal update
     $ cabal install free-game
-
 
 Migration Guide
 -------------------------------------------------------------------------------------
@@ -17,7 +17,7 @@ Migration Guide
 * `runGame param`
     * `runGame Window (BoundingBox 0 0 640 480)` or `runGame FullScreen (BoundingBox 0 0 640 480)`
     * `setTitle "Lorem ipsum"`
-    * (since 1.1) Any Unicode characters is OK: `setTitle "ニンジャ"`
+    * Unicode characters are OK: `setTitle "ニンジャ"`
     * `showCursor` or `hideCursor`
     * `clearColor black`
     * `setFPS 60`
