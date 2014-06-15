@@ -59,7 +59,7 @@ mouseTest = do
             (True, True) -> blend 0.5 red blue
     translate p $ color col $ thickness 4 $ circleOutline 16
 
-main = runGame Windowed (BoundingBox 0 0 640 480) $ do
+main = runGame Windowed (Box (V2 0 0) (V2 640 480)) $ do
     bmp <- readBitmap "bird.png"
     bmp' <- readBitmap "logo.png"
     font <- loadFont "VL-PGothic-Regular.ttf"
