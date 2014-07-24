@@ -57,14 +57,6 @@ class Affine p => Picture2D p where
     color :: Color -> p a -> p a
     blendMode :: BlendMode -> p a -> p a
 
-{-# DEPRECATED fromBitmap "Use bitmap instead" #-}
-fromBitmap :: Picture2D p => Bitmap -> p ()
-fromBitmap = bitmap
-
-{-# DEPRECATED colored "Use color instead" #-}
-colored :: Picture2D p => Color -> p a -> p a
-colored = color
-
 class Affine p => Local p where
     getLocation :: p (Location a)
 
