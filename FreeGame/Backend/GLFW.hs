@@ -21,6 +21,7 @@ import Data.IORef
 import Data.Reflection
 import Data.BoundingBox
 import FreeGame.Class
+import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer
 import FreeGame.UI
 import FreeGame.Types
@@ -118,9 +119,8 @@ runUI (Draw m) = do
     unless (null xs) $ finalizer $ forM_ xs $ \(t, h) -> G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
     cont
 runUI (FromFinalizer m) = join m
-runUI (PreloadBitmap bmp cont) = do
+runUI (PreloadBitmap (Bitmap bmp h) cont) = do
     t <- liftIO $ G.installTexture bmp
-    h <- liftIO $ addrImage bmp
     liftIO $ modifyIORef' (getTextureStorage given) (IM.insert h t)
     finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
     cont
@@ -131,7 +131,7 @@ runUI (MousePosition cont) = do
     (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)
     cont $ V2 x y
 runUI (Bracket m) = join $ iterM runUI m
-runUI (TakeScreenshot cont) = liftIO (G.screenshot given) >>= cont
+runUI (TakeScreenshot cont) = liftIO (G.screenshot given >>= liftBitmapIO) >>= cont
 runUI (ClearColor col cont) = do
     liftIO $ GL.clearColor GL.$= unsafeCoerce col
     cont
@@ -159,7 +159,6 @@ runUI (SetBoundingBox bbox@(view (size zero)-> V2 w h) cont) = do
     liftIO $ writeIORef (G.refRegion given) bbox
     cont
 
-
 mapReaderWith :: (s -> r) -> (m a -> n b) -> ReaderT r m a -> ReaderT s n b
 mapReaderWith f g m = unsafeCoerce $ \s -> g (unsafeCoerce m (f s))
 {-# INLINE mapReaderWith #-}
@@ -177,9 +176,8 @@ instance Affine DrawM where
 newtype Context = Context { getContext :: IORef [(G.Texture, Int)] }
 
 instance (Given Context, Given TextureStorage) => Picture2D DrawM where
-    bitmap bmp = liftIO $ do
+    bitmap (Bitmap bmp h) = liftIO $ do
         m <- readIORef (getTextureStorage given)
-        h <- addrImage bmp
         case IM.lookup h m of
             Just t -> G.drawTexture t
             Nothing -> do
@@ -187,7 +185,7 @@ instance (Given Context, Given TextureStorage) => Picture2D DrawM where
                 writeIORef (getTextureStorage given) $ IM.insert h t m
                 modifyIORef (getContext given) ((t, h) :)
                 G.drawTexture t
-    bitmapOnce bmp = liftIO $ do
+    bitmapOnce (Bitmap bmp _) = liftIO $ do
         t <- G.installTexture bmp
         G.drawTexture t
         G.releaseTexture t

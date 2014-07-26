@@ -136,8 +136,9 @@ render face siz ch = do
     fptr <- newForeignPtr_ $ castPtr $ buffer bmp
 
     adv <- peek $ GS.advance slot
-
+    b <- liftBitmapIO $ fromColorAndOpacity (PixelRGB8 255 255 255)
+        $ Image w h $ V.unsafeFromForeignPtr0 fptr $ h * w
     return $ RenderedChar
-        (fromColorAndOpacity (PixelRGB8 255 255 255) $ Image w h $ V.unsafeFromForeignPtr0 fptr $ h * w)
+        b
         (V2 (left + fromIntegral w / 2) (-top + fromIntegral h / 2))
         (fromIntegral (V.x adv) / 64)

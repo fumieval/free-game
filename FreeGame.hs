@@ -85,9 +85,6 @@ module FreeGame
     module Data.Color.Names,
     module Linear,
     -- * Deprecated
-    fromBitmap,
-    loadBitmapFromFile,
-    colored,
     keyChar,
     keySpecial
 

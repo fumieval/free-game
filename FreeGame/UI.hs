@@ -60,11 +60,13 @@ type Frame = F UI
 reGame :: (FreeGame m, Monad m) => Game a -> m a
 reGame = Control.Monad.Trans.Iter.foldM (join . reFrame)
 {-# RULES "reGame/sameness" reGame = id #-}
+{-# INLINE[1] reGame #-}
 
 -- | Generalize `Frame` to any monad based on `FreeGame`.
 reFrame :: (FreeGame m, Monad m) => Frame a -> m a
 reFrame = iterM (join . reUI)
 {-# RULES "reFrame/sameness" reFrame = id #-}
+{-# INLINE[1] reFrame #-}
 
 reUI :: FreeGame f => UI a -> f a
 reUI (Draw m) = draw m
@@ -84,7 +86,7 @@ reUI (GetFPS cont) = cont <$> getFPS
 reUI (ForkFrame m cont) = cont <$ forkFrame m
 reUI (GetBoundingBox cont) = cont <$> getBoundingBox
 reUI (SetBoundingBox bb cont) = cont <$ setBoundingBox bb
-
+{-# INLINE[1] reUI #-}
 {-# RULES "reUI/sameness" reUI = id #-}
 
 class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where

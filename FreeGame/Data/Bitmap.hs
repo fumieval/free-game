@@ -13,12 +13,12 @@
 
 module FreeGame.Data.Bitmap (
     -- * Basic types and functions
-    Bitmap
+    Bitmap(..)
     ,bitmapSize
+    ,liftBitmapIO
     -- * Load and Save
     ,readBitmap
     ,writeBitmap
-    ,loadBitmapFromFile
 
     -- * Bitmap operations
     ,cropBitmap
@@ -32,34 +32,40 @@ import qualified Codec.Picture.RGBA8 as C
 import Control.Monad.IO.Class
 import Data.BoundingBox
 import Linear.V2
+import System.Random
+import Control.Applicative
+import Data.Hashable
 
-type Bitmap = C.Image C.PixelRGBA8
+data Bitmap = Bitmap (C.Image C.PixelRGBA8) Int
 
 -- | Get the size of the 'Bitmap'.
 bitmapSize :: Bitmap -> (Int, Int)
-bitmapSize (C.Image w h _) = (w, h)
+bitmapSize (Bitmap (C.Image w h _) _) = (w, h)
+
+liftBitmapIO :: MonadIO m => C.Image C.PixelRGBA8 -> m Bitmap
+liftBitmapIO b = liftIO $ Bitmap b <$> randomIO
 
 -- | Load an image file.
 readBitmap :: MonadIO m => FilePath -> m Bitmap
-readBitmap path = liftIO (C.readImageRGBA8 path)
-
-{-# DEPRECATED loadBitmapFromFile "use readBitmap instead" #-}
-loadBitmapFromFile :: MonadIO m => FilePath -> m Bitmap
-loadBitmapFromFile = readBitmap
+readBitmap path = liftIO $ Bitmap <$> C.readImageRGBA8 path <*> randomIO
 
 -- | Save 'Bitmap' into a file.
 writeBitmap :: MonadIO m => FilePath -> Bitmap -> m ()
-writeBitmap path = liftIO . C.writePng path
+writeBitmap path (Bitmap p _) = liftIO $ C.writePng path p
 
 -- | Extract a 'Bitmap' from the specified range.
 cropBitmap :: Bitmap -- ^original bitmap
     -> (Int, Int) -- ^width and height
     -> (Int, Int) -- ^x and y
     -> Bitmap -- ^result
-cropBitmap = C.trimImage
+cropBitmap (Bitmap b k) (w, h) (x, y) = Bitmap
+    (C.trimImage b (w, h) (x, y))
+    (hash (w, h, x, y, k))
 
 clipBitmap :: Bitmap -> Box V2 Int -> Bitmap
-clipBitmap b (Box (V2 x0 y0) (V2 x1 y1)) = C.trimImage b (x1 - x0, y1 - y0) (x0, y0)
+clipBitmap (Bitmap b k) (Box (V2 x0 y0) (V2 x1 y1)) = Bitmap
+    (C.trimImage b (x1 - x0, y1 - y0) (x0, y0))
+    (hash (x0, y0, x1, y1, k))
 
 sizeBitmap :: Bitmap -> V2 Int
-sizeBitmap (C.Image w h _) = V2 w h
+sizeBitmap (Bitmap (C.Image w h _) _) = V2 w h
