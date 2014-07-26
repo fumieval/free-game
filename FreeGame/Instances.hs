@@ -61,7 +61,8 @@ import FreeGame.UI
 
 #define MK_MOUSE(cxt, ty, l) instance (Mouse m cxt) => Mouse (ty) where { \
     globalMousePosition = (l) globalMousePosition; \
-    mouseButtons_ = (l) mouseButtons_;\
+    mouseButtons_ = (l) mouseButtons_; \
+    mouseInWindow = (l) mouseInWindow; \
     }
 
 #define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \

@@ -39,6 +39,7 @@ data UI a =
     | KeyStates (Map.Map Key ButtonState -> a)
     | MouseButtons (Map.Map Int ButtonState -> a)
     | MousePosition (Vec2 -> a)
+    | MouseInWindow (Bool -> a)
     | TakeScreenshot (Bitmap -> a)
     | Bracket (Frame a)
     | SetFPS Int a
@@ -75,6 +76,7 @@ reUI (FromFinalizer m) = fromFinalizer m
 reUI (KeyStates cont) = cont <$> keyStates_
 reUI (MouseButtons cont) = cont <$> mouseButtons_
 reUI (MousePosition cont) = cont <$> globalMousePosition
+reUI (MouseInWindow cont) = cont <$> mouseInWindow
 reUI (TakeScreenshot cont) = cont <$> takeScreenshot
 reUI (Bracket m) = bracket m
 reUI (SetFPS i cont) = cont <$ setFPS i
@@ -176,3 +178,4 @@ instance Mouse UI where
     globalMousePosition = MousePosition id
     -- mouseWheel = MouseWheel id
     mouseButtons_ = MouseButtons id
+    mouseInWindow = MouseInWindow id

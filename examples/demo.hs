@@ -48,7 +48,7 @@ bitmapTest bmp = blendMode Add $ do
         translate (V2 293 359) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
     
 mouseTest :: Frame ()
-mouseTest = do
+mouseTest = whenM mouseInWindow $ do
     p <- mousePosition
     l <- mouseButtonL
     r <- mouseButtonR

@@ -57,6 +57,8 @@ module FreeGame
     keyDown,
     -- * Mouse
     Mouse(),
+    mouseInWindow,
+    mousePositionMay,
     mousePosition,
     mouseButtonL,
     mouseButtonR,

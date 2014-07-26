@@ -20,6 +20,7 @@ import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer
 import Data.Color
 import Control.Monad.IO.Class
+import Control.Bool
 import qualified Data.Map as Map
 
 infixr 5 `translate`
@@ -142,10 +143,14 @@ keyUp k = isUp <$> (Map.! k) <$> keyStates_
 class Functor f => Mouse f where
     globalMousePosition :: f Vec2
     mouseButtons_ :: f (Map.Map Int ButtonState)
+    mouseInWindow :: f Bool
 
 -- | Returns the relative coordinate of the cursor.
 mousePosition :: (Applicative f, Mouse f, Local f) => f Vec2
 mousePosition = (\v (Location _ g) -> g v) <$> globalMousePosition <*> getLocation
+
+mousePositionMay :: (Applicative f, Mouse f, Local f) => f (Maybe Vec2)
+mousePositionMay = guard' <$> mouseInWindow <*> mousePosition
 
 mouseButtons :: Mouse f => f (Map.Map Int Bool)
 mouseButtons = Map.map isPressed <$> mouseButtons_

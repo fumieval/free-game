@@ -36,7 +36,6 @@ import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import Unsafe.Coerce
-import Codec.Picture.RGBA8
 import Control.Concurrent
 import Control.Lens (view)
 
@@ -48,6 +47,10 @@ keyCallback _ _ _ _ _ _ = return ()
 mouseButtonCallback :: IORef (Map.Map Int ButtonState) -> GLFW.Window -> GLFW.MouseButton -> GLFW.MouseButtonState -> GLFW.ModifierKeys -> IO ()
 mouseButtonCallback mouseBuffer _ btn GLFW.MouseButtonState'Pressed _ = modifyIORef' mouseBuffer $ Map.adjust buttonDown (fromEnum btn)
 mouseButtonCallback mouseBuffer _ btn GLFW.MouseButtonState'Released _ = modifyIORef' mouseBuffer $ Map.adjust buttonUp (fromEnum btn)
+
+mouseEnterCallback :: IORef Bool -> GLFW.Window -> GLFW.CursorState -> IO ()
+mouseEnterCallback ref _ GLFW.CursorState'InWindow = writeIORef ref True
+mouseEnterCallback ref _ GLFW.CursorState'NotInWindow = writeIORef ref False
 
 runGame :: WindowMode -> BoundingBox2 -> IterT (F UI) a -> IO (Maybe a)
 runGame mode bbox m = G.withGLFW mode bbox (execGame m)
@@ -63,12 +66,15 @@ execGame m sys = do
     texs <- newIORef IM.empty
     keyBuffer <- newIORef initialKeyBuffer
     mouseBuffer <- newIORef initialMouseBuffer
+    mouseIn <- newIORef True
     GLFW.setKeyCallback (G.theWindow sys) $ Just $ keyCallback keyBuffer
     GLFW.setMouseButtonCallback (G.theWindow sys) $ Just $ mouseButtonCallback mouseBuffer
+    GLFW.setCursorEnterCallback (G.theWindow sys) $ Just $ mouseEnterCallback mouseIn
 
     execFinalizerT
         $ give (RefKeyStates keyBuffer)
         $ give (RefMouseButtonStates mouseBuffer)
+        $ give (RefMouseInWindow mouseIn)
         $ give (TextureStorage texs)
         $ give sys
         $ gameLoop m
@@ -78,6 +84,7 @@ gameLoop ::
     , Given TextureStorage
     , Given KeyStates
     , Given MouseButtonStates
+    , Given MouseInWindow
     ) => IterT (F UI) a -> FinalizerT IO (Maybe a)
 gameLoop m = do
     liftIO $ G.beginFrame given
@@ -103,11 +110,14 @@ type DrawM = ReaderT (Location ()) IO
 newtype KeyStates = RefKeyStates { getKeyStates :: IORef (Map.Map Key ButtonState) }
 newtype MouseButtonStates = RefMouseButtonStates { getMouseButtonStates :: IORef (Map.Map Int ButtonState) }
 
+newtype MouseInWindow = RefMouseInWindow { getMouseInWindow :: IORef Bool }
+
 runUI :: forall a.
     ( Given G.System
     , Given TextureStorage
     , Given KeyStates
     , Given MouseButtonStates
+    , Given MouseInWindow
     , Given (IORef [IO ()])
     ) => UI (FinalizerT IO a) -> FinalizerT IO a
 runUI (Draw m) = do
@@ -120,9 +130,13 @@ runUI (Draw m) = do
     cont
 runUI (FromFinalizer m) = join m
 runUI (PreloadBitmap (Bitmap bmp h) cont) = do
-    t <- liftIO $ G.installTexture bmp
-    liftIO $ modifyIORef' (getTextureStorage given) (IM.insert h t)
-    finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
+    m <- liftIO $ readIORef (getTextureStorage given)
+    case IM.lookup h m of
+        Just _ -> return ()
+        Nothing -> do
+            t <- liftIO $ G.installTexture bmp
+            liftIO $ writeIORef (getTextureStorage given) $ IM.insert h t m
+            finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
     cont
 runUI (KeyStates cont) = liftIO (readIORef $ getKeyStates given) >>= cont
 runUI (MouseButtons cont) = liftIO (readIORef $ getMouseButtonStates given) >>= cont
@@ -130,6 +144,7 @@ runUI (MouseButtons cont) = liftIO (readIORef $ getMouseButtonStates given) >>= 
 runUI (MousePosition cont) = do
     (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)
     cont $ V2 x y
+runUI (MouseInWindow cont) = liftIO (readIORef $ getMouseInWindow given) >>= cont
 runUI (Bracket m) = join $ iterM runUI m
 runUI (TakeScreenshot cont) = liftIO (G.screenshot given >>= liftBitmapIO) >>= cont
 runUI (ClearColor col cont) = do
