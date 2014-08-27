@@ -64,7 +64,7 @@ library
     linear >= 1.0 && < 2,
     mtl >= 2.1,
     OpenGL == 2.9.*,
-    OpenGLRaw == 1.4.*,
+    OpenGLRaw == 1.5.*,
     random == 1.*,
     reflection == 1.*,
     template-haskell,
