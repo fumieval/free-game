@@ -9,7 +9,7 @@ import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Cont
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.List
-import Control.Monad.Trans.Error
+import Control.Monad.Trans.Except
 import Control.Monad.Trans.Identity
 import qualified Control.Monad.State.Lazy as Lazy
 import qualified Control.Monad.State.Strict as Strict
@@ -97,7 +97,7 @@ MK_AFFINE(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, Strict.mapRWST)
 MK_AFFINE(_COMMA_ Monad m, IdentityT m, mapIdentityT)
 MK_AFFINE(_COMMA_ Monad m, MaybeT m, mapMaybeT)
 MK_AFFINE(_COMMA_ Monad m, ListT m, mapListT)
-MK_AFFINE(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, mapErrorT)
+MK_AFFINE(_COMMA_ Monad m, ExceptT e m, mapExceptT)
 MK_AFFINE(_COMMA_ Monad m, ContT r m, mapContT)
 
 MK_PICTURE_2D(_COMMA_ Functor m, F m, Church.liftF, hoistF)
@@ -113,7 +113,7 @@ MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift, Stric
 MK_PICTURE_2D(_COMMA_ Monad m, IdentityT m, lift, mapIdentityT)
 MK_PICTURE_2D(_COMMA_ Monad m, MaybeT m, lift, mapMaybeT)
 MK_PICTURE_2D(_COMMA_ Monad m, ListT m, lift, mapListT)
-MK_PICTURE_2D(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift, mapErrorT)
+MK_PICTURE_2D(_COMMA_ Monad m, ExceptT e m, lift, mapExceptT)
 MK_PICTURE_2D(_COMMA_ Monad m, ContT r m, lift, mapContT)
 
 MK_LOCAL(_COMMA_ Functor m, F m, Church.liftF)
@@ -129,7 +129,7 @@ MK_LOCAL(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
 MK_LOCAL(_COMMA_ Monad m, IdentityT m, lift)
 MK_LOCAL(_COMMA_ Monad m, MaybeT m, lift)
 MK_LOCAL(_COMMA_ Monad m, ListT m, lift)
-MK_LOCAL(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_LOCAL(_COMMA_ Monad m, ExceptT e m, lift)
 MK_LOCAL(_COMMA_ Monad m, ContT r m, lift)
 
 MK_KEYBOARD(_COMMA_ Functor m, F m, Church.liftF)
@@ -145,7 +145,7 @@ MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
 MK_KEYBOARD(_COMMA_ Monad m, IdentityT m, lift)
 MK_KEYBOARD(_COMMA_ Monad m, MaybeT m, lift)
 MK_KEYBOARD(_COMMA_ Monad m, ListT m, lift)
-MK_KEYBOARD(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_KEYBOARD(_COMMA_ Monad m, ExceptT e m, lift)
 MK_KEYBOARD(_COMMA_ Monad m, ContT r m, lift)
 
 MK_MOUSE(_COMMA_ Functor m, F m, liftF)
@@ -161,7 +161,7 @@ MK_MOUSE(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
 MK_MOUSE(_COMMA_ Monad m, IdentityT m, lift)
 MK_MOUSE(_COMMA_ Monad m, MaybeT m, lift)
 MK_MOUSE(_COMMA_ Monad m, ListT m, lift)
-MK_MOUSE(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_MOUSE(_COMMA_ Monad m, ExceptT e m, lift)
 MK_MOUSE(_COMMA_ Monad m, ContT r m, lift)
 
 MK_FROM_FINALIZER(_COMMA_ Functor m, F m, liftF)
@@ -176,7 +176,7 @@ MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
 MK_FROM_FINALIZER(_COMMA_ Monad m, IdentityT m, lift)
 MK_FROM_FINALIZER(_COMMA_ Monad m, MaybeT m, lift)
 MK_FROM_FINALIZER(_COMMA_ Monad m, ListT m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_FROM_FINALIZER(_COMMA_ Monad m, ExceptT e m, lift)
 MK_FROM_FINALIZER(_COMMA_ Monad m, ContT r m, lift)
 
 MK_FREE_GAME(_COMMA_ Functor m, F m, liftF)
@@ -191,5 +191,5 @@ MK_FREE_GAME(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
 MK_FREE_GAME(_COMMA_ Monad m, IdentityT m, lift)
 MK_FREE_GAME(_COMMA_ Monad m, MaybeT m, lift)
 MK_FREE_GAME(_COMMA_ Monad m, ListT m, lift)
-MK_FREE_GAME(_COMMA_ Monad m _COMMA_ Error e, ErrorT e m, lift)
+MK_FREE_GAME(_COMMA_ Monad m, ExceptT e m, lift)
 MK_FREE_GAME(_COMMA_ Monad m, ContT r m, lift)

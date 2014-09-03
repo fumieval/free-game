@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns, Rank2Types, DeriveFunctor #-}
+{-# LANGUAGE FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.Class

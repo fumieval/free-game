@@ -160,8 +160,8 @@ endFrame sys = do
         else writeIORef (refFrameCounter sys) (succ n)
     GLFW.windowShouldClose (theWindow sys)
 
-withGLFW :: WindowMode -> BoundingBox2 -> (System -> IO a) -> IO a
-withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
+beginGLFW :: WindowMode -> BoundingBox2 -> IO System
+beginGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) = do
     Encoding.setForeignEncoding Encoding.utf8
     let title = "free-game"
         ww = floor $ x1 - x0
@@ -189,7 +189,7 @@ withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
     GLFW.setFramebufferSizeCallback win $ Just $ \_ w h -> do
         modifyIORef rbox $ size zero .~ fmap fromIntegral (V2 w h)
 
-    sys <- System
+    System
         <$> newIORef 0
         <*> newIORef 0
         <*> newIORef 60
@@ -197,11 +197,10 @@ withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
         <*> pure rbox
         <*> pure win
 
-    res <- m sys
-
-    GLFW.destroyWindow win
+endGLFW :: System -> IO ()
+endGLFW sys = do
+    GLFW.destroyWindow (theWindow sys)
     GLFW.terminate
-    return res
 
 screenshotFlipped :: System -> IO (Image PixelRGBA8)
 screenshotFlipped sys = do

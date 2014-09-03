@@ -1,10 +1,21 @@
-{-# LANGUAGE Rank2Types, BangPatterns, ViewPatterns, CPP #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame.Backend.GLFW
--- Copyright   :  (C) 2013 Fumiaki Kinoshita
+-- Copyright   :  (C) 2013-2014 Fumiaki Kinoshita
 -- License     :  BSD-style (see the file LICENSE)
 --
 -- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
@@ -12,167 +23,193 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-module FreeGame.Backend.GLFW (runGame) where
+module FreeGame.Backend.GLFW where
 import Control.Monad.Free.Church
-import Control.Monad.Trans.Iter
 import Control.Monad.IO.Class
 import Control.Monad.Reader
+import Control.Applicative
+import Control.Artery
 import Data.IORef
 import Data.Reflection
 import Data.BoundingBox
+import qualified Data.Vector as V
 import FreeGame.Class
+import FreeGame.Component
 import FreeGame.Data.Bitmap
-import FreeGame.Internal.Finalizer
-import FreeGame.UI
 import FreeGame.Types
 import Linear
-#if (MIN_VERSION_containers(0,5,0))
+import qualified System.PortAudio as PA
+-- #if (MIN_VERSION_containers(0,5,0))
 import qualified Data.IntMap.Strict as IM
-#else
-import qualified Data.IntMap as IM
-#endif
-import qualified Data.Map.Strict as Map
+import qualified Data.IntSet as IS
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
-import qualified Graphics.Rendering.OpenGL.GL as GL
 import Unsafe.Coerce
 import Control.Concurrent
-import Control.Lens (view)
+import Linear.V
+import Control.Monad.Except
+import GHC.Prim
 
-keyCallback :: IORef (Map.Map Key ButtonState) -> GLFW.Window -> GLFW.Key -> Int -> GLFW.KeyState -> GLFW.ModifierKeys -> IO ()
-keyCallback keyBuffer _ key _ GLFW.KeyState'Pressed _ = modifyIORef' keyBuffer $ Map.adjust buttonDown (toEnum $ fromEnum key)
-keyCallback keyBuffer _ key _ GLFW.KeyState'Released _ = modifyIORef' keyBuffer $ Map.adjust buttonUp (toEnum $ fromEnum key)
-keyCallback _ _ _ _ _ _ = return ()
+runGame :: WindowMode -> BoundingBox2 -> System a -> IO ()
+runGame win box m = do
+    sys <- G.beginGLFW win box
+    f <- Foundation
+        <$> newMVar 0
+        <*> pure 44100 -- FIX THIS
+        <*> newMVar IM.empty
+        <*> newMVar IM.empty
+        <*> newMVar Nothing
+        <*> newMVar IM.empty
+        <*> newMVar IM.empty
+        <*> newMVar 0
+        <*> pure sys
+        <*> newIORef IM.empty
+        <*> newEmptyMVar
+    let win = G.theWindow sys
+    ref <- newEmptyMVar
+    forkIO $ do
+        s <- runSystem f m
+        putMVar ref s
+    r <- runExceptT $ PA.with undefined undefined undefined (audioProcess f) $ liftIO $ runGraphic f
+    G.endGLFW sys
+    return ()
 
-mouseButtonCallback :: IORef (Map.Map Int ButtonState) -> GLFW.Window -> GLFW.MouseButton -> GLFW.MouseButtonState -> GLFW.ModifierKeys -> IO ()
-mouseButtonCallback mouseBuffer _ btn GLFW.MouseButtonState'Pressed _ = modifyIORef' mouseBuffer $ Map.adjust buttonDown (fromEnum btn)
-mouseButtonCallback mouseBuffer _ btn GLFW.MouseButtonState'Released _ = modifyIORef' mouseBuffer $ Map.adjust buttonUp (fromEnum btn)
+data Foundation = Foundation
+    { newComponentId :: MVar Int
+    , sampleRate :: Double
+    , cores :: MVar (IM.IntMap (Component Any System))
+    , coreGraphic :: MVar (IM.IntMap Any) -- rely on `invoke`
+    , coreAudio :: MVar (Maybe (Int, Any))
+    , coreKeyboard :: MVar (IM.IntMap Any)
+    , coreMouse :: MVar (IM.IntMap Any)
+    , theTime :: MVar Double
+    , theSystem :: G.System
+    , textures :: IORef (IM.IntMap G.Texture)
+    , theEnd :: MVar ()
+    }
+runSystem fo = iterM (runSys fo)
 
-mouseEnterCallback :: IORef Bool -> GLFW.Window -> GLFW.CursorState -> IO ()
-mouseEnterCallback ref _ GLFW.CursorState'InWindow = writeIORef ref True
-mouseEnterCallback ref _ GLFW.CursorState'NotInWindow = writeIORef ref False
+drawPicture :: forall a. Given TextureStorage => Picture a -> IO a
+drawPicture (Picture m) = runReaderT (m :: DrawM a) (Location id id)
 
-runGame :: WindowMode -> BoundingBox2 -> IterT (F UI) a -> IO (Maybe a)
-runGame mode bbox m = G.withGLFW mode bbox (execGame m)
+runGraphic :: Foundation -> IO ()
+runGraphic fo = do
+    js <- readMVar $ coreGraphic fo
+    m <- takeMVar $ cores fo
+    Just t <- GLFW.getTime
+    print t
+    G.beginFrame (theSystem fo)
+    us <- forM (IM.assocs js) $ \(i, f) -> do
+        (pic, c) <- runSystem fo $ runComponent (m IM.! i) (unsafeCoerce f t)
+        give (TextureStorage (textures fo)) $ drawPicture pic
+        return (i, c)
+    putMVar (cores fo) $ foldr (uncurry IM.insert) m us
+    b <- G.endFrame (theSystem fo)
+    tryTakeMVar (theEnd fo) >>= \case
+        Just _ -> return ()
+        _ -> unless b (runGraphic fo)
 
-initialKeyBuffer :: Map.Map Key ButtonState
-initialKeyBuffer = Map.fromList $ zip [minBound..] (repeat Release)
+v2v2 :: V2 Float -> V 2 Float
+v2v2 (V2 x y) = case fromVector $ V.fromList [x, y] of
+    Just a -> a
 
-initialMouseBuffer :: Map.Map Int ButtonState
-initialMouseBuffer = Map.fromList $ zip [0..7] (repeat Release)
+audioProcess :: Foundation -> Artery IO (PA.Chunk (V 0 Float)) [V 2 Float]
+audioProcess fo = effectful $ \(PA.Chunk n _) -> readMVar (coreAudio fo) >>= \case
+    Nothing -> return $ fmap v2v2 $ replicate n 0
+    Just (j, pull) -> do
+        m <- takeMVar $ cores fo
+        Just t <- GLFW.getTime
+        let Component f = m IM.! j
+        (buf, c) <- runSystem fo $ f (unsafeCoerce pull (sampleRate fo * fromIntegral n) n)
+        putMVar (cores fo) $ IM.insert j c m
+        return (fmap v2v2 buf)
 
-execGame :: IterT (F UI) a -> G.System -> IO (Maybe a)
-execGame m sys = do
-    texs <- newIORef IM.empty
-    keyBuffer <- newIORef initialKeyBuffer
-    mouseBuffer <- newIORef initialMouseBuffer
-    mouseIn <- newIORef True
-    GLFW.setKeyCallback (G.theWindow sys) $ Just $ keyCallback keyBuffer
-    GLFW.setMouseButtonCallback (G.theWindow sys) $ Just $ mouseButtonCallback mouseBuffer
-    GLFW.setCursorEnterCallback (G.theWindow sys) $ Just $ mouseEnterCallback mouseIn
+limitedMapMIntMap :: Monad m => IM.IntMap b -> (b -> a -> m a) -> IM.IntMap a -> m (IM.IntMap a)
+limitedMapMIntMap (IM.assocs -> js) f m = liftM (foldr (uncurry IM.insert) m) $ forM js $ \(i, k) -> do
+    a <- f k (m IM.! i)
+    return (i, a)
 
-    execFinalizerT
-        $ give (RefKeyStates keyBuffer)
-        $ give (RefMouseButtonStates mouseBuffer)
-        $ give (RefMouseInWindow mouseIn)
-        $ give (TextureStorage texs)
-        $ give sys
-        $ gameLoop m
+sendEventIO :: Foundation -> e a -> Component e System -> IO (a, Component e System)
+sendEventIO fo e = runSystem fo . flip runComponent e
 
-gameLoop ::
-    ( Given G.System
-    , Given TextureStorage
-    , Given KeyStates
-    , Given MouseButtonStates
-    , Given MouseInWindow
-    ) => IterT (F UI) a -> FinalizerT IO (Maybe a)
-gameLoop m = do
-    liftIO $ G.beginFrame given
+keyCallback :: Foundation -> GLFW.KeyCallback
+keyCallback fo _ k _ s _ = do
+    js <- readMVar (coreKeyboard fo)
+    modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \m -> (fmap snd.) $ sendEventIO fo
+        $ unsafeCoerce m (toEnum . fromEnum $ k :: Key) (GLFW.KeyState'Released /= s)
 
-    fs <- liftIO $ newIORef ([] :: [IO ()])
+mouseButtonCallback :: Foundation -> GLFW.MouseButtonCallback
+mouseButtonCallback fo _ btn s _ = do
+    js <- readMVar (coreMouse fo)
+    modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (m, _, _)) -> (fmap snd.)
+        $ sendEventIO fo $ m (fromEnum $ btn) (GLFW.MouseButtonState'Released /= s)
 
-    r <- give fs $ iterM runUI $ runIterT m
+cursorPosCallback :: Foundation -> GLFW.CursorPosCallback
+cursorPosCallback fo _ x y = do
+    js <- readMVar (coreMouse fo)
+    modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (_, m, _)) -> (fmap snd.)
+        $ sendEventIO fo $ m (V2 x y)
 
-    b <- liftIO $ do
-        modifyIORef' (getKeyStates given) (Map.map buttonStay)
-        modifyIORef' (getMouseButtonStates given) (Map.map buttonStay)
-        G.endFrame given
-    liftIO (readIORef fs) >>= finalizer . sequence_
+scrollCallback :: Foundation -> GLFW.ScrollCallback
+scrollCallback fo _ x y = do
+    js <- readMVar (coreMouse fo)
+    modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (_, _, m)) -> (fmap snd.)
+        $ sendEventIO fo $ m (V2 x y)
 
-    if b
-        then return Nothing
-        else either (return . Just) gameLoop r
+assimilate :: Control e -> e a -> e a
+assimilate _ = id
+
+runSys :: Foundation -> Sys (IO a) -> IO a
+runSys fo (LiftIO m) = join m
+runSys fo (Command (Control i) e) = do
+    m <- takeMVar $ cores fo
+    (cont, c) <- runSystem fo $ runComponent (m IM.! i) (unsafeCoerce e)
+    putMVar (cores fo) $ IM.insert i c m
+    cont
+runSys fo (Invoke c cont) = do
+    n <- takeMVar $ newComponentId fo
+    m <- takeMVar $ cores fo
+    putMVar (cores fo) $ IM.insert n (unsafeCoerce c) m
+    putMVar (newComponentId fo) (n + 1)
+    cont $ Control n
+runSys fo (ConnectGraphic con@(Control i) cont) = do
+    modifyMVar_ (coreGraphic fo) $ return . IM.insert i (unsafeCoerce $ assimilate con . pullGraphic)
+    cont
+runSys fo (ConnectAudio con@(Control i) cont) = do
+    _ <- swapMVar (coreAudio fo) $ Just (i, unsafeCoerce $ (assimilate con .) . pullAudio)
+    cont
+runSys fo (DisconnectGraphic (Control i) cont) = do
+    modifyMVar_ (coreGraphic fo) $ return . IM.delete i
+    cont
+runSys fo (DisconnectAudio (Control i) cont) = do
+    _ <- swapMVar (coreAudio fo) Nothing
+    cont
+runSys fo (ConnectKeyboard con@(Control i) cont) = do
+    modifyMVar_ (coreKeyboard fo) $ return . IM.insert i (unsafeCoerce $ (assimilate con .) . keyEvent)
+    cont
+runSys fo (DisconnectKeyboard (Control i) cont) = do
+    modifyMVar_ (coreKeyboard fo) $ return . IM.delete i
+    cont
+runSys fo (ConnectMouse con@(Control i) cont) = do
+    modifyMVar_ (coreMouse fo) $ return . IM.insert i (unsafeCoerce
+        ( (assimilate con .) . mouseButtonEvent
+        , assimilate con . cursorEvent
+        , assimilate con . scrollEvent))
+    cont
+runSys fo (DisconnectMouse (Control i) cont) = do
+    modifyMVar_ (coreMouse fo) $ return . IM.delete i
+    cont
+runSys fo (Wait dt cont) = do
+    t0 <- takeMVar (theTime fo)
+    Just t <- GLFW.getTime
+    threadDelay $ floor $ (t0 - t + dt) * 1000 * 1000
+    putMVar (theTime fo) $ t0 + dt
+    cont
+runSys fo (Stand cont) = takeMVar (theEnd fo) >> cont
 
 newtype TextureStorage = TextureStorage { getTextureStorage :: IORef (IM.IntMap G.Texture) }
 
 type DrawM = ReaderT (Location ()) IO
-
-newtype KeyStates = RefKeyStates { getKeyStates :: IORef (Map.Map Key ButtonState) }
-newtype MouseButtonStates = RefMouseButtonStates { getMouseButtonStates :: IORef (Map.Map Int ButtonState) }
-
-newtype MouseInWindow = RefMouseInWindow { getMouseInWindow :: IORef Bool }
-
-runUI :: forall a.
-    ( Given G.System
-    , Given TextureStorage
-    , Given KeyStates
-    , Given MouseButtonStates
-    , Given MouseInWindow
-    , Given (IORef [IO ()])
-    ) => UI (FinalizerT IO a) -> FinalizerT IO a
-runUI (Draw m) = do
-    (cont, xs) <- liftIO $ do
-        cxt <- newIORef []
-        cont <- give (Context cxt) $ runReaderT (m :: DrawM (FinalizerT IO a)) (Location id id)
-        xs <- readIORef cxt
-        return (cont, xs)
-    unless (null xs) $ finalizer $ forM_ xs $ \(t, h) -> G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
-    cont
-runUI (FromFinalizer m) = join m
-runUI (PreloadBitmap (Bitmap bmp h) cont) = do
-    m <- liftIO $ readIORef (getTextureStorage given)
-    case IM.lookup h m of
-        Just _ -> return ()
-        Nothing -> do
-            t <- liftIO $ G.installTexture bmp
-            liftIO $ writeIORef (getTextureStorage given) $ IM.insert h t m
-            finalizer $ G.releaseTexture t >> modifyIORef' (getTextureStorage given) (IM.delete h)
-    cont
-runUI (KeyStates cont) = liftIO (readIORef $ getKeyStates given) >>= cont
-runUI (MouseButtons cont) = liftIO (readIORef $ getMouseButtonStates given) >>= cont
--- runUI _ _ (MouseWheel cont) = GLFW.getMouseWheel >>= cont
-runUI (MousePosition cont) = do
-    (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)
-    cont $ V2 x y
-runUI (MouseInWindow cont) = liftIO (readIORef $ getMouseInWindow given) >>= cont
-runUI (Bracket m) = join $ iterM runUI m
-runUI (TakeScreenshot cont) = liftIO (G.screenshot given >>= liftBitmapIO) >>= cont
-runUI (ClearColor col cont) = do
-    liftIO $ GL.clearColor GL.$= unsafeCoerce col
-    cont
-runUI (SetTitle str cont) = do
-    liftIO $ GLFW.setWindowTitle (G.theWindow given) str
-    cont
-runUI (ShowCursor cont) = do
-    liftIO $ GLFW.setCursorInputMode (G.theWindow given) GLFW.CursorInputMode'Normal
-    cont
-runUI (HideCursor cont) = do
-    liftIO $ GLFW.setCursorInputMode (G.theWindow given) GLFW.CursorInputMode'Hidden
-    cont
-runUI (SetFPS n cont) = do
-    liftIO $ writeIORef (G.theFPS given) n
-    cont
-runUI (GetFPS cont) = liftIO (readIORef (G.currentFPS given)) >>= cont
-runUI (ForkFrame m cont) = do
-    _ <- liftIO $ forkIO $ do
-        (_, f) <- runFinalizerT $ iterM runUI m
-        modifyIORef' given (f:)
-    cont
-runUI (GetBoundingBox cont) = liftIO (readIORef (G.refRegion given)) >>= cont
-runUI (SetBoundingBox bbox@(view (size zero)-> V2 w h) cont) = do
-    liftIO $ GLFW.setWindowSize (G.theWindow given) (floor w) (floor h)
-    liftIO $ writeIORef (G.refRegion given) bbox
-    cont
 
 mapReaderWith :: (s -> r) -> (m a -> n b) -> ReaderT r m a -> ReaderT s n b
 mapReaderWith f g m = unsafeCoerce $ \s -> g (unsafeCoerce m (f s))
@@ -188,9 +225,7 @@ instance Affine DrawM where
     scale v = mapReaderWith (scale v) (G.scale v)
     {-# INLINE scale #-}
 
-newtype Context = Context { getContext :: IORef [(G.Texture, Int)] }
-
-instance (Given Context, Given TextureStorage) => Picture2D DrawM where
+instance (Given TextureStorage) => Picture2D DrawM where
     bitmap (Bitmap bmp h) = liftIO $ do
         m <- readIORef (getTextureStorage given)
         case IM.lookup h m of
@@ -198,7 +233,6 @@ instance (Given Context, Given TextureStorage) => Picture2D DrawM where
             Nothing -> do
                 t <- G.installTexture bmp
                 writeIORef (getTextureStorage given) $ IM.insert h t m
-                modifyIORef (getContext given) ((t, h) :)
                 G.drawTexture t
     bitmapOnce (Bitmap bmp _) = liftIO $ do
         t <- G.installTexture bmp

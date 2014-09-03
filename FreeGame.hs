@@ -11,7 +11,7 @@
 ----------------------------------------------------------------------------
 module FreeGame
   ( -- * Game
-    Game,
+    System,
     runGame,
     runGameDefault,
     reGame,
@@ -19,56 +19,8 @@ module FreeGame
     BoundingBox2,
     Box(..),
     isInside,
-    delay,
-    tick,
-    foreverFrame,
-    untick,
-    untickInfinite,
-    -- * Frame
-    Frame,
-    reFrame,
-    FreeGame(..),
-    -- * Transformations
-    Vec2,
-    Affine(..),
-    Local(),
-    globalize,
-    localize,
-    -- * Pictures
-    Picture2D(..),
-    BlendMode(..),
-    Bitmap,
-    bitmapSize,
-    readBitmap,
-    cropBitmap,
-    loadBitmaps,
-    loadBitmapsWith,
-    writeBitmap,
-    -- * Text
-    Font,
-    loadFont,
-    text,
-    -- * Keyboard
-    Keyboard(..),
-    Key(..),
-    charToKey,
-    keyPress,
-    keyUp,
-    keyDown,
-    -- * Mouse
-    Mouse(),
-    mouseInWindow,
-    mousePositionMay,
-    mousePosition,
-    mouseButtonL,
-    mouseButtonR,
-    mouseButtonM,
-    mouseDownL,
-    mouseDownR,
-    mouseDownM,
-    mouseUpL,
-    mouseUpR,
-    mouseUpM,
+    stand,
+    wait,
     -- * IO
     FromFinalizer(),
     embedIO,
@@ -86,9 +38,6 @@ module FreeGame
     module Data.Color,
     module Data.Color.Names,
     module Linear,
-    -- * Deprecated
-    keyChar,
-    keySpecial
 
 ) where
 
@@ -96,6 +45,7 @@ import FreeGame.UI
 import FreeGame.Util
 import FreeGame.Types
 import FreeGame.Text
+import FreeGame.Core
 import FreeGame.Class
 import FreeGame.Instances ()
 import FreeGame.Data.Bitmap
@@ -118,10 +68,10 @@ import Control.Monad.Trans.Iter
 --
 -- For more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
 
-runGame :: WindowMode -> BoundingBox2 -> Game a -> IO (Maybe a)
+runGame :: WindowMode -> BoundingBox2 -> System a -> IO ()
 runGame = GLFW.runGame
 
-runGameDefault :: Game a -> IO (Maybe a)
+runGameDefault :: System a -> IO ()
 runGameDefault = runGame Windowed (Box (V2 0 0) (V2 640 480))
 
 instance MonadIO Frame where
