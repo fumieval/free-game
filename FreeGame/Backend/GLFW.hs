@@ -1,10 +1,12 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
@@ -50,7 +52,15 @@ import Linear.V
 import Control.Monad.Except
 import GHC.Prim
 
-runGame :: WindowMode -> BoundingBox2 -> System a -> IO ()
+newtype System s a = System (ReaderT (Foundation s) IO a) deriving (Functor, Applicative, Monad)
+
+unSystem :: Foundation s -> System s a -> IO a
+unSystem f m = unsafeCoerce m f
+
+mkSystem :: (Foundation s -> IO a) -> System s a
+mkSystem = unsafeCoerce
+
+runGame :: WindowMode -> BoundingBox2 -> System s a -> IO ()
 runGame win box m = do
     sys <- G.beginGLFW win box
     f <- Foundation
@@ -68,16 +78,16 @@ runGame win box m = do
     let win = G.theWindow sys
     ref <- newEmptyMVar
     forkIO $ do
-        s <- runSystem f m
+        s <- unSystem f m
         putMVar ref s
     r <- runExceptT $ PA.with undefined undefined undefined (audioProcess f) $ liftIO $ runGraphic f
     G.endGLFW sys
     return ()
 
-data Foundation = Foundation
+data Foundation s = Foundation
     { newComponentId :: MVar Int
     , sampleRate :: Double
-    , cores :: MVar (IM.IntMap (Component Any System))
+    , cores :: MVar (IM.IntMap (Component Any (System s)))
     , coreGraphic :: MVar (IM.IntMap Any) -- rely on `invoke`
     , coreAudio :: MVar (Maybe (Int, Any))
     , coreKeyboard :: MVar (IM.IntMap Any)
@@ -87,12 +97,11 @@ data Foundation = Foundation
     , textures :: IORef (IM.IntMap G.Texture)
     , theEnd :: MVar ()
     }
-runSystem fo = iterM (runSys fo)
 
 drawPicture :: forall a. Given TextureStorage => Picture a -> IO a
 drawPicture (Picture m) = runReaderT (m :: DrawM a) (Location id id)
 
-runGraphic :: Foundation -> IO ()
+runGraphic :: Foundation s -> IO ()
 runGraphic fo = do
     js <- readMVar $ coreGraphic fo
     m <- takeMVar $ cores fo
@@ -100,7 +109,7 @@ runGraphic fo = do
     print t
     G.beginFrame (theSystem fo)
     us <- forM (IM.assocs js) $ \(i, f) -> do
-        (pic, c) <- runSystem fo $ runComponent (m IM.! i) (unsafeCoerce f t)
+        (pic, c) <- unSystem fo $ runComponent (m IM.! i) (unsafeCoerce f t)
         give (TextureStorage (textures fo)) $ drawPicture pic
         return (i, c)
     putMVar (cores fo) $ foldr (uncurry IM.insert) m us
@@ -113,14 +122,14 @@ v2v2 :: V2 Float -> V 2 Float
 v2v2 (V2 x y) = case fromVector $ V.fromList [x, y] of
     Just a -> a
 
-audioProcess :: Foundation -> Artery IO (PA.Chunk (V 0 Float)) [V 2 Float]
+audioProcess :: Foundation s -> Artery IO (PA.Chunk (V 0 Float)) [V 2 Float]
 audioProcess fo = effectful $ \(PA.Chunk n _) -> readMVar (coreAudio fo) >>= \case
     Nothing -> return $ fmap v2v2 $ replicate n 0
     Just (j, pull) -> do
         m <- takeMVar $ cores fo
         Just t <- GLFW.getTime
         let Component f = m IM.! j
-        (buf, c) <- runSystem fo $ f (unsafeCoerce pull (sampleRate fo * fromIntegral n) n)
+        (buf, c) <- unSystem fo $ f (unsafeCoerce pull (sampleRate fo * fromIntegral n) n)
         putMVar (cores fo) $ IM.insert j c m
         return (fmap v2v2 buf)
 
@@ -129,83 +138,78 @@ limitedMapMIntMap (IM.assocs -> js) f m = liftM (foldr (uncurry IM.insert) m) $ 
     a <- f k (m IM.! i)
     return (i, a)
 
-sendEventIO :: Foundation -> e a -> Component e System -> IO (a, Component e System)
-sendEventIO fo e = runSystem fo . flip runComponent e
+sendEventIO :: Foundation s -> e a -> Component e (System s) -> IO (a, Component e (System s))
+sendEventIO fo e = unSystem fo . flip runComponent e
 
-keyCallback :: Foundation -> GLFW.KeyCallback
+keyCallback :: Foundation s -> GLFW.KeyCallback
 keyCallback fo _ k _ s _ = do
     js <- readMVar (coreKeyboard fo)
     modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \m -> (fmap snd.) $ sendEventIO fo
         $ unsafeCoerce m (toEnum . fromEnum $ k :: Key) (GLFW.KeyState'Released /= s)
 
-mouseButtonCallback :: Foundation -> GLFW.MouseButtonCallback
+mouseButtonCallback :: Foundation s -> GLFW.MouseButtonCallback
 mouseButtonCallback fo _ btn s _ = do
     js <- readMVar (coreMouse fo)
     modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (m, _, _)) -> (fmap snd.)
         $ sendEventIO fo $ m (fromEnum $ btn) (GLFW.MouseButtonState'Released /= s)
 
-cursorPosCallback :: Foundation -> GLFW.CursorPosCallback
+cursorPosCallback :: Foundation s -> GLFW.CursorPosCallback
 cursorPosCallback fo _ x y = do
     js <- readMVar (coreMouse fo)
     modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (_, m, _)) -> (fmap snd.)
         $ sendEventIO fo $ m (V2 x y)
 
-scrollCallback :: Foundation -> GLFW.ScrollCallback
+scrollCallback :: Foundation s -> GLFW.ScrollCallback
 scrollCallback fo _ x y = do
     js <- readMVar (coreMouse fo)
     modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (_, _, m)) -> (fmap snd.)
         $ sendEventIO fo $ m (V2 x y)
 
-assimilate :: Control e -> e a -> e a
+assimilate :: Control s e -> e a -> e a
 assimilate _ = id
 
-runSys :: Foundation -> Sys (IO a) -> IO a
-runSys fo (LiftIO m) = join m
-runSys fo (Command (Control i) e) = do
-    m <- takeMVar $ cores fo
-    (cont, c) <- runSystem fo $ runComponent (m IM.! i) (unsafeCoerce e)
-    putMVar (cores fo) $ IM.insert i c m
-    cont
-runSys fo (Invoke c cont) = do
-    n <- takeMVar $ newComponentId fo
-    m <- takeMVar $ cores fo
-    putMVar (cores fo) $ IM.insert n (unsafeCoerce c) m
-    putMVar (newComponentId fo) (n + 1)
-    cont $ Control n
-runSys fo (ConnectGraphic con@(Control i) cont) = do
-    modifyMVar_ (coreGraphic fo) $ return . IM.insert i (unsafeCoerce $ assimilate con . pullGraphic)
-    cont
-runSys fo (ConnectAudio con@(Control i) cont) = do
-    _ <- swapMVar (coreAudio fo) $ Just (i, unsafeCoerce $ (assimilate con .) . pullAudio)
-    cont
-runSys fo (DisconnectGraphic (Control i) cont) = do
-    modifyMVar_ (coreGraphic fo) $ return . IM.delete i
-    cont
-runSys fo (DisconnectAudio (Control i) cont) = do
-    _ <- swapMVar (coreAudio fo) Nothing
-    cont
-runSys fo (ConnectKeyboard con@(Control i) cont) = do
-    modifyMVar_ (coreKeyboard fo) $ return . IM.insert i (unsafeCoerce $ (assimilate con .) . keyEvent)
-    cont
-runSys fo (DisconnectKeyboard (Control i) cont) = do
-    modifyMVar_ (coreKeyboard fo) $ return . IM.delete i
-    cont
-runSys fo (ConnectMouse con@(Control i) cont) = do
-    modifyMVar_ (coreMouse fo) $ return . IM.insert i (unsafeCoerce
-        ( (assimilate con .) . mouseButtonEvent
-        , assimilate con . cursorEvent
-        , assimilate con . scrollEvent))
-    cont
-runSys fo (DisconnectMouse (Control i) cont) = do
-    modifyMVar_ (coreMouse fo) $ return . IM.delete i
-    cont
-runSys fo (Wait dt cont) = do
-    t0 <- takeMVar (theTime fo)
-    Just t <- GLFW.getTime
-    threadDelay $ floor $ (t0 - t + dt) * 1000 * 1000
-    putMVar (theTime fo) $ t0 + dt
-    cont
-runSys fo (Stand cont) = takeMVar (theEnd fo) >> cont
+instance MonadIO (System s) where
+    liftIO m = mkSystem $ const m
+    {-# INLINE liftIO #-}
+
+instance MonadSystem s (System s) where
+    type Base (System s) = System s
+    Control i .- e = mkSystem $ \fo -> do
+        m <- takeMVar $ cores fo
+        (a, c) <- unSystem fo $ runComponent (m IM.! i) (unsafeCoerce e)
+        putMVar (cores fo) $ IM.insert i c m
+        return a
+    invoke c = mkSystem $ \fo -> do
+        n <- takeMVar $ newComponentId fo
+        m <- takeMVar $ cores fo
+        putMVar (cores fo) $ IM.insert n (unsafeCoerce c) m
+        putMVar (newComponentId fo) (n + 1)
+        return (Control n)
+    connectGraphic con@(Control i) = mkSystem $ \fo -> modifyMVar_ (coreGraphic fo)
+        $ return . IM.insert i (unsafeCoerce $ assimilate con . pullGraphic)
+    connectAudio con@(Control i) = mkSystem $ \fo -> do
+        _ <- swapMVar (coreAudio fo) $ Just (i, unsafeCoerce $ (assimilate con .) . pullAudio)
+        return ()
+    disconnectGraphic (Control i) = mkSystem $ \fo -> modifyMVar_ (coreGraphic fo) $ return . IM.delete i
+    disconnectAudio (Control i) = mkSystem $ \fo -> do
+        _ <- swapMVar (coreAudio fo) Nothing
+        return ()
+    connectKeyboard con@(Control i) = mkSystem
+        $ \fo -> modifyMVar_ (coreKeyboard fo)
+        $ return . IM.insert i (unsafeCoerce $ (assimilate con .) . keyEvent)
+    disconnectKeyboard (Control i) = mkSystem $ \fo -> modifyMVar_ (coreKeyboard fo) $ return . IM.delete i
+    connectMouse con@(Control i) = mkSystem $ \fo -> do
+        modifyMVar_ (coreMouse fo) $ return . IM.insert i (unsafeCoerce
+            ( (assimilate con .) . mouseButtonEvent
+            , assimilate con . cursorEvent
+            , assimilate con . scrollEvent))
+    disconnectMouse (Control i) = mkSystem $ \fo -> modifyMVar_ (coreMouse fo) $ return . IM.delete i
+    wait dt = mkSystem $ \fo -> do
+        t0 <- takeMVar (theTime fo)
+        Just t <- GLFW.getTime
+        threadDelay $ floor $ (t0 - t + dt) * 1000 * 1000
+        putMVar (theTime fo) $ t0 + dt
+    stand = mkSystem $ \fo -> takeMVar (theEnd fo)
 
 newtype TextureStorage = TextureStorage { getTextureStorage :: IORef (IM.IntMap G.Texture) }
 
