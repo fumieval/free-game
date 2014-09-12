@@ -41,6 +41,7 @@ module FreeGame
     bitmapSize,
     readBitmap,
     cropBitmap,
+    clipBitmap,
     loadBitmaps,
     loadBitmapsWith,
     writeBitmap,

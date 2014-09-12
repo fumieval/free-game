@@ -22,6 +22,7 @@ module FreeGame.Data.Bitmap (
 
     -- * Bitmap operations
     ,cropBitmap
+    ,clipBitmap
     -- * V2
     ,sizeBitmap
     ,clipBitmap
