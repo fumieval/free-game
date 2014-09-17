@@ -11,16 +11,21 @@
 --
 ----------------------------------------------------------------------------
 module FreeGame.Types (
-    WindowMode(..)
+    Time
     , Vec2
+    , WindowMode(..)
     , BoundingBox2
     , Key(..)
+    , charToKey
     , BlendMode(..)
     ) where
 
-import Linear.V2
+import Linear
 import Data.Typeable
 import Data.BoundingBox
+import Data.Char
+
+type Time = Double
 
 data WindowMode = Windowed | Resizable | FullScreen deriving (Show, Eq, Ord, Read)
 
@@ -151,6 +156,27 @@ data Key =
     | KeyRightSuper
     | KeyMenu
     deriving (Enum, Eq, Ord, Read, Show, Typeable, Bounded)
+
+charToKey :: Char -> Key
+charToKey ch
+    | isAlpha ch = toEnum $ fromEnum KeyA + fromEnum ch - fromEnum 'A'
+    | isDigit ch = toEnum $ fromEnum Key0 + fromEnum ch - fromEnum '0'
+charToKey '-' = KeyMinus
+charToKey ',' = KeyComma
+charToKey '.' = KeyPeriod
+charToKey '/' = KeySlash
+charToKey ' ' = KeySpace
+charToKey '\'' = KeyApostrophe
+charToKey '\\' = KeyBackslash
+charToKey '=' = KeyEqual
+charToKey ';' = KeySemicolon
+charToKey '[' = KeyLeftBracket
+charToKey ']' = KeyRightBracket
+charToKey '`' = KeyGraveAccent
+charToKey '\n' = KeyEnter
+charToKey '\r' = KeyEnter
+charToKey '\t' = KeyTab
+charToKey _ = KeyUnknown
 
 data BlendMode = Normal
     | Inverse

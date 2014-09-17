@@ -26,16 +26,14 @@
 --
 ----------------------------------------------------------------------------
 module FreeGame.Backend.GLFW where
-import Control.Monad.Free.Church
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Control.Applicative
 import Control.Artery
 import Data.IORef
 import Data.Reflection
-import Data.BoundingBox
 import qualified Data.Vector as V
-import FreeGame.Class
+import FreeGame.Picture
 import FreeGame.Component
 import FreeGame.Data.Bitmap
 import FreeGame.Types
@@ -43,14 +41,13 @@ import Linear
 import qualified System.PortAudio as PA
 -- #if (MIN_VERSION_containers(0,5,0))
 import qualified Data.IntMap.Strict as IM
-import qualified Data.IntSet as IS
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
 import Unsafe.Coerce
 import Control.Concurrent
 import Linear.V
-import Control.Monad.Except
 import GHC.Prim
+import Control.Exception
 
 newtype System s a = System (ReaderT (Foundation s) IO a) deriving (Functor, Applicative, Monad)
 
@@ -60,38 +57,37 @@ unSystem f m = unsafeCoerce m f
 mkSystem :: (Foundation s -> IO a) -> System s a
 mkSystem = unsafeCoerce
 
-runGame :: WindowMode -> BoundingBox2 -> System s a -> IO ()
-runGame win box m = do
-    sys <- G.beginGLFW win box
+runGame :: WindowMode -> BoundingBox2 -> (forall s. System s a) -> IO ()
+runGame mode box m = do
+    sys <- G.beginGLFW mode box
     f <- Foundation
         <$> newMVar 0
         <*> pure 44100 -- FIX THIS
-        <*> newMVar IM.empty
-        <*> newMVar IM.empty
-        <*> newMVar Nothing
-        <*> newMVar IM.empty
-        <*> newMVar IM.empty
+        <*> newIORef IM.empty
+        <*> newIORef IM.empty
+        <*> newIORef Nothing
+        <*> newIORef IM.empty
+        <*> newIORef IM.empty
         <*> newMVar 0
         <*> pure sys
         <*> newIORef IM.empty
         <*> newEmptyMVar
-    let win = G.theWindow sys
     ref <- newEmptyMVar
-    forkIO $ do
-        s <- unSystem f m
-        putMVar ref s
-    r <- runExceptT $ PA.with undefined undefined undefined (audioProcess f) $ liftIO $ runGraphic f
+    _ <- flip forkFinally (either throwIO (putMVar ref)) $ unSystem f m
+    PA.with undefined undefined undefined (audioProcess f) $ liftIO $ do
+        GLFW.setTime 0
+        runGraphic f
     G.endGLFW sys
     return ()
 
 data Foundation s = Foundation
     { newComponentId :: MVar Int
     , sampleRate :: Double
-    , cores :: MVar (IM.IntMap (Component Any (System s)))
-    , coreGraphic :: MVar (IM.IntMap Any) -- rely on `invoke`
-    , coreAudio :: MVar (Maybe (Int, Any))
-    , coreKeyboard :: MVar (IM.IntMap Any)
-    , coreMouse :: MVar (IM.IntMap Any)
+    , cores :: IORef (IM.IntMap (MVar (Component Any (System s))))
+    , coreGraphic :: IORef (IM.IntMap Any) -- rely on `invoke`
+    , coreAudio :: IORef (Maybe (Int, Any))
+    , coreKeyboard :: IORef (IM.IntMap Any)
+    , coreMouse :: IORef (IM.IntMap Any)
     , theTime :: MVar Double
     , theSystem :: G.System
     , textures :: IORef (IM.IntMap G.Texture)
@@ -103,67 +99,60 @@ drawPicture (Picture m) = runReaderT (m :: DrawM a) (Location id id)
 
 runGraphic :: Foundation s -> IO ()
 runGraphic fo = do
-    js <- readMVar $ coreGraphic fo
-    m <- takeMVar $ cores fo
     Just t <- GLFW.getTime
-    print t
     G.beginFrame (theSystem fo)
-    us <- forM (IM.assocs js) $ \(i, f) -> do
-        (pic, c) <- unSystem fo $ runComponent (m IM.! i) (unsafeCoerce f t)
-        give (TextureStorage (textures fo)) $ drawPicture pic
-        return (i, c)
-    putMVar (cores fo) $ foldr (uncurry IM.insert) m us
+    pics <- broadcast fo (coreGraphic fo) $ \s -> s t
+    give (TextureStorage (textures fo)) $ mapM_ drawPicture pics
     b <- G.endFrame (theSystem fo)
     tryTakeMVar (theEnd fo) >>= \case
         Just _ -> return ()
-        _ -> unless b (runGraphic fo)
+        _ | b -> putMVar (theEnd fo) ()
+          | otherwise -> runGraphic fo
 
 v2v2 :: V2 Float -> V 2 Float
 v2v2 (V2 x y) = case fromVector $ V.fromList [x, y] of
     Just a -> a
+    Nothing -> zero
 
 audioProcess :: Foundation s -> Artery IO (PA.Chunk (V 0 Float)) [V 2 Float]
-audioProcess fo = effectful $ \(PA.Chunk n _) -> readMVar (coreAudio fo) >>= \case
+audioProcess fo = effectful $ \(PA.Chunk n _) -> readIORef (coreAudio fo) >>= \case
     Nothing -> return $ fmap v2v2 $ replicate n 0
     Just (j, pull) -> do
-        m <- takeMVar $ cores fo
-        Just t <- GLFW.getTime
-        let Component f = m IM.! j
-        (buf, c) <- unSystem fo $ f (unsafeCoerce pull (sampleRate fo * fromIntegral n) n)
-        putMVar (cores fo) $ IM.insert j c m
-        return (fmap v2v2 buf)
+        m <- readIORef $ cores fo
+        let dt = fromIntegral n / sampleRate fo
+        fmap (fmap v2v2) $ push fo (m IM.! j) (unsafeCoerce pull dt n)
 
-limitedMapMIntMap :: Monad m => IM.IntMap b -> (b -> a -> m a) -> IM.IntMap a -> m (IM.IntMap a)
-limitedMapMIntMap (IM.assocs -> js) f m = liftM (foldr (uncurry IM.insert) m) $ forM js $ \(i, k) -> do
-    a <- f k (m IM.! i)
-    return (i, a)
+push :: Foundation s -> MVar (Component Any (System s)) -> e a -> IO a
+push fo mc e = do
+    c0 <- takeMVar mc
+    (a, c) <- unSystem fo $ runComponent c0 (unsafeCoerce e)
+    putMVar mc c
+    return a
 
-sendEventIO :: Foundation s -> e a -> Component e (System s) -> IO (a, Component e (System s))
-sendEventIO fo e = unSystem fo . flip runComponent e
+broadcast :: Foundation s
+    -> IORef (IM.IntMap Any)
+    -> something
+    -> IO [a]
+broadcast fo rfs e = do
+    cs <- readIORef (cores fo)
+    fs <- readIORef rfs
+    forM (IM.assocs fs) $ \(j, f) -> push fo (cs IM.! j) (unsafeCoerce e (unsafeCoerce f))
 
 keyCallback :: Foundation s -> GLFW.KeyCallback
-keyCallback fo _ k _ s _ = do
-    js <- readMVar (coreKeyboard fo)
-    modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \m -> (fmap snd.) $ sendEventIO fo
-        $ unsafeCoerce m (toEnum . fromEnum $ k :: Key) (GLFW.KeyState'Released /= s)
+keyCallback fo _ k _ st _ = void $ broadcast fo (coreKeyboard fo)
+    $ \s -> s (toEnum . fromEnum $ k :: Key) (GLFW.KeyState'Released /= st)
 
 mouseButtonCallback :: Foundation s -> GLFW.MouseButtonCallback
-mouseButtonCallback fo _ btn s _ = do
-    js <- readMVar (coreMouse fo)
-    modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (m, _, _)) -> (fmap snd.)
-        $ sendEventIO fo $ m (fromEnum $ btn) (GLFW.MouseButtonState'Released /= s)
+mouseButtonCallback fo _ btn st _ = void $ broadcast fo (coreMouse fo)
+    $ \(s, _, _) -> s (fromEnum btn) (GLFW.MouseButtonState'Released /= st)
 
 cursorPosCallback :: Foundation s -> GLFW.CursorPosCallback
-cursorPosCallback fo _ x y = do
-    js <- readMVar (coreMouse fo)
-    modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (_, m, _)) -> (fmap snd.)
-        $ sendEventIO fo $ m (V2 x y)
+cursorPosCallback fo _ x y = void $ broadcast fo (coreMouse fo)
+    $ \(_, s, _) -> s (V2 x y)
 
 scrollCallback :: Foundation s -> GLFW.ScrollCallback
-scrollCallback fo _ x y = do
-    js <- readMVar (coreMouse fo)
-    modifyMVar_ (cores fo) $ limitedMapMIntMap js $ \(unsafeCoerce -> (_, _, m)) -> (fmap snd.)
-        $ sendEventIO fo $ m (V2 x y)
+scrollCallback fo _ x y = void $ broadcast fo (coreMouse fo)
+    $ \(_, _, s) -> s (V2 x y)
 
 assimilate :: Control s e -> e a -> e a
 assimilate _ = id
@@ -172,38 +161,36 @@ instance MonadIO (System s) where
     liftIO m = mkSystem $ const m
     {-# INLINE liftIO #-}
 
-instance MonadSystem s (System s) where
+instance (s0 ~ s) => MonadSystem s0 (System s) where
     type Base (System s) = System s
     Control i .- e = mkSystem $ \fo -> do
-        m <- takeMVar $ cores fo
-        (a, c) <- unSystem fo $ runComponent (m IM.! i) (unsafeCoerce e)
-        putMVar (cores fo) $ IM.insert i c m
-        return a
+        m <- readIORef $ cores fo
+        push fo (m IM.! i) (unsafeCoerce e)
     invoke c = mkSystem $ \fo -> do
         n <- takeMVar $ newComponentId fo
-        m <- takeMVar $ cores fo
-        putMVar (cores fo) $ IM.insert n (unsafeCoerce c) m
+        mc <- newMVar (unsafeCoerce c)
+        modifyIORef (cores fo) $ IM.insert n mc
         putMVar (newComponentId fo) (n + 1)
         return (Control n)
-    connectGraphic con@(Control i) = mkSystem $ \fo -> modifyMVar_ (coreGraphic fo)
-        $ return . IM.insert i (unsafeCoerce $ assimilate con . pullGraphic)
+    connectGraphic con@(Control i) = mkSystem $ \fo -> modifyIORef (coreGraphic fo)
+        $ IM.insert i (unsafeCoerce $ assimilate con . pullGraphic)
     connectAudio con@(Control i) = mkSystem $ \fo -> do
-        _ <- swapMVar (coreAudio fo) $ Just (i, unsafeCoerce $ (assimilate con .) . pullAudio)
+        writeIORef (coreAudio fo) $ Just (i, unsafeCoerce $ (assimilate con .) . pullAudio)
         return ()
-    disconnectGraphic (Control i) = mkSystem $ \fo -> modifyMVar_ (coreGraphic fo) $ return . IM.delete i
-    disconnectAudio (Control i) = mkSystem $ \fo -> do
-        _ <- swapMVar (coreAudio fo) Nothing
+    disconnectGraphic (Control i) = mkSystem $ \fo -> modifyIORef (coreGraphic fo) $ IM.delete i
+    disconnectAudio (Control _) = mkSystem $ \fo -> do
+        _ <- writeIORef (coreAudio fo) Nothing
         return ()
     connectKeyboard con@(Control i) = mkSystem
-        $ \fo -> modifyMVar_ (coreKeyboard fo)
-        $ return . IM.insert i (unsafeCoerce $ (assimilate con .) . keyEvent)
-    disconnectKeyboard (Control i) = mkSystem $ \fo -> modifyMVar_ (coreKeyboard fo) $ return . IM.delete i
-    connectMouse con@(Control i) = mkSystem $ \fo -> do
-        modifyMVar_ (coreMouse fo) $ return . IM.insert i (unsafeCoerce
+        $ \fo -> modifyIORef (coreKeyboard fo)
+        $ IM.insert i (unsafeCoerce $ (assimilate con .) . keyEvent)
+    disconnectKeyboard (Control i) = mkSystem $ \fo -> modifyIORef (coreKeyboard fo) $ IM.delete i
+    connectMouse con@(Control i) = mkSystem
+        $ \fo -> modifyIORef (coreMouse fo) $ IM.insert i (unsafeCoerce
             ( (assimilate con .) . mouseButtonEvent
             , assimilate con . cursorEvent
             , assimilate con . scrollEvent))
-    disconnectMouse (Control i) = mkSystem $ \fo -> modifyMVar_ (coreMouse fo) $ return . IM.delete i
+    disconnectMouse (Control i) = mkSystem $ \fo -> modifyIORef (coreMouse fo) $ IM.delete i
     wait dt = mkSystem $ \fo -> do
         t0 <- takeMVar (theTime fo)
         Just t <- GLFW.getTime

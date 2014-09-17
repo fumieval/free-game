@@ -12,12 +12,6 @@
 ----------------------------------------------------------------------------
 
 module FreeGame.Util (
-    -- * Controlling
-    tick,
-    foreverTick,
-    foreverFrame,
-    untick,
-    untickInfinite,
     -- * Random
     randomness,
     -- * Helper
@@ -26,26 +20,15 @@ module FreeGame.Util (
     unitV2,
     angleV2,
     -- * Loading
-    loadPictureFromFile,
     loadBitmaps,
     loadBitmapsWith,
-    -- * Keyboard
-    charToKey,
-    keyChar,
-    keySpecial
     ) where
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Free.Class
-import Control.Monad.Trans.Iter
-import Control.Monad.Trans
-import Control.Monad.Free.Church
+import Control.Monad.IO.Class
 import Data.Char
-import Data.Void
 import FreeGame.Data.Bitmap
-import FreeGame.Class
-import FreeGame.Types
 import Language.Haskell.TH
 import Linear
 import System.Directory
@@ -53,28 +36,6 @@ import System.FilePath
 import System.IO.Unsafe
 import System.Random
 import System.Environment
-import FreeGame.UI
-
--- | Delimit the computation to yield a frame.
-tick :: (Monad f, MonadFree f m) => m ()
-tick = delay (return ())
-
--- | An infinite loop that run 'tick' every frame after the given action.
-foreverTick :: (Monad f, MonadFree f m) => m a -> m any
-foreverTick m = let m' = foreverTick m in m >> wrap (return m')
-{-# WARNING foreverTick "In most cases, foreverFrame is good enough and fast." #-}
-
--- | @foreverFrame :: Frame a -> Game any@
-foreverFrame :: (Monad f, Monad m, MonadTrans t, MonadFree f (t m)) => m a -> t m any
-foreverFrame m = foreverTick (lift m)
-
--- | Extract the next frame of the action.
-untick :: (Monad m, FreeGame m) => IterT Frame a -> m (Either (IterT Frame a) a)
-untick = liftM (either Right Left) . iterM (join . reUI) . runIterT where
-
--- | An infinite version of 'untick'.
-untickInfinite :: (Monad m, FreeGame m) => IterT Frame Void -> m (IterT Frame Void)
-untickInfinite = liftM (either absurd id) . iterM (join . reUI) . runIterT where
 
 -- | An unit vector with the specified angle.
 unitV2 :: Floating a => a -> V2 a
@@ -85,8 +46,8 @@ angleV2 :: RealFloat a => V2 a -> a
 angleV2 (V2 a b) = atan2 b a
 
 -- | Get a given range of value.
-randomness :: (Random r, FromFinalizer m) => (r, r) -> m r
-randomness r = embedIO $ randomRIO r
+randomness :: (Random r, MonadIO m) => (r, r) -> m r
+randomness r = liftIO $ randomRIO r
 {-# INLINE randomness #-}
 
 -- | Convert radians to degrees.
@@ -98,10 +59,6 @@ degrees x = x / pi * 180
 radians :: Floating a => a -> a
 {-# INLINE radians #-}
 radians x = x / 180 * pi
-
--- | Create a 'Picture' from the given file.
-loadPictureFromFile :: (Picture2D p, FromFinalizer m) => FilePath -> m (p ())
-loadPictureFromFile = embedIO . fmap bitmap . readBitmap
 
 -- | The type of the given 'ExpQ' must be @FilePath -> IO FilePath@
 -- FIXME: This may cause name duplication if there are multiple non-alphanumeric file names.
@@ -127,7 +84,7 @@ loadBitmapsWith getFullPath path = do
 -- | Load and define all pictures in the specified directory.
 -- On base >= 4.6, file paths to actually load will be respect to the directory of the executable. Otherwise it will be based on the current directory.
 
-#if (MIN_VERSION_base(4,6,0))
+#if MIN_VERSION_base(4,6,0)
 
 loadBitmaps :: FilePath -> Q [Dec]
 loadBitmaps path = do
@@ -161,31 +118,3 @@ pathToName :: FilePath -> String
 pathToName = ('_':) . map p where
     p c | isAlphaNum c = c
         | otherwise = '_'
-
-charToKey :: Char -> Key
-charToKey ch
-    | isAlpha ch = toEnum $ fromEnum KeyA + fromEnum ch - fromEnum 'A'
-    | isDigit ch = toEnum $ fromEnum Key0 + fromEnum ch - fromEnum '0'
-charToKey '-' = KeyMinus
-charToKey ',' = KeyComma
-charToKey '.' = KeyPeriod
-charToKey '/' = KeySlash
-charToKey ' ' = KeySpace
-charToKey '\'' = KeyApostrophe
-charToKey '\\' = KeyBackslash
-charToKey '=' = KeyEqual
-charToKey ';' = KeySemicolon
-charToKey '[' = KeyLeftBracket
-charToKey ']' = KeyRightBracket
-charToKey '`' = KeyGraveAccent
-charToKey '\n' = KeyEnter
-charToKey '\r' = KeyEnter
-charToKey '\t' = KeyTab
-charToKey _ = KeyUnknown
-
-keyChar :: Keyboard f => Char -> f Bool
-keyChar = keyPress . charToKey
-
-{-# DEPRECATED keySpecial "use keyPress instead" #-}
-keySpecial :: Keyboard f => Key -> f Bool
-keySpecial = keyPress

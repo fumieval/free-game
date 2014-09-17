@@ -29,7 +29,6 @@ import Data.BoundingBox
 import qualified Data.Map as M
 import qualified Data.Vector.Storable as V
 import Linear
-import FreeGame.Class
 import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer
 import Graphics.Rendering.FreeType.Internal
@@ -102,8 +101,8 @@ data RenderedChar = RenderedChar
 resolutionDPI :: Int
 resolutionDPI = 300
 
-charToBitmap :: FromFinalizer m => Font -> Double -> Char -> m RenderedChar
-charToBitmap (Font face _ _ refCache) pixel ch = fromFinalizer $ do
+charToBitmap :: Font -> Double -> Char -> FinalizerT IO RenderedChar
+charToBitmap (Font face _ _ refCache) pixel ch = do
     let siz = pixel * 72 / fromIntegral resolutionDPI
     cache <- liftIO $ readIORef refCache
     case M.lookup (siz, ch) cache of

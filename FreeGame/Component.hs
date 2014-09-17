@@ -3,24 +3,18 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE Rank2Types #-}
 
 module FreeGame.Component where
 
-import FreeGame.Data.Bitmap
 import FreeGame.Types
-import Control.Monad.Free.Church
 import Linear
-import FreeGame.Class
-import Control.Applicative
+import FreeGame.Picture
 import Control.Monad.IO.Class
 
 newtype Control s (e :: * -> *) = Control Int
-
-newtype Picture a = Picture { runPicture :: forall m. (Applicative m, Monad m, Picture2D m, Local m) => m a }
-
-type Time = Double
 
 newtype Component e m = Component { runComponent :: forall x. e x -> m (x, Component e m) }
 
@@ -38,7 +32,7 @@ class Graphic e where
 class Audio e where
   pullAudio :: Time -> Int -> e [V2 Float]
 
-class Monad m => MonadSystem s m where
+class MonadIO m => MonadSystem s m where
   type Base m :: * -> *
   (.-) :: Control s e -> e a -> m a
   invoke :: Component e (Base m) -> m (Control s e)
@@ -53,3 +47,11 @@ class Monad m => MonadSystem s m where
   stand :: m ()
   wait :: Double -> m ()
 
+oneshot :: (Functor e, Monad m) => (forall a. e (m a) -> m a) -> Component e m
+oneshot m = go where
+  go = Component $ \e -> m (fmap return e) >>= \a -> return (a, go)
+
+data PullGraphic a = PullGraphic Time (Picture () -> a) deriving Functor
+
+instance Graphic PullGraphic where
+  pullGraphic t = PullGraphic t id
