@@ -25,7 +25,6 @@ module FreeGame.Data.Bitmap (
     ,clipBitmap
     -- * V2
     ,sizeBitmap
-    ,clipBitmap
     ) where
 
 import qualified Codec.Picture as C
