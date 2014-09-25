@@ -37,7 +37,7 @@ import System.Random
 import Control.Applicative
 import Data.Hashable
 
-data Bitmap = Bitmap (C.Image C.PixelRGBA8) Int
+data Bitmap = Bitmap { bitmapImage :: C.Image C.PixelRGBA8, bitmapHash :: Int }
 
 -- | Get the size of the 'Bitmap'.
 bitmapSize :: Bitmap -> (Int, Int)
