@@ -20,15 +20,25 @@ import qualified Data.Vector.Storable.Mutable as MV
 import Codec.Picture
 import Codec.Picture.RGBA8
 import qualified GHC.IO.Encoding as Encoding
-
+import qualified Data.Sequence as S
+import qualified Data.Foldable as F
 data System = System
     { refFrameCounter :: IORef Int
-    , refFPS :: IORef Int
-    , theFPS :: IORef Int
+    , theFPS :: IORef Double
+    , frameTimes :: IORef (S.Seq Double)
     , currentFPS :: IORef Int
+    , startTime :: IORef Double
     , refRegion :: IORef BoundingBox2
     , theWindow :: GLFW.Window
     }
+
+trim1 :: S.Seq Double -> S.Seq Double
+trim1 s0 = go zs s0 (sum zs) where
+    go (x:xs) s a
+        | a < 1 = s
+        | otherwise = go xs (S.drop 1 s) (a - x)
+    go [] s _ = s
+    zs = F.toList s0
 
 type Texture = (GL.TextureObject, Double, Double)
 
@@ -146,6 +156,8 @@ beginFrame sys = do
     GL.ortho wl wr wb wt 0 (-100)
     GL.matrixMode $= GL.Modelview 0
     GL.clear [GL.ColorBuffer]
+    Just t <- GLFW.getTime
+    writeIORef (startTime sys) t
 
 endFrame :: System -> IO Bool
 endFrame sys = do
@@ -154,10 +166,14 @@ endFrame sys = do
     Just t <- GLFW.getTime
     n <- readIORef (refFrameCounter sys)
     fps <- readIORef (theFPS sys)
-    threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fromIntegral fps - t
-    if t > 1
-        then GLFW.setTime 0 >> writeIORef (currentFPS sys) n >> writeIORef (refFrameCounter sys) 0
-        else writeIORef (refFrameCounter sys) (succ n)
+    threadDelay $ max 0 $ floor $ (1000000 *) $ fromIntegral n / fps - t
+    writeIORef (refFrameCounter sys) (succ n)
+    t0 <- readIORef (startTime sys)
+    fs <- readIORef (frameTimes sys)
+    Just t1 <- GLFW.getTime
+    let fs' = trim1 $ fs S.|> (t1 - t0)
+    writeIORef (currentFPS sys) (S.length fs')
+    writeIORef (frameTimes sys) fs'
     GLFW.windowShouldClose (theWindow sys)
 
 withGLFW :: WindowMode -> BoundingBox2 -> (System -> IO a) -> IO a
@@ -191,9 +207,10 @@ withGLFW mode bbox@(Box (V2 x0 y0) (V2 x1 y1)) m = do
 
     sys <- System
         <$> newIORef 0
+        <*> newIORef 60
+        <*> newIORef S.empty
+        <*> newIORef 60
         <*> newIORef 0
-        <*> newIORef 60
-        <*> newIORef 60
         <*> pure rbox
         <*> pure win
 

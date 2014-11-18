@@ -67,15 +67,17 @@ execGame m sys = do
     keyBuffer <- newIORef initialKeyBuffer
     mouseBuffer <- newIORef initialMouseBuffer
     mouseIn <- newIORef True
+    scroll <- newIORef (V2 0 0)
     GLFW.setKeyCallback (G.theWindow sys) $ Just $ keyCallback keyBuffer
     GLFW.setMouseButtonCallback (G.theWindow sys) $ Just $ mouseButtonCallback mouseBuffer
     GLFW.setCursorEnterCallback (G.theWindow sys) $ Just $ mouseEnterCallback mouseIn
-
+    GLFW.setScrollCallback (G.theWindow sys) $ Just $ \_ x y -> modifyIORef scroll (+V2 x y)
     execFinalizerT
         $ give (RefKeyStates keyBuffer)
         $ give (RefMouseButtonStates mouseBuffer)
         $ give (RefMouseInWindow mouseIn)
         $ give (TextureStorage texs)
+        $ give scroll
         $ give sys
         $ gameLoop m
 
@@ -85,6 +87,7 @@ gameLoop ::
     , Given KeyStates
     , Given MouseButtonStates
     , Given MouseInWindow
+    , Given (IORef (V2 Double))
     ) => IterT (F UI) a -> FinalizerT IO (Maybe a)
 gameLoop m = do
     liftIO $ G.beginFrame given
@@ -96,6 +99,7 @@ gameLoop m = do
     b <- liftIO $ do
         modifyIORef' (getKeyStates given) (Map.map buttonStay)
         modifyIORef' (getMouseButtonStates given) (Map.map buttonStay)
+        writeIORef given (V2 0 0 :: V2 Double)
         G.endFrame given
     liftIO (readIORef fs) >>= finalizer . sequence_
 
@@ -119,6 +123,7 @@ runUI :: forall a.
     , Given MouseButtonStates
     , Given MouseInWindow
     , Given (IORef [IO ()])
+    , Given (IORef (V2 Double))
     ) => UI (FinalizerT IO a) -> FinalizerT IO a
 runUI (Draw m) = do
     (cont, xs) <- liftIO $ do
@@ -140,10 +145,10 @@ runUI (PreloadBitmap (Bitmap bmp h) cont) = do
     cont
 runUI (KeyStates cont) = liftIO (readIORef $ getKeyStates given) >>= cont
 runUI (MouseButtons cont) = liftIO (readIORef $ getMouseButtonStates given) >>= cont
--- runUI _ _ (MouseWheel cont) = GLFW.getMouseWheel >>= cont
 runUI (MousePosition cont) = do
     (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow given)
     cont $ V2 x y
+runUI (MouseScroll cont) = liftIO (readIORef given) >>= cont
 runUI (MouseInWindow cont) = liftIO (readIORef $ getMouseInWindow given) >>= cont
 runUI (Bracket m) = join $ iterM runUI m
 runUI (TakeScreenshot cont) = liftIO (G.screenshot given >>= liftBitmapIO) >>= cont

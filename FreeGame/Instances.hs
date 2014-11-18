@@ -67,6 +67,7 @@ import FreeGame.UI
     globalMousePosition = (l) globalMousePosition; \
     mouseButtons_ = (l) mouseButtons_; \
     mouseInWindow = (l) mouseInWindow; \
+    mouseScroll = (l) mouseScroll; \
     }
 
 #define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \

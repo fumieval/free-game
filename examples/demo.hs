@@ -47,8 +47,8 @@ bitmapTest bmp = blendMode Add $ do
     color (Color 0 0 1 1) $ do
         translate (V2 293 359) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
     
-mouseTest :: Frame ()
-mouseTest = whenM mouseInWindow $ do
+mouseTest :: Font -> Frame ()
+mouseTest font = whenM mouseInWindow $ do
     p <- mousePosition
     l <- mouseButtonL
     r <- mouseButtonR
@@ -58,7 +58,9 @@ mouseTest = whenM mouseInWindow $ do
             (False, True) -> blue
             (True, True) -> blend 0.5 red blue
     translate p $ color col $ thickness 4 $ circleOutline 16
-
+    translate p $ color white $ do
+        r <- mouseScroll
+        text font 48 $ show r
 main = runGame Windowed (Box (V2 0 0) (V2 640 480)) $ do
     bmp <- readBitmap "bird.png"
     bmp' <- readBitmap "logo.png"
@@ -74,7 +76,7 @@ main = runGame Windowed (Box (V2 0 0) (V2 640 480)) $ do
 
         fontTest font
         translate (V2 240 240) $ do
-            mouseTest
+            mouseTest font
 
             fps <- getFPS
 

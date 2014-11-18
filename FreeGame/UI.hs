@@ -40,9 +40,10 @@ data UI a =
     | MouseButtons (Map.Map Int ButtonState -> a)
     | MousePosition (Vec2 -> a)
     | MouseInWindow (Bool -> a)
+    | MouseScroll (Vec2 -> a)
     | TakeScreenshot (Bitmap -> a)
     | Bracket (Frame a)
-    | SetFPS Int a
+    | SetFPS Double a
     | SetTitle String a
     | ShowCursor a
     | HideCursor a
@@ -77,6 +78,7 @@ reUI (KeyStates cont) = cont <$> keyStates_
 reUI (MouseButtons cont) = cont <$> mouseButtons_
 reUI (MousePosition cont) = cont <$> globalMousePosition
 reUI (MouseInWindow cont) = cont <$> mouseInWindow
+reUI (MouseScroll cont) = cont <$> mouseScroll
 reUI (TakeScreenshot cont) = cont <$> takeScreenshot
 reUI (Bracket m) = bracket m
 reUI (SetFPS i cont) = cont <$ setFPS i
@@ -103,7 +105,7 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     -- | Generate a 'Bitmap' from the front buffer.
     takeScreenshot :: m Bitmap
     -- | Set the goal FPS.
-    setFPS :: Int -> m ()
+    setFPS :: Double -> m ()
     setTitle :: String -> m ()
     showCursor :: m ()
     hideCursor :: m ()
@@ -179,3 +181,4 @@ instance Mouse UI where
     -- mouseWheel = MouseWheel id
     mouseButtons_ = MouseButtons id
     mouseInWindow = MouseInWindow id
+    mouseScroll = MouseScroll id

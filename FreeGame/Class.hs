@@ -144,6 +144,7 @@ class Functor f => Mouse f where
     globalMousePosition :: f Vec2
     mouseButtons_ :: f (Map.Map Int ButtonState)
     mouseInWindow :: f Bool
+    mouseScroll :: f Vec2
 
 -- | Returns the relative coordinate of the cursor.
 mousePosition :: (Applicative f, Mouse f, Local f) => f Vec2

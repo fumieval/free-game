@@ -1,13 +1,25 @@
+1.1.80
+---------------------------------------------------------------------
+* Added `mouseScroll`
+* Fixed the malfunction of FPS management
+
+1.1.79
+---------------------------------------------------------------------
+* Exported `clipBitmap`
+
+1.1.78
+* Added `mouseInWindow`
+
 1.1
-----------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------
 * Use Box instead of drab BoundingBox
 
 1.0.5
-----------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------
 * No fundamental changes
 
 1.0.4
-----------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------
 
 * Fixed some potential bugs that appeared on 7.8.1 RC2
 * Added `getBoundingBox` and `setBoundingBox` which accesses the window size and the region to draw.
@@ -15,7 +27,7 @@
 * Demoted the precedence of `thickness` and `blendMode` according to other APIs.
 
 1.0.3
-----------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------
 * Added `runGameDefault` as an alternative of classic `runGame def`.
 * Removed the duplicate instance of `MonadIO`.
 * `free-game` no longer depends on ominous `repa`.
@@ -26,18 +38,18 @@
 * Make the window size solid.
 
 1.0.2
-----------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------
 * Supported changing a blend function. `blendMode mode m` changes the blend mode while `m` is running.
 * Fixed fatal 'keyPress'-related bugs.
 * Special thanks: [@myuon_myon](https://twitter.com/myuon_myon)
 * Re-added `keyChar` and `keySpecial`.
 
 1.0.1
-----------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------
 * Demoted the precedence of `Affine` APIs to 5.
 
 1.0
-----------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------
 * Supported free-4.4.
 * Supported GLFW-b-1.3.
 * Use `Double` instead of `Float`.
