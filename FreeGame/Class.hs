@@ -8,7 +8,7 @@
 -- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
 -- Stability   :  provisional
 -- Portability :  non-portable
--- 
+--
 ----------------------------------------------------------------------------
 module FreeGame.Class where
 
@@ -54,7 +54,7 @@ class Affine p => Picture2D p where
     circle :: Double -> p ()
     circleOutline :: Double -> p ()
     thickness :: Float -> p a -> p a
-    color :: Color -> p a -> p a
+    color :: Color Float -> p a -> p a
     blendMode :: BlendMode -> p a -> p a
 
 class Affine p => Local p where

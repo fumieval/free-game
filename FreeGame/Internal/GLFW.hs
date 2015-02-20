@@ -109,7 +109,7 @@ circleOutline r = do
     let s = 2 * pi / 64
     GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
 
-color :: Color -> IO a -> IO a
+color :: Color Float -> IO a -> IO a
 color col m = do
     oldColor <- liftIO $ get GL.currentColor
     liftIO $ GL.currentColor $= unsafeCoerce col
@@ -171,7 +171,7 @@ endFrame sys = do
     t0 <- readIORef (startTime sys)
     fs <- readIORef (frameTimes sys)
     Just t1 <- GLFW.getTime
-    let fs' = trim1 $ fs S.|> (t1 - t0)
+    let !fs' = trim1 $ fs S.|> (t1 - t0)
     writeIORef (currentFPS sys) (S.length fs')
     writeIORef (frameTimes sys) fs'
     GLFW.windowShouldClose (theWindow sys)
