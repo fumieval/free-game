@@ -35,6 +35,7 @@ module FreeGame
     globalize,
     localize,
     -- * Pictures
+    Drawable,
     Picture2D(..),
     BlendMode(..),
     Bitmap,
