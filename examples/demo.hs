@@ -40,11 +40,11 @@ fontTest font = do
 bitmapTest :: Bitmap -> Frame ()
 bitmapTest bmp = blendMode Add $ do
     
-    color (Color 1 0 0 1) $ do
+    color (fromRGB 1 0 0) $ do
         translate (V2 300 346) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
-    color (Color 0 1 0 1) $ do
+    color (fromRGB 0 1 0) $ do
         translate (V2 310 350) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
-    color (Color 0 0 1 1) $ do
+    color (fromRGB 0 0 1) $ do
         translate (V2 293 359) $ bitmap bmp -- 'bitmap' creates an action from the bitmap.
     
 mouseTest :: Font -> Frame ()
@@ -61,6 +61,7 @@ mouseTest font = whenM mouseInWindow $ do
     translate p $ color white $ do
         r <- mouseScroll
         text font 48 $ show r
+
 main = runGame Windowed (Box (V2 0 0) (V2 640 480)) $ do
     bmp <- readBitmap "bird.png"
     bmp' <- readBitmap "logo.png"
