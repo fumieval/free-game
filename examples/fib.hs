@@ -63,11 +63,7 @@ mainLoop :: World -> Game ()
 mainLoop s = do
   s' <- execStateT update s
   tick
-  exit <- keyDown KeyEscape
-  if exit then
-    return ()
-  else
-    mainLoop s'
+  unlessM (keyDown KeyEscape) $ mainLoop s'
 
 main = runGameDefault $ do
     font <- loadFont "VL-PGothic-Regular.ttf"
