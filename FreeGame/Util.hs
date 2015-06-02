@@ -16,6 +16,7 @@ module FreeGame.Util (
     tick,
     foreverTick,
     foreverFrame,
+    controlledGame,
     untick,
     untickInfinite,
     -- * Random
@@ -40,6 +41,7 @@ import Control.Monad
 import Control.Monad.Free.Class
 import Control.Monad.Trans.Iter
 import Control.Monad.Trans
+import Control.Monad.Trans.Maybe
 import Control.Monad.Free.Church
 import Data.Char
 import Data.Void
@@ -66,6 +68,30 @@ foreverTick m = let m' = foreverTick m in m >> wrap (return m')
 -- | @foreverFrame :: Frame a -> Game any@
 foreverFrame :: (Monad f, Monad m, MonadTrans t, MonadFree f (t m)) => m a -> t m any
 foreverFrame m = foreverTick (lift m)
+
+controlledM :: Monad m =>
+  (a -> m a) -> (a -> m Bool) -> (a -> m ()) -> a -> MaybeT m a
+controlledM calc isExiting drawer st = do
+  nextSt <- lift $ calc st
+  exit <- lift $ isExiting nextSt
+  when exit mzero
+  lift $ drawer nextSt
+  return nextSt
+
+-- | @controlledGame :: (a -> Game a) -> (a -> Game Bool) -> (a -> Game ()) -> a -> Game a@
+controlledGame :: (Monad m) =>
+  (a -> m a)        -- ^ Data updater
+  -> (a -> m Bool)  -- ^ Exit checker
+  -> (a -> m ())    -- ^ Drawer
+  -> a              -- ^ Inital data
+  -> m a            -- ^ Result monad
+controlledGame calc isExiting drawer st = do
+  maybeSt <- runMaybeT $ controlledM calc isExiting drawer st
+  case maybeSt of
+    Nothing -> return st
+    Just nextSt -> do
+                      () <- drawer nextSt
+                      controlledGame calc isExiting drawer nextSt
 
 -- | Extract the next frame of the action.
 untick :: (Monad m, FreeGame m) => IterT Frame a -> m (Either (IterT Frame a) a)

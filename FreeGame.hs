@@ -22,6 +22,7 @@ module FreeGame
     delay,
     tick,
     foreverFrame,
+    controlledGame,
     untick,
     untickInfinite,
     -- * Frame
