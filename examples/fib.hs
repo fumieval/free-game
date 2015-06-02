@@ -63,5 +63,9 @@ mainLoop font s = do
 
 main = runGameDefault $ do
     font <- loadFont "VL-PGothic-Regular.ttf"
-    runMaybeT $ forever $ do {tick;()<-whenM (keyDown KeySpace) mzero; return ()}
+    runMaybeT $ forever $ do
+      color red $ translate (V2 24 240) $ text font 24 "Press SPACE to start"
+      tick
+      () <- whenM (keyDown KeySpace) mzero
+      return ()
     mainLoop font $ World [1,1] [1] (V2 400 0) 0 (Scroll 36)
