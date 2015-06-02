@@ -12,6 +12,8 @@ data World = World
     , _offset :: Vec2
     , _target :: Int
     , _mode :: Mode
+    -- visual
+    , _font :: Font
     }
 makeLenses ''World
 
@@ -19,12 +21,13 @@ fibs = 1 : 1 : zipWith (+) fibs (tail fibs)
 
 speed = 1
 
-update :: Font -> StateT World Game ()
-update font = do
+update :: StateT World Game ()
+update = do
     s0 <- use seq0
     s1 <- use seq1
     ofs <- use offset
     t <- use target
+    font <- use font
     
     let v = s0 !! t + s1 !! t
     color black $ do
@@ -52,19 +55,19 @@ update font = do
           translate (p0 ^* (1 - ph) + V2 (390+36) 240 ^* ph) $ text font 24 (show v)
           translate (p0 ^* (1 - ph) + V2 (390) 280 ^* ph) $ text font 24 (show v)
           mode .= Dist (ph + 1/30)
+    color red $ translate (V2 24 120) $ text font 24 "Press ESC to exit"
   where
     p0 = V2 390 320
 
-mainLoop :: Font -> World -> Game ()
-mainLoop font s = do
-  color red $ translate (V2 24 120) $ text font 24 "Press ESC to exit"
-  s' <- execStateT (update font) s
+mainLoop :: World -> Game ()
+mainLoop s = do
+  s' <- execStateT update s
   tick
   exit <- keyDown KeyEscape
   if exit then
     return ()
   else
-    mainLoop font s'
+    mainLoop s'
 
 main = runGameDefault $ do
     font <- loadFont "VL-PGothic-Regular.ttf"
@@ -73,4 +76,4 @@ main = runGameDefault $ do
       tick
       () <- whenM (keyDown KeySpace) mzero
       return ()
-    mainLoop font $ World [1,1] [1] (V2 400 0) 0 (Scroll 36)
+    mainLoop $ World [1,1] [1] (V2 400 0) 0 (Scroll 36) font
