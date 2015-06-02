@@ -57,9 +57,14 @@ update font = do
 
 mainLoop :: Font -> World -> Game ()
 mainLoop font s = do
+  color red $ translate (V2 24 120) $ text font 24 "Press ESC to exit"
   s' <- execStateT (update font) s
   tick
-  mainLoop font s'
+  exit <- keyDown KeyEscape
+  if exit then
+    return ()
+  else
+    mainLoop font s'
 
 main = runGameDefault $ do
     font <- loadFont "VL-PGothic-Regular.ttf"
