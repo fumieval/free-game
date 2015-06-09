@@ -8,3 +8,5 @@ Desktop.ini
 .DS_Store
 .cabal-sandbox
 examples/test.exe
+examples/demo.exe
+cabal.sandbox.config
