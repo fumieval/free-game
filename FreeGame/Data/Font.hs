@@ -10,7 +10,7 @@
 --
 -- Rendering characters
 ----------------------------------------------------------------------------
-module FreeGame.Data.Font 
+module FreeGame.Data.Font
   ( Font
   , loadFontFromFile
   , loadFont
@@ -21,7 +21,9 @@ module FreeGame.Data.Font
   , RenderedChar(..)
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Monad.IO.Class
 import Control.Monad
 import Data.IORef
@@ -119,7 +121,7 @@ render face siz ch = do
     let dpi = fromIntegral resolutionDPI
 
     runFreeType $ ft_Set_Char_Size face 0 (floor $ siz * 64) dpi dpi
-    
+
     ix <- ft_Get_Char_Index face (fromIntegral $ fromEnum ch)
     runFreeType $ ft_Load_Glyph face ix ft_LOAD_DEFAULT
 
@@ -132,7 +134,7 @@ render face siz ch = do
 
     let h = fromIntegral $ B.rows bmp
         w = fromIntegral $ B.width bmp
-    
+
     fptr <- newForeignPtr_ $ castPtr $ buffer bmp
 
     adv <- peek $ GS.advance slot

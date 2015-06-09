@@ -3,7 +3,9 @@ module FreeGame.Internal.Finalizer (FinalizerT(..), finalizer, runFinalizerT, ex
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 
 -- | An action with explicit releasing action.
 newtype FinalizerT m a = FinalizerT

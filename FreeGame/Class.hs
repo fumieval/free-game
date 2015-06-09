@@ -13,7 +13,9 @@
 module FreeGame.Class where
 
 import Linear
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Unsafe.Coerce
 import FreeGame.Types
 import FreeGame.Data.Bitmap

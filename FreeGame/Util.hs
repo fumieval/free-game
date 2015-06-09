@@ -35,7 +35,9 @@ module FreeGame.Util (
     keySpecial
     ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Monad
 import Control.Monad.Free.Class
 import Control.Monad.Trans.Iter
@@ -108,7 +110,7 @@ loadBitmapsWith :: ExpQ -> FilePath -> Q [Dec]
 loadBitmapsWith getFullPath path = do
     loc <- (</>path) <$> takeDirectory <$> loc_filename <$> location
     paths <- runIO $ getFileList loc
-    
+
     sequence $ do
         p <- paths
         let name = pathToName p

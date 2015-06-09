@@ -2,7 +2,9 @@
 module FreeGame.Internal.GLFW where
 import Control.Concurrent
 import Control.Bool
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Monad.IO.Class
 import Control.Lens
 import Data.Color

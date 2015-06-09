@@ -33,7 +33,9 @@ import Control.Monad.IO.Class
 import Data.BoundingBox
 import Linear.V2
 import System.Random
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Data.Hashable
 
 data Bitmap = Bitmap { bitmapImage :: C.Image C.PixelRGBA8, bitmapHash :: Int }

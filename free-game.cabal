@@ -46,7 +46,7 @@ library
     FreeGame.Util
 
   ghc-options: -Wall -fexcess-precision -O2
-  default-extensions: FlexibleContexts, FlexibleInstances
+  default-extensions: FlexibleContexts, FlexibleInstances, CPP
   build-depends:
     array >= 0.4,
     base == 4.*,
