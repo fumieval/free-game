@@ -11,8 +11,8 @@ import Data.Color
 import Data.IORef
 import FreeGame.Types
 import Data.BoundingBox
-import Graphics.Rendering.OpenGL.GL.StateVar
-import Graphics.Rendering.OpenGL.Raw.ARB.Compatibility
+import Data.StateVar
+import Graphics.GL.Compatibility30
 import Linear
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import qualified Graphics.UI.GLFW as GLFW
