@@ -9,7 +9,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-7.5
+resolver: lts-7.6
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -31,6 +31,8 @@ resolver: lts-7.5
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - .
+- ../holz
+- ../bindings-GLFW
 # The following packages have been ignored due to incompatibility with the
 # resolver compiler, dependency conflicts with other packages
 # or unsatisfied dependencies.
