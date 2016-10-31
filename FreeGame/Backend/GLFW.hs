@@ -25,6 +25,7 @@ import FreeGame.Data.Bitmap
 import FreeGame.Internal.Finalizer
 import FreeGame.UI
 import FreeGame.Types
+import Graphics.GL (glClearColor)
 import Linear
 #if (MIN_VERSION_containers(0,5,0))
 import qualified Data.IntMap.Strict as IM
@@ -34,7 +35,6 @@ import qualified Data.IntMap as IM
 import qualified Data.Map.Strict as Map
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
-import qualified Graphics.Rendering.OpenGL.GL as GL
 import Unsafe.Coerce
 import Control.Concurrent
 import Control.Lens (view)
@@ -152,8 +152,8 @@ runUI (MouseScroll cont) = liftIO (readIORef given) >>= cont
 runUI (MouseInWindow cont) = liftIO (readIORef $ getMouseInWindow given) >>= cont
 runUI (Bracket m) = join $ iterM runUI m
 runUI (TakeScreenshot cont) = liftIO (G.screenshot given >>= liftBitmapIO) >>= cont
-runUI (ClearColor col cont) = do
-    liftIO $ GL.clearColor GL.$= unsafeCoerce col
+runUI (ClearColor (V4 r g b a) cont) = do
+    glClearColor r g b a
     cont
 runUI (SetTitle str cont) = do
     liftIO $ GLFW.setWindowTitle (G.theWindow given) str
