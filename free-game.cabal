@@ -35,7 +35,6 @@ library
     FreeGame
     FreeGame.Class
     FreeGame.Data.Bitmap
-    FreeGame.Data.Font
     FreeGame.Text
     FreeGame.UI
     FreeGame.Instances

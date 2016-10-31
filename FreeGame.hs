@@ -48,6 +48,7 @@ module FreeGame
     writeBitmap,
     -- * Text
     Font,
+    readFont,
     loadFont,
     text,
     -- * Keyboard
@@ -102,7 +103,6 @@ import FreeGame.Text
 import FreeGame.Class
 import FreeGame.Instances ()
 import FreeGame.Data.Bitmap
-import FreeGame.Data.Font
 import qualified FreeGame.Backend.GLFW as GLFW
 import Control.Monad.IO.Class
 import Control.Monad
@@ -113,6 +113,7 @@ import Data.Color.Names
 import Linear
 import Data.BoundingBox
 import Control.Monad.Trans.Iter
+import Graphics.Holz.Font
 
 -- | 'Game' is a kind of procedure but you can also use it like a value.
 -- free-game's design is based on free structures, however, you don't have to mind it -- Just apply 'runGame', and enjoy.
@@ -129,3 +130,7 @@ runGameDefault = runGame Windowed (Box (V2 0 0) (V2 640 480))
 
 instance MonadIO Frame where
     liftIO = embedIO
+
+loadFont :: MonadIO m => FilePath -> m Font
+loadFont = readFont
+{-# DEPRECATED loadFont "use readFont instead" #-}

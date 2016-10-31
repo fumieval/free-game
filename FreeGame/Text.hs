@@ -4,12 +4,15 @@ module FreeGame.Text (TextF(..), TextT, runTextT, runTextT_, text) where
 import Control.Lens
 import Data.String
 import Data.BoundingBox
-import FreeGame.Data.Font
+import Data.Hashable
+import Graphics.Holz.Font
 import FreeGame.Class
+import FreeGame.Data.Bitmap
 import FreeGame.Instances ()
 import Control.Monad.Trans.Free
 import Control.Monad.State
 import Linear
+import Codec.Picture
 
 data TextF a = TypeChar Char a deriving Functor
 
@@ -28,15 +31,16 @@ runTextT bbox font siz = flip evalStateT (V2 x0 y0) . go where
             _y += advV
             go cont
         Free (TypeChar ch cont) -> do
-            RenderedChar bmp offset adv <- fromFinalizer $ charToBitmap font siz ch
+            (bmp@(Image w h _), offset, adv) <- fromFinalizer $ renderChar font (realToFrac siz) ch
             pen <- get
-            translate (pen + offset) $ bitmap bmp
-            let pen' = over _x (+adv) pen
+            let offset' = fmap realToFrac offset + V2 (fromIntegral w / 2) (fromIntegral h / 2)
+            translate (pen + offset') $ bitmap $ Bitmap bmp $ hash (siz, ch)
+            let pen' = pen + fmap realToFrac adv
             put $ if cond pen'
                 then pen'
                 else V2 x0 (view _y pen + advV)
             go cont
-    advV = siz * (metricsAscent font - metricsDescent font) * 1.1
+    advV = siz * realToFrac (metricsAscent font - metricsDescent font) * 1.1
     (V2 x0 y0, cond) = maybe (zero, const True) (\b -> (b ^. position zero, flip isInside b)) bbox
 
 runTextT_ :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (Box V2 Double) -> Font -> Double -> TextT m () -> m ()
