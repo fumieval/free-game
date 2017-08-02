@@ -76,7 +76,7 @@ import FreeGame.UI
     fromFinalizer = (l) . fromFinalizer }
 
 #define MK_FREE_GAME(cxt, ty, l) instance (FreeGame m cxt) => FreeGame (ty) where { \
-    draw = (l) . draw; \
+    draw x = (l) (draw x); \
     preloadBitmap = (l) . preloadBitmap; \
     takeScreenshot = (l) takeScreenshot; \
     bracket m = (l) (bracket m); \
