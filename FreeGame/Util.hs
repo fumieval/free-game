@@ -126,26 +126,9 @@ loadBitmapsWith getFullPath path = do
                 (varE 'readBitmap)
 
 -- | Load and define all pictures in the specified directory.
--- On base >= 4.6, file paths to actually load will be respect to the directory of the executable. Otherwise it will be based on the current directory.
-
-#if (MIN_VERSION_base(4,6,0))
-
-loadBitmaps :: FilePath -> Q [Dec]
-loadBitmaps path = do
-    v <- newName "v"
-    loadBitmapsWith (lamE [varP v] $
-        appsE [varE 'fmap, uInfixE
-                    (infixE Nothing (varE '(</>)) (Just (varE v)))
-                    (varE '(.))
-                    (varE 'takeDirectory)
-                , varE 'getExecutablePath]) path
-
-#else
 
 loadBitmaps :: FilePath -> Q [Dec]
 loadBitmaps path = loadBitmapsWith (varE 'return) path
-
-#endif
 
 getFileList :: FilePath -> IO [FilePath]
 getFileList path = do
