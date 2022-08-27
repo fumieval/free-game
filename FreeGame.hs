@@ -73,7 +73,7 @@ module FreeGame
     mouseUpR,
     mouseUpM,
     -- * IO
-    FromFinalizer(),
+    FromResource(),
     embedIO,
     liftIO,
     randomness,

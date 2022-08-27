@@ -41,7 +41,6 @@ library
     FreeGame.UI
     FreeGame.Instances
     FreeGame.Backend.GLFW
-    FreeGame.Internal.Finalizer
     FreeGame.Internal.GLFW
     FreeGame.Types
     FreeGame.Util
@@ -73,4 +72,5 @@ library
     vector,
     void >= 0.5,
     boundingboxes >= 0.2 && < 0.4,
-    lens >= 5.2
+    lens >= 5.2,
+    resourcet

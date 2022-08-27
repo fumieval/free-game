@@ -31,9 +31,8 @@ import Data.BoundingBox
 import qualified Data.Map as M
 import qualified Data.Vector.Storable as V
 import Linear
-import FreeGame.Class
 import FreeGame.Data.Bitmap
-import FreeGame.Internal.Finalizer
+import Control.Monad.Trans.Resource
 import Graphics.Rendering.FreeType.Internal
 import qualified Graphics.Rendering.FreeType.Internal.GlyphSlot as GS
 import qualified Graphics.Rendering.FreeType.Internal.Vector as V
@@ -97,26 +96,28 @@ freeType = unsafePerformIO $ alloca $ \p -> do
 data RenderedChar = RenderedChar
     { charBitmap :: Bitmap
     , charOffset :: V2 Double
-    ,　charAdvance :: Double
+    , charAdvance :: Double
+    , charReleaseKey :: ReleaseKey
     }
 
 -- | The resolution used to render fonts.
 resolutionDPI :: Int
 resolutionDPI = 300
 
-charToBitmap :: FromFinalizer m => Font -> Double -> Char -> m RenderedChar
-charToBitmap (Font face _ _ refCache) pixel ch = fromFinalizer $ do
+charToBitmap :: Font -> Double -> Char -> ResourceT IO RenderedChar
+charToBitmap (Font face _ _ refCache) pixel ch = do
     let siz = pixel * 72 / fromIntegral resolutionDPI
     cache <- liftIO $ readIORef refCache
     case M.lookup (siz, ch) cache of
         Just d -> return d
         Nothing -> do
-            d <- liftIO $ render face siz ch
-            liftIO $ writeIORef refCache $ M.insert (siz, ch) d cache
-            finalizer $ modifyIORef refCache $ M.delete (siz, ch)
-            return d
+            mkChar <- liftIO $ render face siz ch
+            key <- register $ modifyIORef refCache $ M.delete (siz, ch)
+            let r = mkChar key
+            liftIO $ writeIORef refCache $ M.insert (siz, ch) r cache
+            return r
 
-render :: FT_Face -> Double -> Char -> IO RenderedChar
+render :: FT_Face -> Double -> Char -> IO (ReleaseKey -> RenderedChar)
 render face siz ch = do
     let dpi = fromIntegral resolutionDPI
 

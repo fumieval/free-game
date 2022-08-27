@@ -85,7 +85,7 @@ angleV2 :: RealFloat a => V2 a -> a
 angleV2 (V2 a b) = atan2 b a
 
 -- | Get a given range of value.
-randomness :: (Random r, FromFinalizer m) => (r, r) -> m r
+randomness :: (Random r, FromResource m) => (r, r) -> m r
 randomness r = embedIO $ randomRIO r
 {-# INLINE randomness #-}
 
@@ -100,7 +100,7 @@ radians :: Floating a => a -> a
 radians x = x / 180 * pi
 
 -- | Create a 'Picture' from the given file.
-loadPictureFromFile :: (Picture2D p, FromFinalizer m) => FilePath -> m (p ())
+loadPictureFromFile :: (Picture2D p, FromResource m) => FilePath -> m (p ())
 loadPictureFromFile = embedIO . fmap bitmap . readBitmap
 
 -- | The type of the given 'ExpQ' must be @FilePath -> IO FilePath@

@@ -23,7 +23,7 @@ import Data.IORef
 import Data.BoundingBox
 import FreeGame.Class
 import FreeGame.Data.Bitmap
-import FreeGame.Internal.Finalizer
+import Control.Monad.Trans.Resource
 import FreeGame.UI
 import FreeGame.Types
 import Linear
@@ -68,7 +68,7 @@ execGame m system = do
     GLFW.setMouseButtonCallback (G.theWindow system) $ Just $ mouseButtonCallback mouseBuffer
     GLFW.setCursorEnterCallback (G.theWindow system) $ Just $ mouseEnterCallback mouseIn
     GLFW.setScrollCallback (G.theWindow system) $ Just $ \_ x y -> modifyIORef scroll (+V2 x y)
-    execFinalizerT $ gameLoop Env{..} m
+    runResourceT $ gameLoop Env{..} m
 
 data Env = Env
     { system :: G.System
@@ -79,7 +79,7 @@ data Env = Env
     , scroll :: IORef (V2 Double)
     }
 
-gameLoop :: Env -> IterT (F UI) a -> FinalizerT IO (Maybe a)
+gameLoop :: Env -> IterT (F UI) a -> ResourceT IO (Maybe a)
 gameLoop env@Env{..} = fix $ \self m -> do
     liftIO $ G.beginFrame system
 
@@ -106,18 +106,18 @@ withLocation f de = de { deLocation = f $ deLocation de }
 
 type DrawM = ReaderT DrawEnv IO
 
-runUI :: forall a. Env -> UI (FinalizerT IO a) -> FinalizerT IO a
+runUI :: forall a. Env -> UI (ResourceT IO a) -> ResourceT IO a
 runUI Env{..} = \case
     Draw m -> do
         (cont, xs) <- liftIO $ do
             cxt <- newIORef []
-            cont <- runReaderT (m :: DrawM (FinalizerT IO a))
+            cont <- runReaderT (m :: DrawM (ResourceT IO a))
                 DrawEnv { deLocation = Location id id, deContext = cxt, deTextureStorage = textureStorage }
             xs <- readIORef cxt
             return (cont, xs)
-        unless (null xs) $ finalizer $ forM_ xs $ \(t, h) -> G.releaseTexture t >> modifyIORef' textureStorage (IM.delete h)
+        unless (null xs) $ void $ register $ forM_ xs $ \(t, h) -> G.releaseTexture t >> modifyIORef' textureStorage (IM.delete h)
         cont
-    FromFinalizer m -> join m
+    FromResource m -> join m
     PreloadBitmap (Bitmap bmp h) cont -> do
         m <- liftIO $ readIORef textureStorage
         case IM.lookup h m of
@@ -125,7 +125,7 @@ runUI Env{..} = \case
             Nothing -> do
                 t <- liftIO $ G.installTexture bmp
                 liftIO $ writeIORef textureStorage $ IM.insert h t m
-                finalizer $ G.releaseTexture t >> modifyIORef' textureStorage (IM.delete h)
+                void $ register $ G.releaseTexture t >> modifyIORef' textureStorage (IM.delete h)
         cont
     KeyStates cont -> liftIO (readIORef keyBuffer) >>= cont
     MouseButtons cont -> liftIO (readIORef mouseBuffer) >>= cont

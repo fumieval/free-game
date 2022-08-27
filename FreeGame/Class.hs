@@ -19,7 +19,7 @@ import Control.Applicative
 import Unsafe.Coerce
 import FreeGame.Types
 import FreeGame.Data.Bitmap
-import FreeGame.Internal.Finalizer
+import Control.Monad.Trans.Resource
 import Data.Color
 import Control.Monad.IO.Class
 import Control.Bool
@@ -194,13 +194,13 @@ mouseUpR = mouseUp 1
 mouseUpM :: Mouse f => f Bool
 mouseUpM = mouseUp 2
 
-class FromFinalizer m where
-    fromFinalizer :: FinalizerT IO a -> m a
+class FromResource m where
+    fromResource :: ResourceT IO a -> m a
 
-instance FromFinalizer (FinalizerT IO) where
-    fromFinalizer = id
+instance FromResource (ResourceT IO) where
+    fromResource = id
 
--- | 'liftIO'　variety for 'FromFinalizer'.
-embedIO :: FromFinalizer m => IO a -> m a
-embedIO m = fromFinalizer (liftIO m)
+-- | 'liftIO'　variety for 'FromResource'.
+embedIO :: FromResource m => IO a -> m a
+embedIO m = fromResource (liftIO m)
 {-# INLINE embedIO #-}

@@ -19,7 +19,7 @@ instance Monad m => IsString (TextT m ()) where
     fromString str = mapM_ (\c -> liftF (TypeChar c ())) str
 
 -- | Render a 'TextT'.
-runTextT :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (Box V2 Double) -> Font -> Double -> TextT m a -> m a
+runTextT :: (FromResource m, Monad m, Picture2D m) => Maybe (Box V2 Double) -> Font -> Double -> TextT m a -> m a
 runTextT bbox font siz = flip evalStateT (V2 x0 y0) . go where
     go m = lift (runFreeT m) >>= \r -> case r of
         Pure a -> return a
@@ -28,7 +28,7 @@ runTextT bbox font siz = flip evalStateT (V2 x0 y0) . go where
             _y += advV
             go cont
         Free (TypeChar ch cont) -> do
-            RenderedChar bmp offset adv <- fromFinalizer $ charToBitmap font siz ch
+            RenderedChar bmp offset adv _ <- fromResource $ charToBitmap font siz ch
             pen <- get
             translate (pen + offset) $ bitmap bmp
             let pen' = over _x (+adv) pen
@@ -39,10 +39,10 @@ runTextT bbox font siz = flip evalStateT (V2 x0 y0) . go where
     advV = siz * (metricsAscent font - metricsDescent font) * 1.1
     (V2 x0 y0, cond) = maybe (zero, const True) (\b -> (b ^. position zero, flip isInside b)) bbox
 
-runTextT_ :: (FromFinalizer m, Monad m, Picture2D m) => Maybe (Box V2 Double) -> Font -> Double -> TextT m () -> m ()
+runTextT_ :: (FromResource m, Monad m, Picture2D m) => Maybe (Box V2 Double) -> Font -> Double -> TextT m () -> m ()
 runTextT_ = runTextT
 {-# INLINE runTextT_ #-}
 
 -- | Render a 'String'.
-text :: (FromFinalizer m, Monad m, Picture2D m) => Font -> Double -> String -> m ()
+text :: (FromResource m, Monad m, Picture2D m) => Font -> Double -> String -> m ()
 text font siz str = runTextT Nothing font siz (fromString str)

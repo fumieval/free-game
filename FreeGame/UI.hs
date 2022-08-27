@@ -22,7 +22,7 @@ module FreeGame.UI (
 ) where
 
 import FreeGame.Class
-import FreeGame.Internal.Finalizer
+import Control.Monad.Trans.Resource
 import FreeGame.Types
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
@@ -41,7 +41,7 @@ instance (Applicative f, Monad f, Picture2D f, Local f) => Drawable f where { }
 data UI a =
     Draw (forall m. Drawable m => m a)
     | PreloadBitmap Bitmap a
-    | FromFinalizer (FinalizerT IO a)
+    | FromResource (ResourceT IO a)
     | KeyStates (Map.Map Key ButtonState -> a)
     | MouseButtons (Map.Map Int ButtonState -> a)
     | MousePosition (Vec2 -> a)
@@ -77,7 +77,7 @@ reFrame = iterM (join . reUI)
 reUI :: FreeGame f => UI a -> f a
 reUI (Draw m) = draw m
 reUI (PreloadBitmap bmp cont) = cont <$ preloadBitmap bmp
-reUI (FromFinalizer m) = fromFinalizer m
+reUI (FromResource m) = fromResource m
 reUI (KeyStates cont) = cont <$> keyStates_
 reUI (MouseButtons cont) = cont <$> mouseButtons_
 reUI (MousePosition cont) = cont <$> globalMousePosition
@@ -95,7 +95,7 @@ reUI (SetBoundingBox bb cont) = cont <$ setBoundingBox bb
 {-# INLINE[1] reUI #-}
 {-# RULES "reUI/sameness" reUI = id #-}
 
-class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m where
+class (Picture2D m, Local m, Keyboard m, Mouse m, FromResource m) => FreeGame m where
     -- | Draw an action that consist of 'Picture2D''s methods.
     draw :: (forall f. Drawable f => f a) -> m a
     -- | Load a 'Bitmap' to avoid the cost of the first invocation of 'bitmap'.
@@ -164,9 +164,9 @@ instance Picture2D UI where
 instance Local UI where
     getLocation = Draw getLocation
 
-instance FromFinalizer UI where
-    fromFinalizer = FromFinalizer
-    {-# INLINE fromFinalizer #-}
+instance FromResource UI where
+    fromResource = FromResource
+    {-# INLINE fromResource #-}
 
 instance Keyboard UI where
     keyStates_ = KeyStates id

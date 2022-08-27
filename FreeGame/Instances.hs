@@ -67,8 +67,8 @@ import FreeGame.UI
     mouseScroll = (l) mouseScroll; \
     }
 
-#define MK_FROM_FINALIZER(cxt, ty, l) instance (FromFinalizer m cxt) => FromFinalizer (ty) where { \
-    fromFinalizer = (l) . fromFinalizer }
+#define MK_FROM_FINALIZER(cxt, ty, l) instance (FromResource m cxt) => FromResource (ty) where { \
+    fromResource = (l) . fromResource }
 
 #define MK_FREE_GAME(cxt, ty, l) instance (FreeGame m cxt) => FreeGame (ty) where { \
     draw x = (l) (draw x); \
