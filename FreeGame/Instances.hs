@@ -74,8 +74,6 @@ import FreeGame.UI
     draw x = (l) (draw x); \
     preloadBitmap = (l) . preloadBitmap; \
     takeScreenshot = (l) takeScreenshot; \
-    bracket m = (l) (bracket m); \
-    forkFrame m = (l) (forkFrame m); \
     setFPS a = (l) (setFPS a); \
     setTitle t = (l) (setTitle t); \
     showCursor = (l) showCursor; \

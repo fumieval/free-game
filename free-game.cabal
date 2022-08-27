@@ -67,7 +67,6 @@ library
     OpenGL >= 3 && <4,
     OpenGLRaw,
     random == 1.*,
-    reflection,
     StateVar,
     template-haskell,
     transformers >= 0.3,

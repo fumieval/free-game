@@ -48,14 +48,12 @@ data UI a =
     | MouseInWindow (Bool -> a)
     | MouseScroll (Vec2 -> a)
     | TakeScreenshot (Bitmap -> a)
-    | Bracket (Frame a)
     | SetFPS Double a
     | SetTitle String a
     | ShowCursor a
     | HideCursor a
     | ClearColor (Color Float) a
     | GetFPS (Int -> a)
-    | ForkFrame (Frame ()) a
     | GetBoundingBox (BoundingBox2 -> a)
     | SetBoundingBox BoundingBox2 a
     deriving Functor
@@ -86,14 +84,12 @@ reUI (MousePosition cont) = cont <$> globalMousePosition
 reUI (MouseInWindow cont) = cont <$> mouseInWindow
 reUI (MouseScroll cont) = cont <$> mouseScroll
 reUI (TakeScreenshot cont) = cont <$> takeScreenshot
-reUI (Bracket m) = bracket m
 reUI (SetFPS i cont) = cont <$ setFPS i
 reUI (SetTitle t cont) = cont <$ setTitle t
 reUI (ShowCursor cont) = cont <$ showCursor
 reUI (HideCursor cont) = cont <$ hideCursor
 reUI (ClearColor col cont) = cont <$ clearColor col
 reUI (GetFPS cont) = cont <$> getFPS
-reUI (ForkFrame m cont) = cont <$ forkFrame m
 reUI (GetBoundingBox cont) = cont <$> getBoundingBox
 reUI (SetBoundingBox bb cont) = cont <$ setBoundingBox bb
 {-# INLINE[1] reUI #-}
@@ -104,10 +100,6 @@ class (Picture2D m, Local m, Keyboard m, Mouse m, FromFinalizer m) => FreeGame m
     draw :: (forall f. Drawable f => f a) -> m a
     -- | Load a 'Bitmap' to avoid the cost of the first invocation of 'bitmap'.
     preloadBitmap :: Bitmap -> m ()
-    -- | Run a 'Frame', and release all the matter happened.
-    bracket :: Frame a -> m a
-    -- | Run a 'Frame' action concurrently. Do not use this function to draw pictures.
-    forkFrame :: Frame () -> m ()
     -- | Generate a 'Bitmap' from the front buffer.
     takeScreenshot :: m Bitmap
     -- | Set the goal FPS.
@@ -127,9 +119,6 @@ instance FreeGame UI where
     preloadBitmap bmp = PreloadBitmap bmp ()
     {-# INLINE preloadBitmap #-}
 
-    bracket = Bracket
-    {-# INLINE bracket #-}
-    forkFrame m = ForkFrame m ()
     takeScreenshot = TakeScreenshot id
     setFPS a = SetFPS a ()
     setTitle t = SetTitle t ()

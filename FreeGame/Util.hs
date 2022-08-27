@@ -54,7 +54,6 @@ import System.Directory
 import System.FilePath
 import System.IO.Unsafe
 import System.Random
-import System.Environment
 import FreeGame.UI
 
 -- | Delimit the computation to yield a frame.
@@ -126,7 +125,6 @@ loadBitmapsWith getFullPath path = do
                 (varE 'readBitmap)
 
 -- | Load and define all pictures in the specified directory.
-
 loadBitmaps :: FilePath -> Q [Dec]
 loadBitmaps path = loadBitmapsWith (varE 'return) path
 
