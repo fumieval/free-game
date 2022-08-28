@@ -16,9 +16,6 @@ import qualified Control.Monad.Writer.Lazy as Lazy
 import qualified Control.Monad.Writer.Strict as Strict
 import qualified Control.Monad.Trans.RWS.Strict as Strict
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid
-#endif
 import Control.Monad.Free.Church as Church
 import Control.Monad.Free as Free
 import FreeGame.Class

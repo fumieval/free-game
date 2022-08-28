@@ -35,9 +35,6 @@ module FreeGame.Util (
     keySpecial
     ) where
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
 import Control.Monad
 import Control.Monad.Free.Class
 import Control.Monad.Trans.Iter

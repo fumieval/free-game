@@ -24,9 +24,6 @@ module FreeGame.UI (
 import FreeGame.Class
 import Control.Monad.Trans.Resource
 import FreeGame.Types
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
 import qualified Data.Map as Map
 import FreeGame.Data.Bitmap (Bitmap)
 import Data.Color
