@@ -2,11 +2,9 @@
 module FreeGame.Internal.GLFW where
 import Control.Concurrent
 import Control.Bool
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
 import Control.Monad.IO.Class
 import Control.Lens
+import Data.Coerce
 import Data.Color
 import Data.IORef
 import FreeGame.Types
@@ -16,7 +14,6 @@ import Graphics.GL.Compatibility30
 import Linear
 import qualified Graphics.Rendering.OpenGL.GL as GL
 import qualified Graphics.UI.GLFW as GLFW
-import Unsafe.Coerce
 import qualified Data.Vector.Storable as V
 import qualified Data.Vector.Storable.Mutable as MV
 import Codec.Picture
@@ -78,19 +75,19 @@ drawTextureAt tex a b c d = do
 
 mkVertex2 :: V2 Double -> GL.Vertex2 GL.GLdouble
 {-# INLINE mkVertex2 #-}
-mkVertex2 = unsafeCoerce
+mkVertex2 (V2 x y) = GL.Vertex2 x y
 
 gf :: Float -> GL.GLfloat
 {-# INLINE gf #-}
-gf = unsafeCoerce
+gf = coerce
 
 gd :: Double -> GL.GLdouble
 {-# INLINE gd #-}
-gd = unsafeCoerce
+gd = coerce
 
 gsizei :: Int -> GL.GLsizei
 {-# INLINE gsizei #-}
-gsizei = unsafeCoerce
+gsizei = fromIntegral
 
 translate :: V2 Double -> IO a -> IO a
 translate (V2 tx ty) m = preservingMatrix' $ GL.translate (GL.Vector3 (gd tx) (gd ty) 0) >> m
@@ -112,9 +109,9 @@ circleOutline r = do
     GL.renderPrimitive GL.LineLoop $ runVertices [V2 (cos t * r) (sin t * r) | t <- [0,s..2 * pi]]
 
 color :: Color Float -> IO a -> IO a
-color col m = do
+color (V4 r g b a) m = do
     oldColor <- liftIO $ get GL.currentColor
-    liftIO $ GL.currentColor $= unsafeCoerce col
+    liftIO $ GL.currentColor $= GL.Color4 r g b a
     res <- m
     liftIO $ GL.currentColor $= oldColor
     return res

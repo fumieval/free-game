@@ -32,7 +32,6 @@ import qualified Data.Map.Strict as Map
 import qualified FreeGame.Internal.GLFW as G
 import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL.GL as GL
-import Unsafe.Coerce
 import Control.Lens (view)
 
 keyCallback :: IORef (Map.Map Key ButtonState) -> GLFW.Window -> GLFW.Key -> Int -> GLFW.KeyState -> GLFW.ModifierKeys -> IO ()
@@ -135,8 +134,8 @@ runUI Env{..} = \case
     MouseScroll cont -> liftIO (readIORef scroll) >>= cont
     MouseInWindow cont -> liftIO (readIORef mouseIn) >>= cont
     TakeScreenshot cont -> liftIO (G.screenshot system >>= liftBitmapIO) >>= cont
-    ClearColor col cont -> do
-        liftIO $ GL.clearColor GL.$= unsafeCoerce col
+    ClearColor (V4 r g b a) cont -> do
+        liftIO $ GL.clearColor GL.$= GL.Color4 r g b a
         cont
     SetTitle str cont -> do
         liftIO $ GLFW.setWindowTitle (G.theWindow system) str

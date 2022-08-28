@@ -13,14 +13,11 @@
 module FreeGame.Class where
 
 import Linear
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
-import Unsafe.Coerce
 import FreeGame.Types
 import FreeGame.Data.Bitmap
 import Control.Monad.Trans.Resource
 import Data.Color
+import Data.Coerce
 import Control.Monad.IO.Class
 import Control.Bool
 import qualified Data.Map as Map
@@ -65,7 +62,7 @@ class Affine p => Local p where
 data Location a = Location (Vec2 -> Vec2) (Vec2 -> Vec2) deriving Functor
 
 coerceLocation :: Location a -> Location b
-coerceLocation = unsafeCoerce
+coerceLocation = coerce
 
 flipLocation :: Location a -> Location b
 flipLocation (Location f g) = Location g f
