@@ -13,6 +13,7 @@
 
 module FreeGame.Util (
     -- * Controlling
+    delay,
     tick,
     foreverTick,
     foreverFrame,
@@ -65,12 +66,12 @@ foreverFrame :: Frame a -> Game any
 foreverFrame m = foreverTick (Game $ lift m)
 
 -- | Extract the next frame of the action.
-untick :: IterT Frame a -> Frame (Either (IterT Frame a) a)
-untick = liftM (either Right Left) . runIterT where
+untick :: Game a -> Frame (Either (Game a) a)
+untick = fmap (either Right (Left . Game)) . runIterT . unGame where
 
 -- | An infinite version of 'untick'.
-untickInfinite :: IterT Frame Void -> Frame (IterT Frame Void)
-untickInfinite = liftM (either absurd id) . runIterT where
+untickInfinite :: Game Void -> Frame (Game Void)
+untickInfinite = fmap (either absurd Game) . runIterT . unGame where
 
 -- | An unit vector with the specified angle.
 unitV2 :: Floating a => a -> V2 a

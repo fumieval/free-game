@@ -96,7 +96,6 @@ import Control.Bool
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans
-import Control.Monad.Trans.Iter
 import Data.BoundingBox
 import Data.Color
 import Data.Color.Names
