@@ -1,3 +1,10 @@
+1.2
+---------------------------------------------------------------------
+
+* Removed `Drawable`, `reGame` and `reFrame`
+* Removed `FromFinalizer` and `embedIO` in favour of `MonadResource` and `liftIO`
+* Thoroughly cleaned up the codebase
+
 1.1.80
 ---------------------------------------------------------------------
 * Added `mouseScroll`
