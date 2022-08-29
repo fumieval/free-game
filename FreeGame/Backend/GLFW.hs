@@ -15,24 +15,26 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-module FreeGame.Backend.GLFW (Game, Frame, runGame) where
-import Control.Monad.Trans.Iter
+module FreeGame.Backend.GLFW (Game(..), Frame, runGame) where
+import Control.Lens (view)
 import Control.Monad.IO.Class
 import Control.Monad.Reader
-import Data.IORef
+import Control.Monad.Trans.Iter
+import Control.Monad.Trans.Resource
 import Data.BoundingBox
+import Data.Functor.Identity
+import Data.IORef
 import FreeGame.Class
 import FreeGame.Data.Bitmap
-import Control.Monad.Trans.Resource
-import FreeGame.UI
+import FreeGame.Instances ()
 import FreeGame.Types
+import FreeGame.UI
 import Linear
 import qualified Data.IntMap.Strict as IM
 import qualified Data.Map.Strict as Map
 import qualified FreeGame.Internal.GLFW as G
-import qualified Graphics.UI.GLFW as GLFW
 import qualified Graphics.Rendering.OpenGL.GL as GL
-import Control.Lens (view)
+import qualified Graphics.UI.GLFW as GLFW
 
 keyCallback :: IORef (Map.Map Key ButtonState) -> GLFW.Window -> GLFW.Key -> Int -> GLFW.KeyState -> GLFW.ModifierKeys -> IO ()
 keyCallback keyBuffer _ key _ GLFW.KeyState'Pressed _ = modifyIORef' keyBuffer $ Map.adjust buttonDown (toEnum $ fromEnum key)
@@ -80,13 +82,17 @@ data Env = Env
     , drawLocation :: Location ()
     }
 
-type Game = IterT Frame
+newtype Game a = Game { unGame :: IterT Frame a }
+    deriving (Functor, Applicative, Monad, MonadIO, Affine, Picture2D, Mouse, Keyboard, FreeGame, Local, MonadFree Identity)
+
+instance MonadResource Game where
+    liftResourceT = Game . lift . liftResourceT
 
 newtype Frame a = Frame { unFrame :: ReaderT Env (ResourceT IO) a }
     deriving (Functor, Applicative, Monad, MonadResource, MonadIO, MonadReader Env)
 
-gameLoop :: Env -> IterT Frame a -> ResourceT IO (Maybe a)
-gameLoop env@Env{..} = fix $ \self m -> do
+gameLoop :: Env -> Game a -> ResourceT IO (Maybe a)
+gameLoop env@Env{..} (Game m0) = flip fix m0 $ \self m -> do
     liftIO $ G.beginFrame system
 
     r <- runReaderT (unFrame (runIterT m)) env

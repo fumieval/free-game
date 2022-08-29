@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  FreeGame
@@ -11,7 +11,7 @@
 ----------------------------------------------------------------------------
 module FreeGame
   ( -- * Game
-    Game,
+    Game(..),
     runGame,
     runGameDefault,
     WindowMode(..),
@@ -26,6 +26,7 @@ module FreeGame
     -- * Frame
     Frame,
     FreeGame(..),
+    liftFrame,
     -- * Transformations
     Vec2,
     Affine(..),
@@ -90,31 +91,28 @@ module FreeGame
 
 ) where
 
-import FreeGame.UI
-import FreeGame.Util
-import FreeGame.Types
-import FreeGame.Text
-import FreeGame.Class
-import FreeGame.Instances ()
-import FreeGame.Data.Bitmap
-import FreeGame.Data.Font
-import FreeGame.Backend.GLFW
-import Control.Monad.IO.Class
-import Control.Monad
 import Control.Applicative
 import Control.Bool
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans
+import Control.Monad.Trans.Iter
+import Data.BoundingBox
 import Data.Color
 import Data.Color.Names
+import FreeGame.Backend.GLFW
+import FreeGame.Class
+import FreeGame.Data.Bitmap
+import FreeGame.Data.Font
+import FreeGame.Instances ()
+import FreeGame.Text
+import FreeGame.Types
+import FreeGame.UI
+import FreeGame.Util
 import Linear
-import Data.BoundingBox
-import Control.Monad.Trans.Iter
 
--- | 'Game' is a kind of procedure but you can also use it like a value.
--- free-game's design is based on free structures, however, you don't have to mind it -- Just apply 'runGame', and enjoy.
---
--- <<http://shared.botis.org/free-game.png>>
---
--- For more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
+liftFrame :: Frame a -> Game a
+liftFrame = Game . lift
 
 runGameDefault :: Game a -> IO (Maybe a)
 runGameDefault = runGame Windowed (Box (V2 0 0) (V2 640 480))
