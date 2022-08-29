@@ -28,7 +28,7 @@ update = do
     ofs <- use offset
     t <- use target
     font <- use font
-    
+
     let v = s0 !! t + s1 !! t
     color black $ do
       translate (V2 24 240) $ text font 24 "fibs"
@@ -41,7 +41,7 @@ update = do
       Scroll ph
         | ph > 0 -> do
           mode .= Scroll (ph - 1)
-          
+
           color black $ translate (V2 390 320) $ text font 24 (show v)
           offset .= ofs - V2 speed 0
         | otherwise -> mode .= Dist 0
@@ -66,7 +66,7 @@ mainLoop s = do
   unlessM (keyDown KeyEscape) $ mainLoop s'
 
 main = runGameDefault $ do
-    font <- loadFont "VL-PGothic-Regular.ttf"
+    font <- loadFont "examples/VL-PGothic-Regular.ttf"
     runMaybeT $ forever $ do
       color red $ translate (V2 24 240) $ text font 24 "Press SPACE to start"
       tick

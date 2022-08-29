@@ -1,9 +1,10 @@
 import FreeGame
+import Control.Monad.Trans
 
 data StateData = StateData { _counter :: Int
                            , _font :: Font
                            }
-    
+
 loop :: StateData -> Game ()
 loop state = do
     let fnt = _font state
@@ -17,7 +18,7 @@ loop state = do
     unless key $ tick >> loop state'
 
 main = runGame Windowed (Box (V2 0 0) (V2 640 480)) $ do
-    font <- loadFont "VL-PGothic-Regular.ttf"
+    font <- loadFont "examples/VL-PGothic-Regular.ttf"
     clearColor black
     let state = StateData{_counter=0, _font=font}
     loop state
