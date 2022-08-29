@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
@@ -14,8 +15,7 @@
 -- Portability :  non-portable
 --
 ----------------------------------------------------------------------------
-module FreeGame.Backend.GLFW (runGame) where
-import Control.Monad.Free.Church
+module FreeGame.Backend.GLFW (Game, Frame, runGame) where
 import Control.Monad.Trans.Iter
 import Control.Monad.IO.Class
 import Control.Monad.Reader
@@ -47,7 +47,7 @@ mouseEnterCallback :: IORef Bool -> GLFW.Window -> GLFW.CursorState -> IO ()
 mouseEnterCallback ref _ GLFW.CursorState'InWindow = writeIORef ref True
 mouseEnterCallback ref _ GLFW.CursorState'NotInWindow = writeIORef ref False
 
-runGame :: WindowMode -> BoundingBox2 -> IterT (F UI) a -> IO (Maybe a)
+runGame :: WindowMode -> BoundingBox2 -> Game a -> IO (Maybe a)
 runGame mode bbox m = G.withGLFW mode bbox (execGame m)
 
 initialKeyBuffer :: Map.Map Key ButtonState
@@ -56,7 +56,7 @@ initialKeyBuffer = Map.fromList $ zip [minBound..] (repeat Release)
 initialMouseBuffer :: Map.Map Int ButtonState
 initialMouseBuffer = Map.fromList $ zip [0..7] (repeat Release)
 
-execGame :: IterT (F UI) a -> G.System -> IO (Maybe a)
+execGame :: Game a -> G.System -> IO (Maybe a)
 execGame m system = do
     textureStorage <- newIORef IM.empty
     keyBuffer <- newIORef initialKeyBuffer
@@ -67,6 +67,7 @@ execGame m system = do
     GLFW.setMouseButtonCallback (G.theWindow system) $ Just $ mouseButtonCallback mouseBuffer
     GLFW.setCursorEnterCallback (G.theWindow system) $ Just $ mouseEnterCallback mouseIn
     GLFW.setScrollCallback (G.theWindow system) $ Just $ \_ x y -> modifyIORef scroll (+V2 x y)
+    let drawLocation = Location id id
     runResourceT $ gameLoop Env{..} m
 
 data Env = Env
@@ -76,13 +77,19 @@ data Env = Env
     , mouseBuffer :: IORef (Map.Map Int ButtonState)
     , mouseIn :: IORef Bool
     , scroll :: IORef (V2 Double)
+    , drawLocation :: Location ()
     }
 
-gameLoop :: Env -> IterT (F UI) a -> ResourceT IO (Maybe a)
+type Game = IterT Frame
+
+newtype Frame a = Frame { unFrame :: ReaderT Env (ResourceT IO) a }
+    deriving (Functor, Applicative, Monad, MonadResource, MonadIO, MonadReader Env)
+
+gameLoop :: Env -> IterT Frame a -> ResourceT IO (Maybe a)
 gameLoop env@Env{..} = fix $ \self m -> do
     liftIO $ G.beginFrame system
 
-    r <- iterM (runUI env) $ runIterT m
+    r <- runReaderT (unFrame (runIterT m)) env
 
     b <- liftIO $ do
         modifyIORef' keyBuffer (Map.map buttonStay)
@@ -94,30 +101,11 @@ gameLoop env@Env{..} = fix $ \self m -> do
         then return Nothing
         else either (return . Just) self r
 
-data DrawEnv = DrawEnv
-    { deTextureStorage :: IORef (IM.IntMap G.Texture)
-    , deContext :: IORef [(G.Texture, Int)]
-    , deLocation :: Location ()
-    }
+withLocation :: (Location () -> Location ()) -> Env -> Env
+withLocation f de = de { drawLocation = f $ drawLocation de }
 
-withLocation :: (Location () -> Location ()) -> DrawEnv -> DrawEnv
-withLocation f de = de { deLocation = f $ deLocation de }
-
-type DrawM = ReaderT DrawEnv IO
-
-runUI :: forall a. Env -> UI (ResourceT IO a) -> ResourceT IO a
-runUI Env{..} = \case
-    Draw m -> do
-        (cont, xs) <- liftIO $ do
-            cxt <- newIORef []
-            cont <- runReaderT (m :: DrawM (ResourceT IO a))
-                DrawEnv { deLocation = Location id id, deContext = cxt, deTextureStorage = textureStorage }
-            xs <- readIORef cxt
-            return (cont, xs)
-        unless (null xs) $ void $ register $ forM_ xs $ \(t, h) -> G.releaseTexture t >> modifyIORef' textureStorage (IM.delete h)
-        cont
-    FromResource m -> join m
-    PreloadBitmap (Bitmap bmp h) cont -> do
+instance FreeGame Frame where
+    preloadBitmap (Bitmap bmp h) = Frame $ ReaderT $ \Env{..} -> do
         m <- liftIO $ readIORef textureStorage
         case IM.lookup h m of
             Just _ -> return ()
@@ -125,42 +113,35 @@ runUI Env{..} = \case
                 t <- liftIO $ G.installTexture bmp
                 liftIO $ writeIORef textureStorage $ IM.insert h t m
                 void $ register $ G.releaseTexture t >> modifyIORef' textureStorage (IM.delete h)
-        cont
-    KeyStates cont -> liftIO (readIORef keyBuffer) >>= cont
-    MouseButtons cont -> liftIO (readIORef mouseBuffer) >>= cont
-    MousePosition cont -> do
-        (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow system)
-        cont $ V2 x y
-    MouseScroll cont -> liftIO (readIORef scroll) >>= cont
-    MouseInWindow cont -> liftIO (readIORef mouseIn) >>= cont
-    TakeScreenshot cont -> liftIO (G.screenshot system >>= liftBitmapIO) >>= cont
-    ClearColor (V4 r g b a) cont -> do
-        liftIO $ GL.clearColor GL.$= GL.Color4 r g b a
-        cont
-    SetTitle str cont -> do
-        liftIO $ GLFW.setWindowTitle (G.theWindow system) str
-        cont
-    ShowCursor cont -> do
-        liftIO $ GLFW.setCursorInputMode (G.theWindow system) GLFW.CursorInputMode'Normal
-        cont
-    HideCursor cont -> do
-        liftIO $ GLFW.setCursorInputMode (G.theWindow system) GLFW.CursorInputMode'Hidden
-        cont
-    SetFPS n cont -> do
-        liftIO $ writeIORef (G.theFPS system) n
-        cont
-    GetFPS cont -> liftIO (readIORef (G.currentFPS system)) >>= cont
-    GetBoundingBox cont -> liftIO (readIORef (G.refRegion system)) >>= cont
-    SetBoundingBox bbox@(view (size zero)-> V2 w h) cont -> do
+
+    takeScreenshot = Frame $ ReaderT $ \Env{..} -> liftIO (G.screenshot system >>= liftBitmapIO)
+    clearColor (V4 r g b a) = liftIO $ GL.clearColor GL.$= GL.Color4 r g b a
+    setTitle str = Frame $ ReaderT $ \Env{..} -> liftIO $ GLFW.setWindowTitle (G.theWindow system) str
+    showCursor = Frame $ ReaderT $ \Env{..} -> liftIO $ GLFW.setCursorInputMode (G.theWindow system) GLFW.CursorInputMode'Normal
+    hideCursor = Frame $ ReaderT $ \Env{..} -> liftIO $ GLFW.setCursorInputMode (G.theWindow system) GLFW.CursorInputMode'Hidden
+    setFPS n = Frame $ ReaderT $ \Env{..} -> liftIO $ writeIORef (G.theFPS system) n
+    getFPS = Frame $ ReaderT $ \Env{..} -> liftIO (readIORef (G.currentFPS system))
+    getBoundingBox = Frame $ ReaderT $ \Env{..} -> liftIO (readIORef (G.refRegion system))
+    setBoundingBox bbox@(view (size zero)-> V2 w h) = Frame $ ReaderT $ \Env{..} -> do
         liftIO $ GLFW.setWindowSize (G.theWindow system) (floor w) (floor h)
         liftIO $ writeIORef (G.refRegion system) bbox
-        cont
 
-mapReaderWith :: (s -> r) -> (m a -> n b) -> ReaderT r m a -> ReaderT s n b
-mapReaderWith f g m = ReaderT $ \s -> g (runReaderT m (f s))
+instance Keyboard Frame where
+    keyStates_ = Frame $ ReaderT $ \Env{..} -> liftIO (readIORef keyBuffer)
+
+instance Mouse Frame where
+    mouseButtons_ = Frame $ ReaderT $ \Env{..} -> liftIO (readIORef mouseBuffer)
+    globalMousePosition = Frame $ ReaderT $ \Env{..} -> do
+        (x, y) <- liftIO $ GLFW.getCursorPos (G.theWindow system)
+        pure $ V2 x y
+    mouseScroll = Frame $ ReaderT $ \Env{..} -> liftIO (readIORef scroll)
+    mouseInWindow = Frame $ ReaderT $ \Env{..} -> liftIO (readIORef mouseIn)
+
+mapReaderWith :: (Env -> Env) -> (IO a -> IO a) -> Frame a -> Frame a
+mapReaderWith f g m = Frame $ ReaderT $ \s -> transResourceT g (runReaderT (unFrame m) (f s))
 {-# INLINE mapReaderWith #-}
 
-instance Affine DrawM where
+instance Affine Frame where
     translate v = mapReaderWith (withLocation $ translate v) (G.translate v)
     {-# INLINE translate #-}
     rotateD t = mapReaderWith (withLocation $ rotateD t) (G.rotateD t)
@@ -170,16 +151,16 @@ instance Affine DrawM where
     scale v = mapReaderWith (withLocation $ scale v) (G.scale v)
     {-# INLINE scale #-}
 
-instance Picture2D DrawM where
-    bitmap (Bitmap bmp h) = ReaderT $ \DrawEnv{..} -> do
-        m <- readIORef deTextureStorage
+instance Picture2D Frame where
+    bitmap (Bitmap bmp h) = Frame $ ReaderT $ \Env{..} -> do
+        m <- liftIO $ readIORef textureStorage
         case IM.lookup h m of
-            Just t -> G.drawTexture t
+            Just t -> liftIO $ G.drawTexture t
             Nothing -> do
-                t <- G.installTexture bmp
-                writeIORef deTextureStorage $ IM.insert h t m
-                modifyIORef deContext ((t, h) :)
-                G.drawTexture t
+                t <- liftIO $ G.installTexture bmp
+                liftIO $ writeIORef textureStorage $ IM.insert h t m
+                _ <- register $ modifyIORef' textureStorage $ IM.delete h
+                liftIO $ G.drawTexture t
     bitmapOnce (Bitmap bmp _) = liftIO $ do
         t <- G.installTexture bmp
         G.drawTexture t
@@ -202,5 +183,5 @@ instance Picture2D DrawM where
     blendMode m = mapReaderWith id (G.blendMode m)
     {-# INLINE blendMode #-}
 
-instance Local DrawM where
-    getLocation = asks $ coerceLocation . deLocation
+instance Local Frame where
+    getLocation = asks $ coerceLocation . drawLocation

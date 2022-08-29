@@ -15,10 +15,8 @@ module FreeGame.Class where
 import Linear
 import FreeGame.Types
 import FreeGame.Data.Bitmap
-import Control.Monad.Trans.Resource
 import Data.Color
 import Data.Coerce
-import Control.Monad.IO.Class
 import Control.Bool
 import qualified Data.Map as Map
 
@@ -190,14 +188,3 @@ mouseUpR = mouseUp 1
 
 mouseUpM :: Mouse f => f Bool
 mouseUpM = mouseUp 2
-
-class FromResource m where
-    fromResource :: ResourceT IO a -> m a
-
-instance FromResource (ResourceT IO) where
-    fromResource = id
-
--- | 'liftIO'　variety for 'FromResource'.
-embedIO :: FromResource m => IO a -> m a
-embedIO m = fromResource (liftIO m)
-{-# INLINE embedIO #-}

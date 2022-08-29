@@ -14,7 +14,6 @@ module FreeGame
     Game,
     runGame,
     runGameDefault,
-    reGame,
     WindowMode(..),
     BoundingBox2,
     Box(..),
@@ -26,7 +25,6 @@ module FreeGame
     untickInfinite,
     -- * Frame
     Frame,
-    reFrame,
     FreeGame(..),
     -- * Transformations
     Vec2,
@@ -35,7 +33,6 @@ module FreeGame
     globalize,
     localize,
     -- * Pictures
-    Drawable,
     Picture2D(..),
     BlendMode(..),
     Bitmap,
@@ -73,8 +70,6 @@ module FreeGame
     mouseUpR,
     mouseUpM,
     -- * IO
-    FromResource(),
-    embedIO,
     liftIO,
     randomness,
     -- * Utility functions
@@ -103,7 +98,7 @@ import FreeGame.Class
 import FreeGame.Instances ()
 import FreeGame.Data.Bitmap
 import FreeGame.Data.Font
-import qualified FreeGame.Backend.GLFW as GLFW
+import FreeGame.Backend.GLFW
 import Control.Monad.IO.Class
 import Control.Monad
 import Control.Applicative
@@ -121,11 +116,5 @@ import Control.Monad.Trans.Iter
 --
 -- For more examples, see <https://github.com/fumieval/free-game/tree/master/examples>.
 
-runGame :: WindowMode -> BoundingBox2 -> Game a -> IO (Maybe a)
-runGame = GLFW.runGame
-
 runGameDefault :: Game a -> IO (Maybe a)
 runGameDefault = runGame Windowed (Box (V2 0 0) (V2 640 480))
-
-instance MonadIO Frame where
-    liftIO = embedIO

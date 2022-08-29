@@ -64,11 +64,7 @@ import FreeGame.UI
     mouseScroll = (l) mouseScroll; \
     }
 
-#define MK_FROM_FINALIZER(cxt, ty, l) instance (FromResource m cxt) => FromResource (ty) where { \
-    fromResource = (l) . fromResource }
-
 #define MK_FREE_GAME(cxt, ty, l) instance (FreeGame m cxt) => FreeGame (ty) where { \
-    draw x = (l) (draw x); \
     preloadBitmap = (l) . preloadBitmap; \
     takeScreenshot = (l) takeScreenshot; \
     setFPS a = (l) (setFPS a); \
@@ -155,20 +151,6 @@ MK_MOUSE(_COMMA_ Monad m, IdentityT m, lift)
 MK_MOUSE(_COMMA_ Monad m, MaybeT m, lift)
 MK_MOUSE(_COMMA_ Monad m, ExceptT e m, lift)
 MK_MOUSE(_COMMA_ Monad m, ContT r m, lift)
-
-MK_FROM_FINALIZER(_COMMA_ Functor m, F m, liftF)
-MK_FROM_FINALIZER(_COMMA_ Functor m, Free.Free m, Free.liftF)
-MK_FROM_FINALIZER(_COMMA_ Monad m, IterT m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, Lazy.StateT s m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, Strict.StateT s m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.WriterT w m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Strict.WriterT w m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Lazy.RWST r w s m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m _COMMA_ Monoid w, Strict.RWST r w s m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, IdentityT m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, MaybeT m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, ExceptT e m, lift)
-MK_FROM_FINALIZER(_COMMA_ Monad m, ContT r m, lift)
 
 MK_FREE_GAME(_COMMA_ Functor m, F m, liftF)
 MK_FREE_GAME(_COMMA_ Functor m, Free.Free m, Free.liftF)

@@ -39,9 +39,9 @@ import Control.Monad
 import Control.Monad.Free.Class
 import Control.Monad.Trans.Iter
 import Control.Monad.Trans
-import Control.Monad.Free.Church
 import Data.Char
 import Data.Void
+import FreeGame.Backend.GLFW
 import FreeGame.Data.Bitmap
 import FreeGame.Class
 import FreeGame.Types
@@ -51,7 +51,6 @@ import System.Directory
 import System.FilePath
 import System.IO.Unsafe
 import System.Random
-import FreeGame.UI
 
 -- | Delimit the computation to yield a frame.
 tick :: (Monad f, MonadFree f m) => m ()
@@ -66,12 +65,12 @@ foreverFrame :: (Monad f, Monad m, MonadTrans t, MonadFree f (t m)) => m a -> t 
 foreverFrame m = foreverTick (lift m)
 
 -- | Extract the next frame of the action.
-untick :: (Monad m, FreeGame m) => IterT Frame a -> m (Either (IterT Frame a) a)
-untick = liftM (either Right Left) . iterM (join . reUI) . runIterT where
+untick :: IterT Frame a -> Frame (Either (IterT Frame a) a)
+untick = liftM (either Right Left) . runIterT where
 
 -- | An infinite version of 'untick'.
-untickInfinite :: (Monad m, FreeGame m) => IterT Frame Void -> m (IterT Frame Void)
-untickInfinite = liftM (either absurd id) . iterM (join . reUI) . runIterT where
+untickInfinite :: IterT Frame Void -> Frame (IterT Frame Void)
+untickInfinite = liftM (either absurd id) . runIterT where
 
 -- | An unit vector with the specified angle.
 unitV2 :: Floating a => a -> V2 a
@@ -82,8 +81,8 @@ angleV2 :: RealFloat a => V2 a -> a
 angleV2 (V2 a b) = atan2 b a
 
 -- | Get a given range of value.
-randomness :: (Random r, FromResource m) => (r, r) -> m r
-randomness r = embedIO $ randomRIO r
+randomness :: (Random r, MonadIO m) => (r, r) -> m r
+randomness r = liftIO $ randomRIO r
 {-# INLINE randomness #-}
 
 -- | Convert radians to degrees.
@@ -97,8 +96,8 @@ radians :: Floating a => a -> a
 radians x = x / 180 * pi
 
 -- | Create a 'Picture' from the given file.
-loadPictureFromFile :: (Picture2D p, FromResource m) => FilePath -> m (p ())
-loadPictureFromFile = embedIO . fmap bitmap . readBitmap
+loadPictureFromFile :: (Picture2D p, MonadIO m) => FilePath -> m (p ())
+loadPictureFromFile = liftIO . fmap bitmap . readBitmap
 
 -- | The type of the given 'ExpQ' must be @FilePath -> IO FilePath@
 -- FIXME: This may cause name duplication if there are multiple non-alphanumeric file names.
